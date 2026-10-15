@@ -286,7 +286,7 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 			if _is_position_safe(global_position):
 				set_collision_mask_value(3, false)
 			else:
-				print("[Heavy] Position not safe, keeping enemy collision during charge")
+				pass
 		"charging":
 			sprite.play("charging")
 		"charge_end":
@@ -1094,8 +1094,7 @@ func _sync_normal_map():
 			if normal_sprite.sprite_frames:
 				var test_texture = normal_sprite.sprite_frames.get_frame_texture(normal_sprite.animation, normal_sprite.frame)
 				if test_texture:
-					print("[HeavyEnemy] Normal texture loaded successfully: ", test_texture.get_class())
-					print("[HeavyEnemy] Normal texture size: ", test_texture.get_size())
+					pass
 				else:
 					print("[HeavyEnemy] ERROR: Normal texture is null!")
 			else:

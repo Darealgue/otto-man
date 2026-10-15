@@ -55,17 +55,14 @@ func start_minigame(kind: String, context := {}) -> bool:
 		return false
 	_active_minigame = null
 	if !has_minigame(kind):
-		print("[MinigameRouter] has_minigame returned false for kind=%s" % kind)
 		push_warning("[MinigameRouter] Unknown minigame kind: %s" % kind)
 		return false
 	var scene_path: String = _minigame_scenes[kind]
-	print("[MinigameRouter] Attempting to load scene: %s (kind: %s)" % [scene_path, kind])
 	var ps := load(scene_path)
 	if ps == null:
 		print("[MinigameRouter] ❌ load() returned null for scene %s" % scene_path)
 		push_warning("[MinigameRouter] Failed to load scene for minigame kind: %s (%s)" % [kind, scene_path])
 		return false
-	print("[MinigameRouter] ✅ Scene loaded successfully: %s" % scene_path)
 	_active_minigame = ps.instantiate()
 	if _active_minigame == null:
 		print("[MinigameRouter] instantiate returned null for scene %s" % scene_path)
@@ -73,7 +70,6 @@ func start_minigame(kind: String, context := {}) -> bool:
 		return false
 	var should_pause := true
 	if "pause_game" in _active_minigame:
-		print("[MinigameRouter] pause_game property found: %s" % _active_minigame.pause_game)
 		should_pause = bool(_active_minigame.pause_game)
 	else:
 		print("[MinigameRouter] pause_game property not found; defaulting to true")
@@ -89,15 +85,11 @@ func start_minigame(kind: String, context := {}) -> bool:
 	if _active_minigame.has_signal("completed"):
 		_active_minigame.connect("completed", Callable(self, "_on_minigame_completed"))
 	get_tree().root.add_child(_active_minigame)
-	print("[MinigameRouter] ✅ Minigame added to scene tree: %s" % _active_minigame.name)
-	print("[MinigameRouter] Minigame visible: %s, process_mode: %s" % [_active_minigame.visible, _active_minigame.process_mode])
 	_active_minigame_should_pause = should_pause
 	var tree := get_tree()
 	_previous_pause_state = tree.paused
 	if should_pause:
 		tree.paused = true
-		print("[MinigameRouter] Game paused: %s" % tree.paused)
-	print("[MinigameRouter] ✅ Minigame started successfully: %s" % kind)
 	return true
 
 func _on_minigame_completed(success: bool, payload := {}):

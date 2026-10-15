@@ -9,7 +9,6 @@ func _init():
 	item_name = tr("item.yansiyan_ok.name")
 	description = tr("item.yansiyan_ok.description")
 	flavor_text = "Bir taş, iki kuş"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["projectile_bounce"]
 
@@ -19,11 +18,9 @@ func _init():
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Yansıyan Ok] ✅ Mermiler artık sekiyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Yansıyan Ok] ❌ Kaldırıldı")
 
 static func get_bounce_count() -> int:
 	return BOUNCE_COUNT

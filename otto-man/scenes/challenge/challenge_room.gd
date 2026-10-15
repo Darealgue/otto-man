@@ -44,8 +44,8 @@ var _spawner: ChallengeWaveSpawner = null
 var _enemy_container: Node2D = null
 var _wards: Array[WardTarget] = []
 var _cam: Camera2D = null
-var _lift: AnimatableBody2D = null
-var _lift_top: float = 0.0
+var _backdrop: TileMapLayer = null
+var _backdrop_scroll: float = 0.0
 var _lift_creeping: bool = false
 var _chase_floor_y: float = 928.0
 var _swarm: ChaseSwarm = null
@@ -56,6 +56,10 @@ var _time_left: float = 0.0
 var _timer_running: bool = false
 var _ward_total: int = 0
 var _ward_override: int = 0
+## Köylülerin toplama alanını tutan engel challenge'ı (payload "blockade_event"): kazanınca olay biter,
+## ödül item yerine küçük altın olur; kaybedince engel haritada kalır.
+var _blockade_event: String = ""
+var _blockade_resource: String = ""
 ## Koruma varyantı: köylüler ekranın SOLUNDA, düşmanlar yalnız sağdan gelir (oyuncuya büyük kolaylık)
 var _ward_side_left: bool = false
 var _finished: bool = false
@@ -74,7 +78,7 @@ func _ready() -> void:
 	elif kind == "tirmanis":
 		_layout = SummitTowerBuilder.build(self, difficulty)
 	else:
-		_layout = ChallengeArenaBuilder.build(self, biome, kind == "asansor", KORUMA_EXTEND_COLS if kind == "koruma" else 0)
+		_layout = ChallengeArenaBuilder.build(self, biome, false, KORUMA_EXTEND_COLS if kind == "koruma" else 0)
 		if kind == "koruma" and _ward_side_left:
 			_apply_left_ward_layout()
 	if biome == "orman":
@@ -119,6 +123,8 @@ func _read_payload() -> void:
 	var side: String = String(payload.get("ward_side", ""))
 	_ward_side_left = side == "left" or (side != "center" and randf() < KORUMA_LEFT_VARIANT_CHANCE)
 	_theme = String(payload.get("theme", ""))
+	_blockade_event = String(payload.get("blockade_event", ""))
+	_blockade_resource = String(payload.get("blockade_resource", ""))
 	if not ChallengeRoomRegistry.KINDS.has(kind):
 		kind = "koruma"
 	if biome not in ChallengeRoomRegistry.BIOMES:
@@ -150,70 +156,31 @@ func _setup_camera() -> void:
 # --- Asansör arenası ------------------------------------------------------------------------
 
 ## Kuyunun iç genişliğini kaplayan hareketli zemin: kenardan düşme yok, düşmanlar tepeden iner.
+## Zemin ve oda sabit; yükselme hissini arka plan duvarı aşağı kayarak verir (hareketli zemin fiziği
+## oyuncu/düşman titremesi ve son dalgada tavanın üstünde doğan düşman sorunlarına yol açıyordu).
 func _build_lift() -> void:
-	var left_x: float = float(_layout["left_x"])
-	var width: float = float(_layout["right_x"]) - left_x
-	_lift = AnimatableBody2D.new()
-	_lift.name = "Lift"
-	_lift.sync_to_physics = true
-	_lift.collision_layer = CollisionLayers.WORLD
-	_lift.collision_mask = 0
-	_lift.z_index = 2
-	var shape := CollisionShape2D.new()
-	var rect := RectangleShape2D.new()
-	rect.size = Vector2(width, LIFT_THICKNESS)
-	shape.shape = rect
-	_lift.add_child(shape)
-	# Görünüm (geçici sanat): ahşap/metal zemin, altında makine gövdesi, kenarlarda ışıklar
-	var plank := ColorRect.new()
-	plank.color = Color(0.42, 0.30, 0.20)
-	plank.size = Vector2(width, 12.0)
-	plank.position = Vector2(-width * 0.5, -LIFT_THICKNESS * 0.5)
-	_lift.add_child(plank)
-	var rim := ColorRect.new()
-	rim.color = Color(0.62, 0.46, 0.30)
-	rim.size = Vector2(width, 3.0)
-	rim.position = Vector2(-width * 0.5, -LIFT_THICKNESS * 0.5)
-	_lift.add_child(rim)
-	var body := ColorRect.new()
-	body.color = Color(0.17, 0.15, 0.15)
-	body.size = Vector2(width, 520.0)
-	body.position = Vector2(-width * 0.5, -LIFT_THICKNESS * 0.5 + 12.0)
-	_lift.add_child(body)
-	var x: float = -width * 0.5 + 60.0
-	while x < width * 0.5:
-		var lamp := ColorRect.new()
-		lamp.color = Color(1.0, 0.72, 0.3)
-		lamp.size = Vector2(10.0, 6.0)
-		lamp.position = Vector2(x, -LIFT_THICKNESS * 0.5 + 18.0)
-		_lift.add_child(lamp)
-		x += 140.0
-	_lift.position = Vector2(float(_layout["center_x"]), 0.0)
-	add_child(_lift)
-	_set_lift_top(float(_layout["floor_y"]) + 4.0)
+	_backdrop = get_node_or_null("WallBackdrop") as TileMapLayer
+	if _backdrop == null:
+		return
+	# Kayan arka planın üst kenarında boşluk kalmasın diye bir sıra yukarı uzat (tavan karoları zaten üstünü örter)
+	var used: Rect2i = _backdrop.get_used_rect()
+	var row: int = used.position.y - 1
+	for cx in range(used.position.x, used.position.x + used.size.x):
+		_backdrop.set_cell(Vector2i(cx, row), 0, Vector2i(1 + (cx % 2), 1))
+	# Yer düşmanları tavanın hemen altından düşer
+	_layout["drop_y"] = float(ChallengeArenaBuilder.CEILING_ROWS * ChallengeArenaBuilder.TILE) + 44.0
 
 
-## Asansör yüzeyini (üst kenarını) verilen y'ye taşır; kamera, doğma noktaları ve sınırlar onu izler.
-func _set_lift_top(y: float) -> void:
-	_lift_top = y
-	_lift.position.y = y + LIFT_THICKNESS * 0.5
-	if _cam:
-		_cam.position.y = y - 388.0
-	var left_x: float = float(_layout["left_x"])
-	var right_x: float = float(_layout["right_x"])
-	_layout["floor_y"] = y
-	_layout["bounds"] = Rect2(left_x, y - 1100.0, right_x - left_x, 1100.0)
-	_layout["spawn_left"] = Vector2(left_x + 40.0, y - 40.0)
-	_layout["spawn_right"] = Vector2(right_x - 40.0, y - 40.0)
-	_layout["air_y"] = y - 420.0
-	_layout["drop_y"] = y - 388.0 - 540.0 - 80.0
+func _set_backdrop_scroll(v: float) -> void:
+	_backdrop_scroll = v
+	if _backdrop != null:
+		_backdrop.position.y = fposmod(v, 64.0)
 
 
 func _rise_lift() -> void:
 	_show_message(tr("challenge.lift.rising"), LIFT_RISE_TIME)
-	var target: float = maxf(_lift_top - LIFT_RISE_PER_FLOOR, LIFT_TOP_LIMIT)
 	var tween := create_tween()
-	tween.tween_method(_set_lift_top, _lift_top, target, LIFT_RISE_TIME).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_method(_set_backdrop_scroll, _backdrop_scroll, _backdrop_scroll + LIFT_RISE_PER_FLOOR, LIFT_RISE_TIME).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	await tween.finished
 
 
@@ -292,24 +259,8 @@ func _physics_process(delta: float) -> void:
 	if _timer_running and not _finished:
 		_tick_trap_timer(delta)
 	# Dalga sürerken zemin yavaşça yükselmeye devam eder (hız zorlukla artar)
-	if _lift != null and _lift_creeping and not _finished:
-		_set_lift_top(maxf(_lift_top - (8.0 + 2.0 * float(difficulty)) * delta, LIFT_TOP_LIMIT))
-	if _lift != null:
-		_carry_corpses()
-
-
-## Ölünce çarpışması kapanan bazı düşmanların (örn. mızrakçı) cesedi dünyada sabit kalıyor; asansör
-## yükselince cesetler altta kalıp aşağı sızıyordu. Asansör yüzeyine yakın ölenlerin cesedi yüzeyle birlikte taşınır.
-func _carry_corpses() -> void:
-	for e in _enemy_container.get_children():
-		if not (e is Node2D) or e.get("current_behavior") != "dead":
-			continue
-		if not e.has_meta("_lift_off"):
-			var off: float = (e as Node2D).global_position.y - _lift_top
-			e.set_meta("_lift_off", off if absf(off) < 80.0 else INF)
-		var stored: float = float(e.get_meta("_lift_off"))
-		if stored != INF:
-			(e as Node2D).global_position.y = _lift_top + stored
+	if _backdrop != null and _lift_creeping and not _finished:
+		_set_backdrop_scroll(_backdrop_scroll + (8.0 + 2.0 * float(difficulty)) * delta)
 
 
 ## Sol varyant: köylüler sol sınıra yakın durur, oyuncu onların sağında doğar, düşmanlar yalnız sağdan gelir.
@@ -417,7 +368,6 @@ func _update_ward_label() -> void:
 ## Tuzakları dizer, temanın zindan kurallarını (kaygan zemin, yıldırım, karanlık) uygular, süreyi hesaplar.
 func _setup_trap_run() -> void:
 	var count: int = TrapMazeBuilder.populate(self, _layout, _theme, difficulty)
-	print("[TuzakGecidi] tema=%s zorluk=%d tuzak=%d" % [_theme, difficulty, count])
 	_apply_theme_rules()
 	# Süre: labirent uzunluğuna göre; tuzağa çarpmak süreden düşer (kısa ama sık tuzaklı bir yol)
 	# (çözüm yolundaki hücre sayısı x 3.5 sn + 25 sn pay)
@@ -735,7 +685,7 @@ func _begin_sequence() -> void:
 
 func _on_wave_started(index: int, total: int) -> void:
 	_wave_label.text = tr("challenge.wave") % [index, total]
-	_lift_creeping = _lift != null
+	_lift_creeping = _backdrop != null
 
 
 func _on_wave_cleared(index: int, total: int) -> void:
@@ -800,6 +750,8 @@ func _finish(won: bool) -> void:
 			_swarm.running = false
 	var reward_text: String = ""
 	if won:
+		# Engel challenge'ı: zafer anında olay biter (ödül ekranı sırasında çıkılsa da engel kalkmış olur)
+		_lift_gather_blockade()
 		if _swarm != null:
 			# Kuşların çıkışını izlemek için ödül ekranından önce bekle
 			await get_tree().create_timer(2.6).timeout
@@ -810,8 +762,27 @@ func _finish(won: bool) -> void:
 	_leave_to_world_map(won)
 
 
+## Toplama engeli challenge'ında zafer: bağlı köy olayını bitirir (görevi ve haritadaki karoyu da kaldırır).
+func _lift_gather_blockade() -> void:
+	if _blockade_event.is_empty():
+		return
+	var vm: Node = get_node_or_null("/root/VillageManager")
+	if is_instance_valid(vm) and vm.has_method("clear_event"):
+		vm.call("clear_event", _blockade_event)
+
+
+## Engel ödülü: item değil, zorlukla artan az bir altın (köy üretimi zaten geri açılıyor).
+func _grant_blockade_reward() -> String:
+	var gold: int = 15 + 10 * difficulty
+	_pay_gold(gold)
+	var res_name: String = LocaleManager.get_resource_name(_blockade_resource) if not _blockade_resource.is_empty() else ""
+	return tr("challenge.win.blockade") % [res_name, gold]
+
+
 ## Türe uygun ödül; ödülü anlatan metni döndürür.
 func _grant_reward() -> String:
+	if not _blockade_event.is_empty():
+		return _grant_blockade_reward()
 	if kind == "koruma":
 		var survivors: int = 0
 		var drs: Node = get_node_or_null("/root/DungeonRunState")

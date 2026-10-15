@@ -20,6 +20,7 @@ var dungeon_floor_y: float = -1.0
 var dungeon_spawn_x: float = 0.0
 const DUNGEON_PRISONER_WANDER_RANGE: float = 80.0
 const DUNGEON_PRISONER_GRAVITY: float = 450.0
+const MISSION_TRAVEL_SPEED_MULT: float = 1.3  # Göreve giderken/dönerken normalden hızlı yürür
 const DUNGEON_PRISONER_MOVE_SPEED: float = 40.0
 var dungeon_ground_ray: RayCast2D = null
 var dungeon_wall_ray: RayCast2D = null
@@ -290,6 +291,8 @@ func _ready() -> void:
 			mission_manager.mission_completed.connect(_on_mission_completed)
 		if not mission_manager.mission_cancelled.is_connected(_on_mission_cancelled):
 			mission_manager.mission_cancelled.connect(_on_mission_cancelled)
+		if mission_manager.has_signal("concubine_rescued") and not mission_manager.concubine_rescued.is_connected(_on_concubine_rescued):
+			mission_manager.concubine_rescued.connect(_on_concubine_rescued)
 	
 	# Başlangıç pozisyonu
 	global_position.y = randf_range(0.0, VERTICAL_RANGE_MAX)
@@ -345,7 +348,13 @@ func _ready() -> void:
 	# active_missions anahtarları int; save/load sonrası concubine_id float (1.0) olabildiği için int ile kontrol et
 	if mission_manager and "active_missions" in mission_manager and concubine_id >= 0:
 		var active = mission_manager.get("active_missions")
-		if active is Dictionary and active.has(int(concubine_id)):
+		var is_captive_now: bool = false
+		if "concubines" in mission_manager:
+			var cmap: Variant = mission_manager.get("concubines")
+			if cmap is Dictionary and (cmap as Dictionary).has(int(concubine_id)):
+				var cdata = (cmap as Dictionary)[int(concubine_id)]
+				is_captive_now = cdata != null and "status" in cdata and int(cdata.status) == Concubine.Status.ESIR
+		if (active is Dictionary and active.has(int(concubine_id))) or is_captive_now:
 			current_state = State.ON_MISSION
 			visible = false
 			_wander_timer.stop()
@@ -598,7 +607,10 @@ func _physics_process(delta: float) -> void:
 	# X ekseni hareketi
 	if x_distance > 1.0:
 		var direction = sign(move_target_x - global_position.x)
-		global_position.x += direction * move_speed * delta
+		var speed_mult := 1.0
+		if current_state == State.GOING_TO_MISSION or current_state == State.RETURNING_FROM_MISSION:
+			speed_mult = MISSION_TRAVEL_SPEED_MULT
+		global_position.x += direction * move_speed * speed_mult * delta
 		
 		# Sprite yönü
 		if direction != 0:
@@ -879,7 +891,37 @@ func _on_mission_started(cariye_id: int, mission_id: String) -> void:
 		move_target_x = exit_x
 		_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
 
+func _on_concubine_rescued(cariye_id: int) -> void:
+	# Esirlikten kurtuldu: ekran dışından köye geri döner (iptal edilen görev dönüşüyle aynı akış).
+	if cariye_id == concubine_id:
+		current_state = State.ON_MISSION
+		_on_mission_cancelled(cariye_id, "")
+
+
+## Dönüş başlangıç X'i: ekranda görünür bir noktaya düşüyorsa (ör. sahne yeniden yüklenip _offscreen_exit_x
+## sıfırlandığında) kameranın dışında, aynı taraftaki kenara kaydırır; cariye aniden belirmez, yürüyerek girer.
+func _return_entry_x(candidate_x: float) -> float:
+	var center_x := 0.0
+	var half := 1100.0
+	var cam := get_viewport().get_camera_2d()
+	if cam:
+		center_x = cam.get_screen_center_position().x
+		half = get_viewport().get_visible_rect().size.x / maxf(cam.zoom.x, 0.01) * 0.5
+	elif is_instance_valid(campfire_node):
+		center_x = campfire_node.global_position.x
+	var margin := 200.0
+	if absf(candidate_x - center_x) >= half + margin:
+		return candidate_x
+	var side := signf(candidate_x - center_x)
+	if side == 0.0:
+		side = -1.0 if randf() < 0.5 else 1.0
+	return center_x + side * (half + margin)
+
+
 func _on_mission_completed(cariye_id: int, mission_id: String, successful: bool, results: Dictionary) -> void:
+	# Esir düşen cariye köye dönmez; kurtarılınca _on_concubine_rescued çalışır.
+	if cariye_id == concubine_id and bool(results.get("captured", false)):
+		return
 	# Görev tamamlandı - hem GOING_TO_MISSION hem de ON_MISSION durumlarını kontrol et
 	if cariye_id == concubine_id and (current_state == State.ON_MISSION or current_state == State.GOING_TO_MISSION):
 		# Görev tamamlandı - geri dön
@@ -905,7 +947,7 @@ func _on_mission_completed(cariye_id: int, mission_id: String, successful: bool,
 			# Sağdan çıkmıştı, sağdan gir (ekranın dışından)
 			start_x = _offscreen_exit_x + 100.0
 		
-		global_position = Vector2(start_x, randf_range(0.0, VERTICAL_RANGE_MAX))
+		global_position = Vector2(_return_entry_x(start_x), randf_range(0.0, VERTICAL_RANGE_MAX))
 		
 		# Kamp ateşine doğru git
 		if is_instance_valid(campfire_node):
@@ -928,13 +970,59 @@ func _on_mission_cancelled(cariye_id: int, mission_id: String) -> void:
 			# Sağdan çıkmıştı, sağdan gir (ekranın dışından)
 			start_x = _offscreen_exit_x + 100.0
 		
-		global_position = Vector2(start_x, randf_range(0.0, VERTICAL_RANGE_MAX))
+		global_position = Vector2(_return_entry_x(start_x), randf_range(0.0, VERTICAL_RANGE_MAX))
 		
 		# Kamp ateşine doğru git
 		if is_instance_valid(campfire_node):
 			move_target_x = campfire_node.global_position.x
 			_target_global_y = randf_range(0.0, VERTICAL_RANGE_MAX)
 		
+
+## Zaman atlama (kamp ateşinde dinlenme vb.) sonrası: cariyeyi animasyonsuz zamana uygun konuma yerleştirir.
+## Görevdeki / görevden dönen cariyeler kendi akışında kalır. Gece (ya da kendi uyanma saatinden önce)
+## kamp ateşinde uyur, gündüz kamp ateşi civarında uyanık gezer.
+func apply_time_skip_presence(hour: int, minute: int) -> void:
+	if is_dungeon_prisoner:
+		return
+	if current_state == State.GOING_TO_MISSION or current_state == State.ON_MISSION or current_state == State.RETURNING_FROM_MISSION:
+		return
+	var tm := get_node_or_null("/root/TimeManager")
+	var wake_hour: int = (int(tm.get("WAKE_UP_HOUR")) if tm else 6) + wake_up_hour_offset
+	var sleep_hour: int = int(tm.get("SLEEP_HOUR")) if tm else 22
+	var should_sleep: bool = hour >= sleep_hour or hour < wake_hour or (hour == wake_hour and minute < wake_up_minute_offset)
+	if should_sleep and is_instance_valid(campfire_node):
+		if current_state == State.SLEEPING:
+			return
+		var added: bool = true
+		if campfire_node.has_method("add_occupant"):
+			added = bool(campfire_node.add_occupant(self))
+		if added:
+			_sleep_attempt_failed = false
+			if _sleep_retry_timer:
+				_sleep_retry_timer.stop()
+			current_state = State.SLEEPING
+			visible = false
+			if _wander_timer:
+				_wander_timer.stop()
+			global_position = Vector2(campfire_node.global_position.x, randf_range(0.0, VERTICAL_RANGE_MAX))
+			move_target_x = global_position.x
+			_target_global_y = global_position.y
+			return
+		# Kapasite dolu: uyuyamaz, kamp ateşi civarında uyanık kalır
+	# Gündüz (ya da uyuyamadı): uyandır ve kamp ateşi civarına yerleştir
+	if current_state == State.SLEEPING and is_instance_valid(campfire_node) and campfire_node.has_method("remove_occupant"):
+		campfire_node.remove_occupant(self)
+	current_state = State.IDLE
+	visible = true
+	if is_instance_valid(campfire_node):
+		global_position = Vector2(
+			campfire_node.global_position.x + randf_range(-150.0, 150.0),
+			randf_range(0.0, VERTICAL_RANGE_MAX)
+		)
+	move_target_x = global_position.x
+	_target_global_y = global_position.y
+	_start_wander_timer()
+
 
 # Saat değişiminde state transition kontrolü (VillageManager'dan çağrılır)
 func check_hour_transition(new_hour: int) -> void:

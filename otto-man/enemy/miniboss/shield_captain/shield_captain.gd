@@ -440,7 +440,6 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	# Ignore further hits if already dead
 	if current_behavior == "dead":
 		return
-	print("[ShieldCaptain] take_damage called dmg=", amount, " guard=", guard_value, " in_guard_break=", in_guard_break)
 	var hit_pos := _get_incoming_hit_position()
 	var player := get_nearest_player()
 	var dy_ok := true
@@ -455,21 +454,18 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 
 	# If parry window active and hit is from front, negate damage and counter
 	if in_parry_window and is_front:
-		print("[ShieldCaptain] PARRY SUCCESS - negate damage and counter stun")
 		if player:
 			_invoke_parry_counter(player)
 		return
 
 	# During guard break do normal damage
 	if in_guard_break:
-		print("[ShieldCaptain] GUARD BREAK, passing to BaseEnemy dmg=", amount)
 		super.take_damage(amount, knockback_force, knockback_up_force, apply_knockback)
 		return
 
 	# Directional block: any front hit consumes guard instead of health
 	if is_front and guard_value > 0.0:
 		guard_value -= amount * 10.0 / 15.0 # scale incoming to guard damage
-		print("[ShieldCaptain] BLOCK front hit, guard->", guard_value)
 		# Show block animation and prevent it from being immediately overridden
 		block_anim_timer = 0.35
 		_play_anim_restart("block_hit")
@@ -482,7 +478,6 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	var dmg: float = amount
 	if not is_front:
 		dmg *= back_damage_multiplier
-		print("[ShieldCaptain] BACKSTAB, final_dmg=", dmg)
 	# Ensure knockback pushes away from hit and is clamped to avoid runaway movement
 	var knock: float = float(min(knockback_force, 160.0))
 	# Set base direction so BaseEnemy applies knockback away from attacker

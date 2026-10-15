@@ -28,7 +28,6 @@ func _init() -> void:
 func activate(player: CharacterBody2D) -> void:
 	super.activate(player)
 	regen_timer = 0.0
-	print("[Regeneration] Activated - 1% health per second")
 
 func process(player: CharacterBody2D, delta: float) -> void:
 	if !player or !is_instance_valid(player):
@@ -55,10 +54,8 @@ func _apply_regeneration() -> void:
 		var new_health = min(current_health + heal_amount, max_health)
 		
 		player_stats.set_current_health(new_health)
-		print("[Regeneration] Healed " + str(heal_amount) + " HP")
 
 func deactivate(player: CharacterBody2D) -> void:
-	print("[Regeneration] Deactivated")
 	super.deactivate(player)
 
 # Synergize with other defense powerups

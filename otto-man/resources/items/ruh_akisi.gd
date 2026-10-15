@@ -8,7 +8,6 @@ func _init():
 	item_name = tr("item.ruh_akisi.name")
 	description = tr("item.ruh_akisi.description")
 	flavor_text = "Düşen her can, sana nefes olur"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.STAMINA
 	affected_stats = ["on_kill_stamina"]
 

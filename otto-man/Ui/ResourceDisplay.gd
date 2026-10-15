@@ -5,9 +5,6 @@ extends Control
 @onready var stone_label: Label = $TopBar/ResourcePanel/MarginContainer/HBoxContainer/StoneContainer/StoneCount
 
 func _ready() -> void:
-	print("Wood label path: ", $TopBar/ResourcePanel/MarginContainer/HBoxContainer/WoodContainer/WoodCount)
-	print("Food label path: ", $TopBar/ResourcePanel/MarginContainer/HBoxContainer/FoodContainer/FoodCount)
-	print("Stone label path: ", $TopBar/ResourcePanel/MarginContainer/HBoxContainer/StoneContainer/StoneCount)
 	
 	if !wood_label or !food_label or !stone_label:
 		push_error("Labels not found! Check node paths.")

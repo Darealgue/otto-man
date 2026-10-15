@@ -38,13 +38,11 @@ func _ready() -> void:
 	# Housing grubuna ekle
 	if not is_in_group("Housing"):
 		add_to_group("Housing")
-		print("Campfire %s added to Housing group via code." % name)
 	
 	# AnimatedSprite2D'yi bul ve animasyonu başlat
 	animated_sprite = get_node_or_null("AnimatedSprite2D")
 	if animated_sprite:
 		animated_sprite.play("default")
-		print("Campfire: Animation started")
 	else:
 		print("Campfire: AnimatedSprite2D not found!")
 	
@@ -61,7 +59,6 @@ func _ready() -> void:
 		# ParallaxBackground layer'larını aydınlatmak için range_layer ayarları
 		point_light.range_layer_min = -1  # ParallaxBackground layer = -1
 		point_light.range_layer_max = 1   # Normal layer'ları da aydınlat
-		print("Campfire: Found PointLight2D with base energy: ", base_energy, " base scale: ", base_texture_scale, " z_index: ", point_light.z_index, " z_range: ", point_light.range_z_min, " to ", point_light.range_z_max, " layer range: ", point_light.range_layer_min, " to ", point_light.range_layer_max)
 	else:
 		print("Campfire: Warning: No PointLight2D found!")
 	

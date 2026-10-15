@@ -149,7 +149,7 @@ func _handle_return_state(delta: float) -> void:
 	
 	# DEBUG: Print speed information (reduced frequency)
 	if randf() < 0.01:  # Only print 1% of the time
-		print("[FlyingEnemy] Return - Speed: %s" % return_speed)
+		pass
 	# Use move_and_slide() without collision
 	position += velocity * delta
 	
@@ -238,7 +238,7 @@ func _handle_swoop_state(delta: float) -> void:
 	
 	# DEBUG: Print speed information (reduced frequency)
 	if randf() < 0.01:  # Only print 1% of the time
-		print("[FlyingEnemy] Swoop - Base Speed: %s, Final Speed: %s" % [stats.movement_speed, final_speed])
+		pass
 	
 	# Check if we've reached the swoop target
 	var distance_to_swoop_target = global_position.distance_to(swoop_target_pos)
@@ -258,7 +258,7 @@ func _handle_neutral_state(delta: float) -> void:
 	
 	# DEBUG: Print speed information (reduced frequency)
 	if randf() < 0.01:  # Only print 1% of the time
-		print("[FlyingEnemy] Neutral - Speed: %s" % stats.movement_speed)
+		pass
 	
 	# Check for obstacles
 	if wall_detector.is_colliding() or ceiling_detector.is_colliding() or floor_detector.is_colliding():
@@ -273,7 +273,7 @@ func _handle_escape_state(delta: float) -> void:
 	
 	# DEBUG: Print speed information (reduced frequency)
 	if randf() < 0.01:  # Only print 1% of the time
-		print("[FlyingEnemy] Escape - Speed: %s" % escape_speed)
+		pass
 	
 	# Check if we're off screen
 	var viewport = get_viewport()

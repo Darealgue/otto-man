@@ -16,7 +16,6 @@ func _init():
 	item_name = tr("item.agir_yumruk.name")
 	description = tr("item.agir_yumruk.description")
 	flavor_text = "Havadaki düşmana ikinci bir şans yok"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.HEAVY_ATTACK
 	affected_stats = ["air_target_damage"]
 
@@ -25,11 +24,9 @@ func activate(player: CharacterBody2D):
 	_hitbox = player.get_node_or_null("Hitbox")
 	if _hitbox:
 		_hitbox.air_target_damage_multiplier = AIR_TARGET_MULTIPLIER
-	print("[Ağır Yumruk] ✅ Havadaki düşmana saldırılar %30 güçlü")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	if _hitbox and is_instance_valid(_hitbox):
 		_hitbox.air_target_damage_multiplier = 1.0
 	_hitbox = null
-	print("[Ağır Yumruk] ❌ Kaldırıldı")

@@ -238,38 +238,38 @@ func select_enemy_type(level: int, chunk_type: String = "basic") -> String:
 	if chunk_type == "dungeon":
 		weights = get_dungeon_enemy_weights(level)
 		if DEBUG_SPAWN_CONFIG:
-			print("[SpawnConfig] Using dungeon weights for level ", level, ": ", weights)
+			pass
 	elif chunk_type == "forest":
 		weights = get_forest_enemy_weights(level)
 		if DEBUG_SPAWN_CONFIG:
-			print("[SpawnConfig] Using forest weights for level ", level, ": ", weights)
+			pass
 	else:
 		weights = get_enemy_weights(level)
 		if DEBUG_SPAWN_CONFIG:
-			print("[SpawnConfig] Using regular weights for level ", level, ": ", weights)
+			pass
 	
 	var total_weight = 0
 	for weight in weights.values():
 		total_weight += weight
 	
 	if DEBUG_SPAWN_CONFIG:
-		print("[SpawnConfig] Total weight: ", total_weight)
+		pass
 	
 	var roll = randf_range(0, total_weight)
 	var current_weight = 0
 	
 	if DEBUG_SPAWN_CONFIG:
-		print("[SpawnConfig] Roll: ", roll)
+		pass
 	
 	for enemy_type in weights:
 		current_weight += weights[enemy_type]
 		if DEBUG_SPAWN_CONFIG:
-			print("[SpawnConfig] Checking ", enemy_type, " (weight: ", weights[enemy_type], ", current: ", current_weight, ")")
+			pass
 		if roll <= current_weight:
 			if DEBUG_SPAWN_CONFIG:
-				print("[SpawnConfig] Selected: ", enemy_type)
+				pass
 			return enemy_type
 	
 	if DEBUG_SPAWN_CONFIG:
-		print("[SpawnConfig] Fallback to heavy")
+		pass
 	return "heavy"  # Fallback to heavy enemy 

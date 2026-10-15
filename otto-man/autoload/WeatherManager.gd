@@ -129,7 +129,6 @@ func _on_scene_change_completed(new_path: String) -> void:
 					var final_wind: float = _storm_wind_strength()
 					_target_wind_strength = lerp(_storm_start_wind_strength, final_wind, progress)
 					
-					print("[WeatherManager] ✅ Storm progression updated: progress=%.2f%%, intensity=%.3f, wind=%.3f" % [progress * 100.0, _target_rain_intensity, _target_wind_strength])
 				else:
 					# Fallback: eğer stage intensities belirlenmemişse
 					_target_rain_intensity = _storm_rain_intensity()
@@ -157,9 +156,8 @@ func _process(delta: float) -> void:
 			_is_raining_randomly = false
 			rain_intensity = 0.0
 			_target_rain_intensity = 0.0
-			print("[WeatherManager] Load sonrası takılı kalmış yağmur durumu temizlendi (intensity: %.3f -> 0.0, _rain_ending: %s, _is_raining_randomly: %s)" % [old_intensity, _rain_ending, _is_raining_randomly])
 			if DEBUG_RAIN_VERBOSE:
-				print("[WeatherDEBUG] LOAD CHECK yağmuru sıfırladı (target=0)")
+				pass
 	
 	# Storm varsa kademeli artış; rüzgar hedefi sadece _update_storm_progression içinde yağmurla paralel set edilir
 	if storm_active:
@@ -186,10 +184,8 @@ func _process(delta: float) -> void:
 			_debug_last_intensity_above = above
 			if t - _debug_last_threshold_log >= 1.0:
 				_debug_last_threshold_log = t
-				print("[WeatherDEBUG] rain_intensity 0.02 EŞİĞİ GEÇTİ: %.3f -> should_emit=%s (target=%.3f storm=%s)" % [rain_intensity, above, _target_rain_intensity, storm_active])
 		if _debug_weather_log_timer >= 5.0:
 			_debug_weather_log_timer = 0.0
-			print("[WeatherDEBUG] intensity=%.3f target=%.3f storm=%s _rain_ending=%s _rain_starting=%s" % [rain_intensity, _target_rain_intensity, storm_active, _rain_ending, _rain_starting])
 
 	# Sinyalleri tek seferde yaymak yerine sadece değişimde yayalım (isteğe)
 	# Şimdilik her frame emit etmeyelim; sahneler _process'te doğrudan rain_intensity okuyabilir.
@@ -339,7 +335,7 @@ func set_storm_active(active: bool, event_level: int = 1) -> void:
 		_target_wind_direction = randf_range(200.0, 340.0)
 		wind_direction_angle = _target_wind_direction
 		if DEBUG_RAIN_VERBOSE:
-			print("[WeatherDEBUG] set_storm_active(TRUE) intensity=%.3f target=%.3f" % [rain_intensity, _target_rain_intensity])
+			pass
 	else:
 		# Storm bitti; kademeli azalış başlat (Sağanak → Orta → Hafif → Başlangıç → 0)
 		_is_raining_randomly = false
@@ -386,7 +382,6 @@ func reset_storm_completely() -> void:
 	_storm_stage_intensities.clear()
 	_storm_ending_wind_peak = 0.9
 	
-	print("[WeatherManager] 🌤️ Storm completely reset - all storm state cleared")
 	storm_changed.emit(false)
 	weather_changed.emit()
 

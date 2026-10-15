@@ -11,7 +11,6 @@ func _init():
 	item_name = tr("item.hizlanan_yumruk.name")
 	description = tr("item.hizlanan_yumruk.description")
 	flavor_text = "Vur, kaç"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["light_attack_speed"]
 
@@ -19,7 +18,6 @@ func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
 	_boost_timer = 0.0
-	print("[Hızlanan Yumruk] ✅ Light attack hız bonusu")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -27,7 +25,6 @@ func deactivate(player: CharacterBody2D):
 		_player.speed_multiplier = 1.0
 	_player = null
 	_boost_timer = 0.0
-	print("[Hızlanan Yumruk] ❌ Kaldırıldı")
 
 func process(player: CharacterBody2D, delta: float) -> void:
 	if not is_instance_valid(player):

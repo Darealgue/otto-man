@@ -11,7 +11,6 @@ func _init():
 	item_name = tr("item.uzayan_golge.name")
 	description = tr("item.uzayan_golge.description")
 	flavor_text = "Akşam olunca gölgeler uzar"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SPECIAL
 	affected_stats = ["shadow_lifetime"]
 

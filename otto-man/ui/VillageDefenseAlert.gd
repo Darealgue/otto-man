@@ -37,8 +37,8 @@ func _build_ui() -> void:
 	_panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_panel.offset_top = 30.0
 	_panel.offset_right = -8.0
-	_panel.offset_left = -220.0
-	_panel.offset_bottom = 30.0 + 70.0
+	_panel.offset_left = -340.0
+	_panel.offset_bottom = 30.0 + 96.0
 	add_child(_panel)
 
 	var margin := MarginContainer.new()
@@ -81,7 +81,7 @@ func _get_or_create_line_label(index: int) -> RichTextLabel:
 		lbl.fit_content = true
 		lbl.scroll_active = false
 		lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
-		lbl.add_theme_font_size_override("normal_font_size", 15)
+		lbl.add_theme_font_size_override("normal_font_size", 23)
 		_vbox.add_child(lbl)
 		_line_labels.append(lbl)
 	return _line_labels[index]

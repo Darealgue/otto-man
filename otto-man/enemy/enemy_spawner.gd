@@ -114,8 +114,6 @@ func spawn_enemies() -> void:
 	var enemy_type = force_enemy_type if not force_enemy_type.is_empty() else _spawn_config.select_enemy_type(current_level, chunk_type)
 	
 	# Debug: Print spawn information
-	print("[EnemySpawner] Level: ", current_level, " Chunk Type: ", chunk_type)
-	print("[EnemySpawner] Selected enemy type: ", enemy_type)
 	
 	# Check if enemy type exists in ENEMY_TYPES
 	if not ENEMY_TYPES.has(enemy_type):
@@ -124,7 +122,6 @@ func spawn_enemies() -> void:
 	
 	# Get the spawn position before instantiating
 	var spawn_pos = global_position
-	print("[EnemySpawner] Preparing to spawn at: ", spawn_pos)
 	
 	# Spawn the enemy
 	var enemy_scene = ENEMY_TYPES[enemy_type].scene
@@ -144,7 +141,6 @@ func spawn_enemies() -> void:
 		push_error("[EnemySpawner] Failed to add enemy to scene")
 		return
 		
-	print("[EnemySpawner] Enemy added to scene, setting position...")
 	
 	# Set the global position
 	enemy.global_position = spawn_pos
@@ -158,14 +154,12 @@ func spawn_enemies() -> void:
 	if result:
 		# Place slightly above the ground to ensure proper floor detection
 		enemy.global_position = result.position - Vector2(0, 32)  # Offset up by 32 pixels
-		print("[EnemySpawner] Adjusted enemy position to floor: ", enemy.global_position)
 		
 		# Force an immediate physics update to ensure floor detection
 		enemy.move_and_slide()
 	else:
 		push_warning("[EnemySpawner] Could not find floor below spawn point")
 	
-	print("[EnemySpawner] Position set to: ", enemy.global_position)
 	
 	# Ensure enemy appears above tiles - set both main node and sprite
 	enemy.z_index = ENEMY_Z_INDEX
@@ -173,9 +167,8 @@ func spawn_enemies() -> void:
 	var enemy_sprite = enemy.get_node_or_null("AnimatedSprite2D")
 	if enemy_sprite:
 		enemy_sprite.z_index = ENEMY_Z_INDEX
-		print("[EnemySpawner] Set enemy sprite z_index to: ", ENEMY_Z_INDEX)
 	else:
-		print("[EnemySpawner] No AnimatedSprite2D found in enemy")
+		pass
 	_spawned_enemies.append(enemy)
 	enemy_spawned.emit(enemy)
 	
@@ -198,7 +191,6 @@ func spawn_enemies() -> void:
 			var shield_hp: float = (enemy.stats.max_health if enemy.stats else 100.0) * SHIELD_HEALTH_RATIO
 			enemy.apply_shield_affix(shield_hp)
 
-	print("[EnemySpawner] Enemy spawn complete at: ", enemy.global_position)
 
 func get_spawned_enemies() -> Array[Node]:
 	return _spawned_enemies

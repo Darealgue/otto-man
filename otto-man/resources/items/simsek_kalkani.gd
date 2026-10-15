@@ -12,7 +12,6 @@ func _init():
 	item_name = tr("item.simsek_kalkani.name")
 	description = tr("item.simsek_kalkani.description")
 	flavor_text = "Elektrikli savunma"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.BLOCK
 	affected_stats = ["lightning_reflect"]
 
@@ -22,7 +21,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("player_blocked"):
 		if not player.is_connected("player_blocked", _on_player_blocked):
 			player.connect("player_blocked", _on_player_blocked)
-		print("[Şimşek Kalkanı] ✅ Block → %80 şimşek yansıması")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -30,7 +28,6 @@ func deactivate(player: CharacterBody2D):
 		if _player.is_connected("player_blocked", _on_player_blocked):
 			_player.disconnect("player_blocked", _on_player_blocked)
 	_player = null
-	print("[Şimşek Kalkanı] ❌ Kaldırıldı")
 
 func _on_player_blocked(blocked_damage: float, attacker: Node2D):
 	if blocked_damage <= 0 or not is_instance_valid(attacker):

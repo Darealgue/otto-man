@@ -21,7 +21,6 @@ func _init():
 	item_name = tr("item.zaman_durdurucu.name")
 	description = tr("item.zaman_durdurucu.description")
 	flavor_text = "Zamanı kontrol et"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.PARRY
 	affected_stats = ["parry_time_slow"]
 
@@ -32,7 +31,6 @@ func activate(player: CharacterBody2D):
 		if not player.is_connected("perfect_parry", _on_perfect_parry):
 			player.connect("perfect_parry", _on_perfect_parry)
 	# _on_player_blocked ItemManager tarafından player_blocked sinyaline otomatik bağlanır
-	print("[Zaman Durdurucu] ✅ Blok → zaman yavaşlar, parry → 2x süre (sen normal hız)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -49,7 +47,6 @@ func deactivate(player: CharacterBody2D):
 		if _player.is_connected("perfect_parry", _on_perfect_parry):
 			_player.disconnect("perfect_parry", _on_perfect_parry)
 	_player = null
-	print("[Zaman Durdurucu] ❌ Kaldırıldı")
 
 func _has_kum_saati() -> bool:
 	var im := get_node_or_null("/root/ItemManager")

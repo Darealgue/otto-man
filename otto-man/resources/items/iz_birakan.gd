@@ -10,14 +10,11 @@ func _init():
 	item_name = tr("item.iz_birakan.name")
 	description = tr("item.iz_birakan.description")
 	flavor_text = "Geçtiğin yer boş kalmaz"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.DODGE
 	affected_stats = ["dodge_trail_damage"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[İz Bırakan] ✅ Dodge/dash yolu hasar veriyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[İz Bırakan] ❌ Kaldırıldı")

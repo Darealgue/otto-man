@@ -16,7 +16,6 @@ func _init():
 	item_name = tr("item.golge_hasadi.name")
 	description = tr("item.golge_hasadi.description")
 	flavor_text = "Her ölü, geride bir gölge bırakır"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["kill_shadow"]
 
@@ -24,7 +23,6 @@ func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
 	_shadows.clear()
-	print("[Gölge Hasadı] ✅ Öldürülen düşmanın yerinde saldıran gölge")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -33,7 +31,6 @@ func deactivate(player: CharacterBody2D):
 			s["node"].queue_free()
 	_shadows.clear()
 	_player = null
-	print("[Gölge Hasadı] ❌ Kaldırıldı")
 
 func on_enemy_killed(enemy: Node2D) -> void:
 	if not is_instance_valid(_player) or not is_instance_valid(enemy):

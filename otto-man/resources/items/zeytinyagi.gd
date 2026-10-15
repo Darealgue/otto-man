@@ -10,7 +10,6 @@ func _init():
 	item_name = tr("item.zeytinyagi.name")
 	description = tr("item.zeytinyagi.description")
 	flavor_text = "Kaygan zemin"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.SLIDE
 	affected_stats = ["slide_distance"]
 
@@ -30,7 +29,6 @@ func activate(player: CharacterBody2D):
 		var original_friction = slide_state.get_meta("original_slide_friction")
 		slide_state.SLIDE_DURATION = original_duration * SLIDE_DISTANCE_MULTIPLIER  # Longer duration
 		slide_state.SLIDE_FRICTION = original_friction * 0.6  # Less friction = slides further before stopping
-		print("[Zeytinyağı] ✅ Slide süresi ve mesafesi +80%")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -41,4 +39,3 @@ func deactivate(player: CharacterBody2D):
 		slide_state.SLIDE_FRICTION = slide_state.get_meta("original_slide_friction")
 		slide_state.remove_meta("original_slide_duration")
 		slide_state.remove_meta("original_slide_friction")
-		print("[Zeytinyağı] ❌ Slide restored")

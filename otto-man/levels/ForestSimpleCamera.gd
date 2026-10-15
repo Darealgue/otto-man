@@ -134,21 +134,6 @@ func _process(delta: float) -> void:
 			_dbg_t = 0.0
 			var cam_y: float = global_position.y
 			var py: float = _player.global_position.y
-			print("[SimpleCam] st=", state,
-				" on_floor=", _stable_on_floor,
-				" raw_floor=", raw_on_floor,
-				" support=", _support_kind,
-				" deb_t=(g:", snappedf(_ground_t, 0.001), ", a:", snappedf(_air_t, 0.001), ")",
-				" vy=", int(_vy),
-				" target=", int(target),
-				" off=", int(offset.y),
-				" diff=", int(diff),
-				" k=", snappedf(k, 0.001),
-				" max_step=", int(max_step),
-				" reason=", reason,
-				" pY=", int(py),
-				" cY=", int(cam_y),
-				" switches=", _dbg_switches)
 
 func _get_support_kind() -> String:
 	# Prefer reading actual floor collision from the player when available
@@ -235,17 +220,11 @@ func debug_dump_cameras() -> void:
 		for j in range(child_count):
 			var child: Node = n.get_child(j)
 			stack.append(child)
-	print("[SimpleCam] Camera2D count:", cams.size())
 	for i in range(cams.size()):
 		var cam: Camera2D = cams[i]
-		print(" - ", cam.get_path(),
-			" is_current=", cam.is_current(),
-			" enabled=", cam.enabled,
-			" smoothing=", cam.position_smoothing_enabled,
-			" speed=", cam.position_smoothing_speed)
 	var active_cam: Camera2D = get_viewport().get_camera_2d()
 	if active_cam:
-		print("[SimpleCam] Viewport active camera:", active_cam.get_path())
+		pass
 
 func zoom_to_factor(factor: float, duration: float = 0.25) -> void:
 	var clamped_factor: float = max(0.05, factor)

@@ -134,6 +134,12 @@ chunk'ında da kapalı zindan chunk'ında da oynanabilir (kamera chunk'a kilitli
 - **Kabul ekranı:** POI'ye girince `ConfirmationDialog`: tür, açıklama, mekân/zorluk, kalan gün, ölüm uyarısı;
   "Gir" onaylarsa oda açılır ve karo kalkar, "Vazgeç" hiçbir şeyi tüketmez.
 
+## Toplama alanı engeli modu (v0.27)
+Köy olayı `gather_bandits` / `gather_birds` haritada toplama alanına bir challenge koyar (bkz. `docs/VILLAGE_EVENTS.md`).
+Tür: haydut = `dalga`, kuş = `kovalamaca`. Kabul ekranı özel açıklama ve "Engellenen: <kaynak>" etiketi gösterir.
+Farklar: karo girişte silinmez (kaybedersen kalır, süre = olay süresi), zafer olayı bitirir, ödül item yerine az altın.
+Payload: `blockade_event`, `blockade_resource`. Normal otomatik doğma kotasını doldurmaz.
+
 ## Henüz yok
 - Diğer türler (bkz. sohbetteki fikir listesi). Not: otomatik doğma şu an yalnız koruma/dalga/asansör/kovalamaca/tuzak/tırmanış
   türlerinden seçer; zorluk gün sayısına göre en fazla 7.

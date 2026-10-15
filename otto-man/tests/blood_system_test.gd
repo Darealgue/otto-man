@@ -8,7 +8,6 @@ func _ready() -> void:
 	call_deferred("test_blood_system")
 
 func test_blood_system() -> void:
-	print("Testing blood particle system...")
 	
 	# Spawn blood particles
 	for i in range(8):
@@ -26,7 +25,6 @@ func test_blood_system() -> void:
 		if particle.has_method("set_blood_splatter_scene"):
 			particle.set_blood_splatter_scene(blood_splatter_scene)
 	
-	print("Blood particles spawned!")
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_accept"):  # Space key

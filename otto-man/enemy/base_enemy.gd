@@ -205,7 +205,6 @@ func _process(delta: float) -> void:
 				var total_damage = poison_stacks * poison_damage_per_stack * _get_elemental_damage_mult()
 				_take_true_damage(total_damage)
 				poison_tick_timer = 0.0
-				print("[BaseEnemy:", enemy_id, "] ✅ Zehir hasarı: ", total_damage, " (", poison_stacks, " stack x ", poison_damage_per_stack, ")")
 	
 	# Burn DoT: 1 hasar/saniye, 3 tick per stack, max 3 stack
 	if burn_remaining_ticks > 0 and current_behavior != "dead":
@@ -406,7 +405,7 @@ func get_nearest_player() -> Node2D:
 	var players = get_tree().get_nodes_in_group("player")
 	if players.size() == 0:
 		if Engine.get_physics_frames() % 60 == 0:  # Only print every ~1 second
-			print("[BaseEnemy:%s] No players found in scene" % enemy_id)
+			pass
 		return null
 
 	var nearest_player = null
@@ -478,14 +477,7 @@ func get_nearest_player_in_range() -> Node2D:
 	var is_in_range = distance <= detection_range
 	if is_in_range != _was_in_range:
 		if debug_enabled:
-			print("[BaseEnemy:%s] detection in_range=%s dist=%.1f range=%.1f pos=%s player=%s" % [
-				enemy_id,
-				str(is_in_range),
-				distance,
-				detection_range,
-				str(global_position),
-				str(player.global_position),
-			])
+			pass
 		_was_in_range = is_in_range
 	
 	return player if is_in_range else null
@@ -811,7 +803,6 @@ func _should_allow_sleep() -> bool:
 func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0, apply_knockback: bool = true) -> void:
 	# print("[BaseEnemy] take_damage called with amount: ", amount)
 	if current_behavior == "dead":
-		print("[BaseEnemy] No damage: dead")
 		return
 	# Gerçek knockback aldı mı? (Gülle gibi item'lar savrulan düşmanı bundan ayırt eder; DoT/menzilli
 	# vuruşlar apply_knockback=false gelir ve işaretlenmez.)
@@ -897,11 +888,11 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	# Spawn blood particles (exclude flying enemies and turtle)
 	if _should_spawn_blood():
 		if GLOBAL_ENEMY_DEBUG:
-			print("[BaseEnemy] Spawning blood for: ", enemy_id, " (", get_script().resource_path.get_file().get_basename(), ")")
+			pass
 		_spawn_blood_particles(amount)
 	else:
 		if GLOBAL_ENEMY_DEBUG:
-			print("[BaseEnemy] No blood for: ", enemy_id, " (", get_script().resource_path.get_file().get_basename(), ")")
+			pass
 	
 	# Check for death (alt sınıf havada/knockback'te erteleyebilir)
 	if health <= 0:
@@ -1291,7 +1282,6 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	# print("[BaseEnemy] _on_hurtbox_hurt called")
 	# Safety: enemies only take damage from PlayerHitbox, never from other enemies/projectiles
 	if not (hitbox is PlayerHitbox):
-		print("[BaseEnemy] Not PlayerHitbox, ignoring")
 		return
 	if current_behavior != "dead":
 		var elemental_only: bool = hitbox.get_meta("elemental_only_no_physical", false)
@@ -1323,14 +1313,12 @@ func _health_emit_changed() -> void:
 func _should_spawn_blood() -> bool:
 	# Don't spawn blood for flying enemies or turtle
 	if _is_flying_enemy_runtime():
-		print("[BaseEnemy] No blood: FlyingEnemy")
 		return false
 	
 	# Check if this is a turtle enemy by checking the script name
 	var script_name = get_script().resource_path.get_file().get_basename().to_lower()
 	# print("[BaseEnemy] Script name: ", script_name)
 	if "turtle" in script_name:
-		print("[BaseEnemy] No blood: turtle enemy")
 		return false
 		
 	# print("[BaseEnemy] Should spawn blood: true")

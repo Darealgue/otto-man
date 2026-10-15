@@ -235,11 +235,11 @@ func try_seek_roof(roof_points: Array[Dictionary]) -> bool:
 	var min_roof_seek_elapsed: float = maxf(min_roam_before_roof_seek_seconds, min_roam_before_idle_seconds + 2.0)
 	if _roam_state_elapsed < min_roof_seek_elapsed:
 		if debug_motion and debug_behavior_decisions:
-			print("[Cat %s] roof seek skip: roam too short %.2f/%.2f" % [name, _roam_state_elapsed, min_roof_seek_elapsed])
+			pass
 		return false
 	if _arrivals_without_idle >= max(0, force_idle_after_arrivals_without_idle) and _roam_before_idle_timer <= 0.0 and _idle_reentry_cooldown_timer <= 0.0:
 		if debug_motion and debug_behavior_decisions:
-			print("[Cat %s] roof seek skip: pending forced idle (arrivals_without_idle=%d)" % [name, _arrivals_without_idle])
+			pass
 		return false
 	var discomfort: float = _get_weather_discomfort()
 	if discomfort > 0.22 and randf() < discomfort * 0.35:
@@ -347,28 +347,24 @@ func _physics_process(delta: float) -> void:
 			if can_time_idle_now:
 				if _roam_state_elapsed >= forced_idle_elapsed:
 					if debug_motion and debug_behavior_decisions:
-						print("[Cat %s] ROAM -> IDLE (forced by roam duration %.2fs)" % [name, _roam_state_elapsed])
+						pass
 					_enter_idle()
 					entered_idle = true
 				elif randf() < idle_time_based_chance_per_second * delta:
 					if debug_motion and debug_behavior_decisions:
-						print("[Cat %s] ROAM -> IDLE (time chance, roam_elapsed=%.2fs)" % [name, _roam_state_elapsed])
+						pass
 					_enter_idle()
 					entered_idle = true
 			if not entered_idle and absf(global_position.x - roam_target.x) < 22.0 and absf(global_position.y - roam_band_y_target) < 10.0:
 				var should_force_idle: bool = _arrivals_without_idle >= max(0, force_idle_after_arrivals_without_idle)
 				if should_force_idle or randf() < idle_roll:
 					if debug_motion and debug_behavior_decisions:
-						print("[Cat %s] ROAM arrival -> IDLE (forced=%s idle_roll=%.2f arrivals_without_idle=%d)" % [
-							name, str(should_force_idle), idle_roll, _arrivals_without_idle
-						])
+						pass
 					_enter_idle()
 				else:
 					_arrivals_without_idle += 1
 					if debug_motion and debug_behavior_decisions:
-						print("[Cat %s] ROAM arrival -> new target (idle_roll miss, arrivals_without_idle=%d)" % [
-							name, _arrivals_without_idle
-						])
+						pass
 					_pick_new_roam_target()
 		CatState.IDLE:
 			is_gravity_mode = false
@@ -377,9 +373,7 @@ func _physics_process(delta: float) -> void:
 			_apply_weather_wind(delta)
 			if state_timer <= 0.0:
 				if debug_motion and debug_idle_timing:
-					print("[Cat %s] IDLE bitti (timer) elapsed=%.2fs expected=%.2fs delta=%.3f pos=%s" % [
-						name, _idle_elapsed, _idle_expected_duration, delta, global_position
-					])
+					pass
 				_pick_new_roam_target()
 				_enter_roam_state()
 		CatState.SEEK_ROOF:
@@ -499,9 +493,7 @@ func _physics_process(delta: float) -> void:
 					_play_stall_timer = 0.0
 
 	if debug_motion and state != state_at_start:
-		print("[Cat %s] state %d -> %d pos=%s vel=%s on_floor=%s" % [
-			name, int(state_at_start), int(state), global_position, velocity, is_on_floor()
-		])
+		pass
 
 	if _uses_slide_physics_for_state(state):
 		move_and_slide()
@@ -710,7 +702,7 @@ func _post_move_fix_roof_roam_if_on_ground() -> void:
 
 func _roof_roam_fell_to_ground() -> void:
 	if debug_motion:
-		print("[Cat %s] ROOF_ROAM -> ROAM (yer katı, seg_y=%s) pos=%s" % [name, roof_target.get("y", "?"), global_position])
+		pass
 	velocity = Vector2.ZERO
 	roof_target = {}
 	_was_near_roof_x = false
@@ -741,11 +733,11 @@ func _update_roam_seek_stuck_watchdog(delta: float) -> void:
 	_roam_stuck_last_pos = global_position
 	if state == CatState.SEEK_ROOF:
 		if debug_motion:
-			print("[Cat %s] stuck watchdog: abort SEEK_ROOF pos=%s" % [name, global_position])
+			pass
 		_abort_seek_roof_to_roam()
 	else:
 		if debug_motion:
-			print("[Cat %s] stuck watchdog: new roam target pos=%s" % [name, global_position])
+			pass
 		_pick_new_roam_target()
 
 
@@ -812,10 +804,6 @@ func _debug_log_motion_if_needed() -> void:
 	var foot_y: float = _get_foot_y_for_sort()
 	var p: Node = get_parent()
 	var pname: String = String(p.name) if is_instance_valid(p) else "null"
-	print("[Cat %s] state=%d pos=%s vel=%s floor=%s roam_y=[%.1f,%.1f] foot_y=%.1f z=%d parent=%s" % [
-		name, int(state), global_position, velocity, is_on_floor(),
-		roam_bounds.position.y, roam_bounds.end.y, foot_y, z_index, pname
-	])
 
 
 func _update_facing() -> void:
@@ -1110,7 +1098,7 @@ func _enter_roof_roam() -> void:
 	_is_lower_roof_transition = false
 	_pick_new_roof_x_target()
 	if debug_motion:
-		print("[Cat %s] enter ROOF_ROAM pos=%s roof_y=%s" % [name, global_position, roof_target.get("y", "?")])
+		pass
 
 
 func _pick_new_roof_x_target() -> void:
@@ -1145,9 +1133,7 @@ func _enter_idle() -> void:
 	_idle_elapsed = 0.0
 	_idle_reentry_cooldown_timer = idle_reentry_cooldown_seconds
 	if debug_motion and debug_idle_timing:
-		print("[Cat %s] IDLE basladi expected=%.2fs (min=%.2f max=%.2f weather=%.2f) pos=%s" % [
-			name, _idle_expected_duration, min_idle_time, max_idle_time, m, global_position
-		])
+		pass
 
 
 func _enter_sleep() -> void:

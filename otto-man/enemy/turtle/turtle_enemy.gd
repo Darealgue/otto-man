@@ -272,7 +272,7 @@ const DEBUG_TURTLE_NORMAL: bool = false
 func _setup_normal_map_sync():
 	"""Setup normal map synchronization between main sprite and normal sprite"""
 	if DEBUG_TURTLE_NORMAL:
-		print("[TurtleEnemy] Setting up normal map shader...")
+		pass
 	
 	# Find the normal sprite (it's a child of the main AnimatedSprite2D)
 	var normal_sprite = sprite.get_node("AnimatedSprite2D_normal")
@@ -280,7 +280,7 @@ func _setup_normal_map_sync():
 		return
 	
 	if DEBUG_TURTLE_NORMAL:
-		print("[TurtleEnemy] Normal sprite found: ", normal_sprite.name)
+		pass
 	
 	# Sync animation and frame with main sprite
 	normal_sprite.animation = sprite.animation
@@ -294,15 +294,14 @@ func _setup_normal_map_sync():
 		var material = sprite.material as ShaderMaterial
 		if material:
 			if DEBUG_TURTLE_NORMAL:
-				print("[TurtleEnemy] Using existing shader material from scene")
+				pass
 			
 			# Debug: Check if normal texture is properly set
 			if normal_sprite.sprite_frames:
 				var test_texture = normal_sprite.sprite_frames.get_frame_texture(normal_sprite.animation, normal_sprite.frame)
 				if test_texture:
 					if DEBUG_TURTLE_NORMAL:
-						print("[TurtleEnemy] Normal texture loaded successfully: ", test_texture.get_class())
-						print("[TurtleEnemy] Normal texture size: ", test_texture.get_size())
+						pass
 				else:
 					if DEBUG_TURTLE_NORMAL:
 						print("[TurtleEnemy] ERROR: Normal texture is null!")

@@ -9,7 +9,6 @@ func _init():
 	item_name = tr("item.pusu_zehri.name")
 	description = tr("item.pusu_zehri.description")
 	flavor_text = "Gölgeden gelen zehir"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.DODGE
 	affected_stats = ["stealth_poison"]
 

@@ -31,7 +31,6 @@ var _bush_sprite: AnimatedSprite2D = null
 var _highlight_sprite: Sprite2D = null
 
 func _ready() -> void:
-	print("[BushInteractable] _ready() called for: ", name, " at ", global_position)
 	minigame_kind = "forest_food"
 	require_interact_press = true
 	# Ok ipucu çalının üstünde dursun (görsel 100 px yüksek; varsayılan -64 içine gömülüyordu).
@@ -50,7 +49,6 @@ func _ready() -> void:
 	super._ready()
 	_setup_idle_bush_visual()
 	ResourceHitHarvest.attach(self, ResourceType.FOOD, INTERACT_AREA_SIZE, INTERACT_AREA_OFFSET)
-	print("[BushInteractable] _ready() completed. disabled=", _disabled, " monitoring=", monitoring, " monitorable=", monitorable)
 
 func _load_bush_textures() -> void:
 	# Sprite'ları conditional olarak yükle
@@ -82,7 +80,6 @@ func _build_minigame_context() -> Dictionary:
 	return ctx
 
 func _on_minigame_started() -> void:
-	print("[BushInteractable] _on_minigame_started() called for: ", name)
 	# Minigame başladığında highlight'ı gizle
 	if _highlight_sprite:
 		_highlight_sprite.visible = false
@@ -125,7 +122,6 @@ func _apply_end_visual() -> void:
 		
 		_bush_sprite.play("end")
 		_bush_sprite.visible = true
-		print("[BushInteractable] End sprite positioned at: ", sprite_pos, " size: ", end_size)
 
 func _ensure_minimum_nodes() -> void:
 	if not has_node("CollisionShape2D"):
@@ -158,7 +154,6 @@ func _setup_idle_bush_visual() -> void:
 	
 	# Placeholder görsel oluştur (assetler hazır olana kadar)
 	if BUSH_IDLE_TEXTURE != null and is_instance_valid(BUSH_IDLE_TEXTURE):
-		print("[BushInteractable] Building bush frames with texture")
 		var frames := _build_bush_frames()
 		_bush_sprite.sprite_frames = frames
 		var sizes := frames.get_meta("bush_animation_sizes", {}) as Dictionary
@@ -177,10 +172,8 @@ func _setup_idle_bush_visual() -> void:
 		_bush_sprite.position = sprite_pos
 		_bush_sprite.play("idle")
 		_bush_sprite.visible = true
-		print("[BushInteractable] Bush sprite visible: ", _bush_sprite.visible, " position: ", sprite_pos, " size: ", Vector2(max_width, max_height))
 		_setup_highlight_sprite(max_width, max_height, base_x)
 	else:
-		print("[BushInteractable] Using placeholder - texture not loaded")
 		# Placeholder: Basit renkli dikdörtgen
 		var placeholder := ColorRect.new()
 		placeholder.name = "BushPlaceholder"

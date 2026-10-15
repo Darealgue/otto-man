@@ -10,7 +10,6 @@ func _init():
 	item_name = tr("item.genis_dusus.name")
 	description = tr("item.genis_dusus.description")
 	flavor_text = "Daha geniş etki"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.FALL_ATTACK
 	affected_stats = ["fall_attack_targets"]
 
@@ -26,7 +25,6 @@ func activate(player: CharacterBody2D):
 		if not _fall_attack_hitbox.has_meta("original_max_targets_genis_dusus"):
 			_fall_attack_hitbox.set_meta("original_max_targets_genis_dusus", _fall_attack_hitbox.max_targets_per_attack)
 		_fall_attack_hitbox.max_targets_per_attack = MAX_TARGETS
-		print("[Geniş Düşüş] ✅ Fall attack 2 düşmana vurabilir")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -35,4 +33,3 @@ func deactivate(player: CharacterBody2D):
 		_fall_attack_hitbox.remove_meta("original_max_targets_genis_dusus")
 	_player = null
 	_fall_attack_hitbox = null
-	print("[Geniş Düşüş] ❌ Fall attack tek düşmana döndü")

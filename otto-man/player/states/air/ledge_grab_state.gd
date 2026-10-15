@@ -299,7 +299,7 @@ func _scan_ledge_side(wall_ray: RayCast2D, side: int) -> Dictionary:
 	var collision_point: Vector2 = wall_ray.get_collision_point()
 	var wall_collider: Object = wall_ray.get_collider()
 	if DEBUG_LEDGE:
-		print("[LEDGEGRAB_DEBUG] side=%d collision_point=%s player=%s" % [side, collision_point, player.global_position])
+		pass
 
 	var top_scan := _find_wall_top(collision_point, side, wall_collider)
 	if not top_scan.found:
@@ -417,7 +417,7 @@ func _has_standable_shelf(collision_point: Vector2, side: int, top_y: float) -> 
 	var to_pt := Vector2(probe_x, top_y + SHELF_PROBE_DEPTH)
 	var hit := _ray(from_pt, to_pt)
 	if DEBUG_LEDGE:
-		print("[LEDGEGRAB_DEBUG] side=%d shelf ray probe_x=%.1f from_y=%.1f to_y=%.1f hit=%s" % [side, probe_x, from_pt.y, to_pt.y, hit])
+		pass
 	if not hit.has("position"):
 		return false
 	if _is_one_way_platform(hit.collider):

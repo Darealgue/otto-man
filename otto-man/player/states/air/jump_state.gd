@@ -169,8 +169,8 @@ func physics_update(delta: float):
 			is_double_jumping = true
 			if can_triple_jump:
 				# Jump count will be incremented in enter() function
-				# Don't set has_double_jumped to allow third jump
-				pass
+				# Hava zıplaması enter()'dan geçmez; sayaç burada artmazsa sınır ve 3. zıplama bedeli devreye girmiyor
+				player.set_meta("kus_kanadi_jump_count", jump_count + 1)
 			else:
 				player.has_double_jumped = true
 			player.start_double_jump()
@@ -260,6 +260,9 @@ func _on_animation_finished(anim_name: String):
 			if player.velocity.y > 0:
 				animation_player.play("fall")
 				state_machine.transition_to("Fall")
+			else:
+				# Hâlâ yükseliyor: son karede takılı kalmasın
+				animation_player.play("jump_upwards")
 		"jump_to_fall":
 			animation_player.play("fall")
 			state_machine.transition_to("Fall")

@@ -8,7 +8,6 @@ func _init():
 	item_name = tr("item.dikenli_kalkan.name")
 	description = tr("item.dikenli_kalkan.description")
 	flavor_text = "Dikenli savunma"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.BLOCK
 	affected_stats = ["damage_reflect"]
 
@@ -20,7 +19,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("player_took_damage"):
 		if not player.is_connected("player_took_damage", _on_player_took_damage):
 			player.connect("player_took_damage", _on_player_took_damage)
-		print("[Dikenli Kalkan] ✅ Yediğin hasar saldırgana yansır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -28,7 +26,6 @@ func deactivate(player: CharacterBody2D):
 		if _player.is_connected("player_took_damage", _on_player_took_damage):
 			_player.disconnect("player_took_damage", _on_player_took_damage)
 	_player = null
-	print("[Dikenli Kalkan] ❌ Kaldırıldı")
 
 func _on_player_took_damage(amount: float, attacker: Node2D):
 	if amount <= 0 or not is_instance_valid(attacker):

@@ -189,4 +189,3 @@ func _try_heal() -> void:
 	if _prompt_label:
 		_prompt_label.text = tr("fountain.used")
 		_prompt_label.visible = true
-	print("[CampFountain] Healed player to %.1f (overheal +%.1f)" % [new_health, overflow if overheal_active else 0.0])

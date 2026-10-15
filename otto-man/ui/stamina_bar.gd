@@ -203,7 +203,8 @@ func _sync_with_player_stats() -> void:
 		return
 	
 	var block_charges = int(player_stats.get_stat("block_charges"))
-	var new_segments = max(1, block_charges)  # Minimum 1 segment
+	# Üst sınır yok: stamina kaç ise o kadar hücre gösterilir (12-20 hücrelik buildler için).
+	var new_segments = max(1, block_charges)
 	
 	# print("[StaminaBar] Syncing with PlayerStats - block_charges: " + str(block_charges) + ", new_segments: " + str(new_segments))
 	
@@ -228,7 +229,7 @@ func _sync_with_player_stats() -> void:
 func _update_segments_ui() -> void:
 	# Hide/show segments based on block_charges
 	var block_charges = int(player_stats.get_stat("block_charges")) if player_stats else 3
-	var needed_segments = min(block_charges, MAX_SEGMENTS)
+	var needed_segments = max(block_charges, 1)
 	
 	# Create additional segments if needed
 	while segments.size() < needed_segments:
@@ -280,7 +281,6 @@ func remove_max_charge(count: int) -> void:
 	if player_stats:
 		var current_charges = int(player_stats.get_stat("block_charges"))
 		player_stats.add_stat_bonus("block_charges", float(-count))
-		print("[StaminaBar] Removed ", count, " max charge(s). New total: ", int(player_stats.get_stat("block_charges")))
 		_sync_with_player_stats()
 
 func restore_partial_charge(amount: float) -> void:

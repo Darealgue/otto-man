@@ -23,7 +23,6 @@ var is_paused: bool = false
 func _ready() -> void:
 	# Detect initial state based on current scene
 	_detect_initial_state()
-	print("[GameState] Initialized with state: %s" % _state_to_string(current_state))
 	
 	# Connect to SceneManager signals if available
 	if is_instance_valid(SceneManager):
@@ -90,7 +89,6 @@ func _change_state(new_state) -> void:
 	previous_state = current_state
 	current_state = new_state
 	
-	print("[GameState] State changed: %s -> %s" % [_state_to_string(previous_state), _state_to_string(new_state)])
 	state_changed.emit(new_state, previous_state)
 	
 	# Auto-pause/unpause based on state
@@ -143,7 +141,6 @@ func pause() -> void:
 	is_paused = true
 	get_tree().paused = true
 	pause_requested.emit()
-	print("[GameState] Game paused")
 
 func resume() -> void:
 	"""Resume the game"""
@@ -153,7 +150,6 @@ func resume() -> void:
 	is_paused = false
 	get_tree().paused = false
 	resume_requested.emit()
-	print("[GameState] Game resumed")
 
 func toggle_pause() -> void:
 	"""Toggle pause state"""

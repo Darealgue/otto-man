@@ -62,7 +62,7 @@ func _on_initialized() -> void:
 		_active_sprite.play("idle")
 	
 	if DEBUG_TRAP:
-		print("[CannonTrapV2] Direction set: %s (surface: %s)" % [_shoot_direction, TrapConfigV2.SurfaceType.keys()[surface_type]])
+		pass
 
 func _fire() -> void:
 	if is_sleeping:

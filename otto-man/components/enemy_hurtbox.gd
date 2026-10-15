@@ -40,7 +40,7 @@ func _on_area_entered(hitbox: Area2D):
 	var enemy_name = get_parent().name if get_parent() != null else name
 	var dmg = hitbox.get_damage() if hitbox.has_method("get_damage") else -1
 	if DEBUG_ENEMY_HURTBOX:
-		print("[EnemyHurtbox:", enemy_name, "] hit by=", hitbox.name, " dmg=", dmg, " layer=", hitbox.collision_layer, " mask=", hitbox.collision_mask)
+		pass
 	
 	# Emit hurt signal
 	# print("[EnemyHurtbox] Emitting hurt signal for: ", enemy_name)

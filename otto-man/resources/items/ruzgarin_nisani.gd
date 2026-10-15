@@ -9,17 +9,14 @@ func _init():
 	item_name = tr("item.ruzgarin_nisani.name")
 	description = tr("item.ruzgarin_nisani.description")
 	flavor_text = "Rüzgar da bir element taşır"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["projectile_element"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Rüzgârın Nişanı] ✅ Mermiler element taşıyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Rüzgârın Nişanı] ❌ Kaldırıldı")
 
 ## uzun_menzil/ok_yagmuru gibi mermi fırlatan itemler bu fonksiyonu çağırıp
 ## döneni projectile.element'e atar. Öncelik: zehir > ateş > buz (tek element seçilir).

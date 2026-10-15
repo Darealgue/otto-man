@@ -2,14 +2,13 @@ extends Control
 class_name ConcubineMissionPopupUI
 ## Cariye üzerinden görev atama + rol seçimi — portre + görev kartları + rol sekmesi, parşömen temalı.
 
-signal mission_assigned(concubine_id: int, mission_id: String)
 signal closed
 
 const _MEDIEVAL_THEME := preload("res://resources/medieval_theme.tres")
 const _KeyChipScript := preload("res://ui/KeyChip.gd")
 const _PortraitRenderer := preload("res://ui/ConcubinePortraitRenderer.gd")
 
-enum Tab { MISSIONS, ROLES }
+enum Tab { MISSIONS, ROLES, OVERVIEW }
 
 # Layout
 var _panel: PanelContainer
@@ -18,19 +17,28 @@ var _portrait_color: ColorRect
 var _portrait_initial: Label
 var _name_label: Label
 var _status_chip: Label
-var _stats_label: Label
+var _role_label: Label
+var _stamina_label: Label
+var _stamina_bar: ProgressBar
+var _level_label: Label
+var _stats_label: RichTextLabel
+var _dismiss_btn: Button
+var _dismiss_armed: bool = false
 
 var _tab_missions_btn: Button
 var _tab_roles_btn: Button
+var _tab_overview_btn: Button
+var _overview_tab_box: VBoxContainer
+var _overview_list: VBoxContainer
+var _overview_scroll: ScrollContainer
+var _overview_nav_buttons: Array[Button] = []
 
 var _missions_tab_box: VBoxContainer
 var _special_actions_box: VBoxContainer
-var _missions_title_label: Label
-var _mission_list: VBoxContainer
-var _mission_scroll: ScrollContainer
 
 var _roles_tab_box: VBoxContainer
 var _role_button_row: HBoxContainer
+var _point_button_row: HBoxContainer
 var _role_info_label: Label
 var _drop_role_btn: Button
 
@@ -41,7 +49,6 @@ var _nav_hint_label: Label
 # (bkz. _all_nav_buttons). Mouse yok, tüm gezinme klavye/gamepad ile.
 var _tab_nav_buttons: Array[Button] = []
 var _special_action_nav_buttons: Array[Button] = []
-var _mission_nav_buttons: Array[Button] = []
 var _roles_nav_buttons: Array[Button] = []
 var _active_tab: int = Tab.MISSIONS
 var _focused_nav_row: int = 0
@@ -52,13 +59,6 @@ var _portrait_generation: int = 0
 # State
 var _concubine: Concubine = null
 var _is_open := false
-## mission_id → selected soldier count (only relevant if required_army_size > 0)
-var _soldier_counts: Dictionary = {}
-## mission_id → {"stepper": Control, "static": Label} — stepper sadece fokuslu/üzerine
-## gelinen kartta görünür, diğerlerinde sadece seçili sayıyı gösteren statik bir etiket var.
-var _soldier_stepper_rows: Dictionary = {}
-var _focused_soldier_mid: String = ""
-var _hovered_soldier_mid: String = ""
 
 ## Roller sekmesinde yan yana gösterilecek gerçek roller (Yok hariç).
 const _ROLE_BUTTONS_ORDER: Array[int] = [
@@ -66,7 +66,6 @@ const _ROLE_BUTTONS_ORDER: Array[int] = [
 	Concubine.Role.AJAN,
 	Concubine.Role.DİPLOMAT,
 	Concubine.Role.TÜCCAR,
-	Concubine.Role.ALIM,
 	Concubine.Role.TIBBIYECI,
 ]
 
@@ -76,6 +75,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = _MEDIEVAL_THEME
+	UiFontFloor.attach(self)
 	_build_ui()
 	visible = false
 	var viewport := get_viewport()
@@ -101,10 +101,15 @@ func _build_ui() -> void:
 	_panel = PanelContainer.new()
 	_panel.anchor_left   = 0.5; _panel.anchor_right  = 0.5
 	_panel.anchor_top    = 0.5; _panel.anchor_bottom = 0.5
-	_panel.offset_left   = -450
-	_panel.offset_top    = -320
-	_panel.offset_right  = 450
-	_panel.offset_bottom = 320
+	# Sabit boyut, tam ortada: içerik uzayınca aşağı taşmasın diye iki yana büyür ve kırpılır;
+	# uzun metinler kaydırma alanlarında kalır (özellikler, rol bilgisi, cariye listesi).
+	_panel.offset_left   = -760
+	_panel.offset_top    = -420
+	_panel.offset_right  = 760
+	_panel.offset_bottom = 420
+	_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_panel.clip_contents = true
 	ParchmentTextures.apply_large_panel_style(_panel, 22)
 	add_child(_panel)
 
@@ -114,7 +119,7 @@ func _build_ui() -> void:
 
 	# ── Left column ──────────────────────────────────────────────────────────
 	var left := VBoxContainer.new()
-	left.custom_minimum_size = Vector2(190, 0)
+	left.custom_minimum_size = Vector2(340, 0)
 	left.add_theme_constant_override("separation", 8)
 	root.add_child(left)
 
@@ -133,7 +138,9 @@ func _build_ui() -> void:
 	portrait_sb.corner_radius_top_right    = 8
 	portrait_sb.corner_radius_bottom_left  = 8
 	portrait_sb.corner_radius_bottom_right = 8
-	portrait_sb.set_content_margin_all(0)
+	# İçerik çerçevenin içinde kalsın (kenarlık çocukların altında kalıp görünmüyordu)
+	portrait_sb.set_content_margin_all(4)
+	portrait_wrapper.clip_contents = true
 	portrait_wrapper.add_theme_stylebox_override("panel", portrait_sb)
 	left.add_child(portrait_wrapper)
 
@@ -162,23 +169,60 @@ func _build_ui() -> void:
 
 	_name_label = Label.new()
 	_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_name_label.add_theme_font_size_override("font_size", 20)
+	_name_label.add_theme_font_size_override("font_size", 32)
+	_name_label.add_theme_color_override("font_color", Color(1.0, 0.93, 0.78))
 	left.add_child(_name_label)
+
+	_role_label = Label.new()
+	_role_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_role_label.add_theme_font_size_override("font_size", 22)
+	_role_label.add_theme_color_override("font_color", Color(0.9, 0.72, 0.38))
+	left.add_child(_role_label)
+
+	_level_label = Label.new()
+	_level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_level_label.add_theme_font_size_override("font_size", 18)
+	_level_label.add_theme_color_override("font_color", Color(0.75, 0.68, 0.55))
+	left.add_child(_level_label)
 
 	_status_chip = Label.new()
 	_status_chip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_status_chip.add_theme_font_size_override("font_size", 12)
+	_status_chip.add_theme_font_size_override("font_size", 15)
 	left.add_child(_status_chip)
+
+	# Dinçlik: görevlerle düşer, köyde yemek yiyerek dolar.
+	_stamina_label = Label.new()
+	_stamina_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_stamina_label.add_theme_font_size_override("font_size", 15)
+	left.add_child(_stamina_label)
+	_stamina_bar = ProgressBar.new()
+	_stamina_bar.custom_minimum_size = Vector2(0, 12)
+	_stamina_bar.min_value = 0
+	_stamina_bar.max_value = Concubine.STAMINA_MAX
+	_stamina_bar.show_percentage = false
+	left.add_child(_stamina_bar)
 
 	var stats_sep := ColorRect.new()
 	stats_sep.custom_minimum_size = Vector2(0, 1)
 	stats_sep.color = Color(0.6, 0.47, 0.28, 0.5)
 	left.add_child(stats_sep)
 
-	_stats_label = Label.new()
+	_stats_label = RichTextLabel.new()
+	_stats_label.bbcode_enabled = true
+	_stats_label.fit_content = true
+	_stats_label.scroll_active = false
 	_stats_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_stats_label.add_theme_font_size_override("font_size", 12)
-	left.add_child(_stats_label)
+	_stats_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_stats_label.add_theme_font_size_override("normal_font_size", 15)
+	_stats_label.add_theme_font_size_override("bold_font_size", 15)
+	_stats_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Özellikler uzun olabilir: sol sütun paneli büyütmesin, kendi kaydırma alanında kalsın.
+	var stats_scroll := ScrollContainer.new()
+	stats_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stats_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	stats_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	left.add_child(stats_scroll)
+	stats_scroll.add_child(_stats_label)
 
 	# ── Divider ──────────────────────────────────────────────────────────────
 	var divider := ColorRect.new()
@@ -190,6 +234,7 @@ func _build_ui() -> void:
 	# ── Right column ─────────────────────────────────────────────────────────
 	var right := VBoxContainer.new()
 	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	right.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right.add_theme_constant_override("separation", 6)
 	root.add_child(right)
 
@@ -200,7 +245,7 @@ func _build_ui() -> void:
 	tab_row.add_child(_make_key_chip("Q", "L2"))
 
 	_tab_missions_btn = Button.new()
-	_tab_missions_btn.text = tr("cm_popup.tab_missions")
+	_tab_missions_btn.text = tr("dm.tab_dispatch")
 	_tab_missions_btn.focus_mode = Control.FOCUS_ALL
 	_tab_missions_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tab_missions_btn.pressed.connect(_switch_tab.bind(Tab.MISSIONS))
@@ -216,6 +261,15 @@ func _build_ui() -> void:
 	_style_focus(_tab_roles_btn)
 	tab_row.add_child(_tab_roles_btn)
 	_tab_nav_buttons.append(_tab_roles_btn)
+
+	_tab_overview_btn = Button.new()
+	_tab_overview_btn.text = tr("cm_popup.tab_overview")
+	_tab_overview_btn.focus_mode = Control.FOCUS_ALL
+	_tab_overview_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tab_overview_btn.pressed.connect(_switch_tab.bind(Tab.OVERVIEW))
+	_style_focus(_tab_overview_btn)
+	tab_row.add_child(_tab_overview_btn)
+	_tab_nav_buttons.append(_tab_overview_btn)
 
 	tab_row.add_child(_make_key_chip("E", "R2"))
 
@@ -233,30 +287,29 @@ func _build_ui() -> void:
 	_special_actions_box.add_theme_constant_override("separation", 4)
 	_missions_tab_box.add_child(_special_actions_box)
 
-	_missions_title_label = Label.new()
-	_missions_title_label.text = tr("cm_popup.assignable_missions")
-	_missions_title_label.add_theme_font_size_override("font_size", 16)
-	_missions_tab_box.add_child(_missions_title_label)
-
-	_mission_scroll = ScrollContainer.new()
-	_mission_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_mission_scroll.custom_minimum_size = Vector2(0, 360)
-	_mission_scroll.follow_focus = true
-	_mission_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_mission_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	_missions_tab_box.add_child(_mission_scroll)
-
-	_mission_list = VBoxContainer.new()
-	_mission_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_mission_list.add_theme_constant_override("separation", 6)
-	_mission_scroll.add_child(_mission_list)
-
 	# ── Roller sekmesi içeriği ───────────────────────────────────────────────
 	_roles_tab_box = VBoxContainer.new()
 	_roles_tab_box.add_theme_constant_override("separation", 8)
-	_roles_tab_box.custom_minimum_size = Vector2(0, 360)
+	_roles_tab_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_roles_tab_box.visible = false
 	right.add_child(_roles_tab_box)
+
+	# ── Cariyeler (genel bakış) sekmesi: köydeki tüm cariyeler tek listede ────────
+	_overview_tab_box = VBoxContainer.new()
+	_overview_tab_box.add_theme_constant_override("separation", 6)
+	_overview_tab_box.visible = false
+	_overview_tab_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	right.add_child(_overview_tab_box)
+	_overview_scroll = ScrollContainer.new()
+	_overview_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_overview_scroll.follow_focus = true
+	_overview_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_overview_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	_overview_tab_box.add_child(_overview_scroll)
+	_overview_list = VBoxContainer.new()
+	_overview_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_overview_list.add_theme_constant_override("separation", 6)
+	_overview_scroll.add_child(_overview_list)
 
 	var roles_title := Label.new()
 	roles_title.text = tr("cm_popup.assign_role")
@@ -266,6 +319,11 @@ func _build_ui() -> void:
 	_role_button_row = HBoxContainer.new()
 	_role_button_row.add_theme_constant_override("separation", 6)
 	_roles_tab_box.add_child(_role_button_row)
+
+	# Gelişim puanı satırı: her rolün altında "+ ●●○○○" düğmesi (boş puanı o role verir).
+	_point_button_row = HBoxContainer.new()
+	_point_button_row.add_theme_constant_override("separation", 6)
+	_roles_tab_box.add_child(_point_button_row)
 
 	var info_wrapper := PanelContainer.new()
 	var info_sb := StyleBoxFlat.new()
@@ -279,19 +337,39 @@ func _build_ui() -> void:
 	info_wrapper.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_roles_tab_box.add_child(info_wrapper)
 
+	# Rol bilgisi uzun olabilir: kendi kaydırma alanında kalsın, panel büyümesin.
+	var info_scroll := ScrollContainer.new()
+	info_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	info_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	info_wrapper.add_child(info_scroll)
 	_role_info_label = Label.new()
 	_role_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_role_info_label.add_theme_font_size_override("font_size", 12)
+	_role_info_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_role_info_label.add_theme_font_size_override("font_size", 15)
 	_role_info_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	info_wrapper.add_child(_role_info_label)
+	info_scroll.add_child(_role_info_label)
+
+	# Alt satır: rolü bırak (ücretsiz) + köyden yolla (iki basışla onay).
+	var bottom_row := HBoxContainer.new()
+	bottom_row.add_theme_constant_override("separation", 8)
+	_roles_tab_box.add_child(bottom_row)
 
 	_drop_role_btn = Button.new()
 	_drop_role_btn.text = tr("cm_popup.drop_role")
 	_drop_role_btn.focus_mode = Control.FOCUS_ALL
+	_drop_role_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_drop_role_btn.visible = false
 	_drop_role_btn.pressed.connect(_on_drop_role_pressed)
 	_style_focus(_drop_role_btn)
-	_roles_tab_box.add_child(_drop_role_btn)
+	bottom_row.add_child(_drop_role_btn)
+
+	_dismiss_btn = Button.new()
+	_dismiss_btn.text = tr("cm_popup.dismiss")
+	_dismiss_btn.focus_mode = Control.FOCUS_ALL
+	_dismiss_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_dismiss_btn.pressed.connect(_on_dismiss_pressed)
+	_style_focus(_dismiss_btn)
+	bottom_row.add_child(_dismiss_btn)
 
 	_info_label = Label.new()
 	_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -316,7 +394,6 @@ func _build_ui() -> void:
 
 func show_for_concubine(concubine: Concubine) -> void:
 	_concubine = concubine
-	_soldier_counts.clear()
 	_reapply_full_rect()
 	_is_open = true
 	_focus_generation += 1
@@ -342,7 +419,6 @@ func hide_popup() -> void:
 		_PortraitRenderer.clear(_portrait_rect)
 	visible = false
 	_concubine = null
-	_mission_nav_buttons.clear()
 	_roles_nav_buttons.clear()
 	get_viewport().gui_release_focus()
 	closed.emit()
@@ -414,17 +490,36 @@ func _refresh_concubine_info() -> void:
 	_status_chip.text = status_text
 	_status_chip.modulate = status_color
 
+	# Önem sırası: ad (büyük) > rol > seviye > durum > boş puan > özellikler (küçük).
+	_role_label.text = _role_name(int(_concubine.role))
+	_level_label.text = tr("cm_popup.level_short") % _concubine.level
+	_stamina_label.text = tr("cm_popup.stamina") % [_concubine.stamina, Concubine.STAMINA_MAX]
+	_stamina_bar.value = _concubine.stamina
+	var low: bool = _concubine.stamina < Concubine.STAMINA_MIN_FOR_MISSION
+	_stamina_label.modulate = Color(0.95, 0.45, 0.4) if low else Color(0.85, 0.8, 0.65)
+	_stamina_bar.modulate = Color(0.95, 0.45, 0.4) if low else Color(0.6, 0.85, 0.5)
+
 	var lines: PackedStringArray = []
-	lines.append(tr("cm_popup.level_hp") % [_concubine.level, _concubine.health, _concubine.max_health])
-	lines.append(tr("cm_popup.morale") % [_concubine.moral, _concubine.max_moral])
-	lines.append(tr("cm_popup.role_line") % _role_name(int(_concubine.role)))
+	if _concubine.unspent_points > 0:
+		lines.append("[center][color=#f0d27a][font_size=17]%s[/font_size][/color][/center]" % (tr("cm_popup.points_free") % _concubine.unspent_points))
+		lines.append("")
+	# Doğuştan özellikler (0-3, renkli: yeşil artı, kehribar çift taraflı, kırmızı eksi).
+	var traits: Array[String] = _concubine.get_traits()
+	lines.append("[b][font_size=18]%s[/font_size][/b]" % tr("cm_popup.traits_title"))
 	lines.append("")
-	for skill in _concubine.skills.keys():
-		var val := int(_concubine.skills[skill])
-		var emoji := _concubine.get_skill_emoji(int(skill))
-		var sname := _concubine.get_skill_name(int(skill))
-		lines.append("%s %s  %d" % [emoji, sname, val])
-	_stats_label.text = "\n".join(lines)
+	if traits.is_empty():
+		lines.append("[color=#8a7a58][font_size=14]%s[/font_size][/color]" % tr("cm_popup.traits_none"))
+	for t in traits:
+		var kind: String = String(Concubine.TRAIT_KINDS.get(t, "good"))
+		var col: String = "#8fd08a"
+		if kind == "bad":
+			col = "#e08a7a"
+		elif kind == "mixed":
+			col = "#e8c46a"
+		lines.append("[color=%s][b]%s[/b][/color]" % [col, tr("concubine.trait.%s.name" % t)])
+		lines.append("[color=#9c8d6c][font_size=13]%s[/font_size][/color]" % tr("concubine.trait.%s.desc" % t))
+		lines.append("")
+	_stats_label.text = "\n".join(lines).strip_edges()
 
 
 func _role_color(role: int) -> Color:
@@ -433,7 +528,6 @@ func _role_color(role: int) -> Color:
 		Concubine.Role.AJAN:       return Color(0.1, 0.22, 0.18, 1.0)
 		Concubine.Role.DİPLOMAT:  return Color(0.15, 0.18, 0.35, 1.0)
 		Concubine.Role.TÜCCAR:    return Color(0.28, 0.22, 0.08, 1.0)
-		Concubine.Role.ALIM:      return Color(0.18, 0.22, 0.28, 1.0)
 		Concubine.Role.TIBBIYECI: return Color(0.1, 0.28, 0.18, 1.0)
 	return Color(0.14, 0.10, 0.07, 1.0)
 
@@ -456,20 +550,90 @@ func _switch_tab(tab: int) -> void:
 	_active_tab = tab
 	_style_tab_button(_tab_missions_btn, tab == Tab.MISSIONS)
 	_style_tab_button(_tab_roles_btn, tab == Tab.ROLES)
+	_style_tab_button(_tab_overview_btn, tab == Tab.OVERVIEW)
 	_missions_tab_box.visible = tab == Tab.MISSIONS
 	_roles_tab_box.visible = tab == Tab.ROLES
+	_overview_tab_box.visible = tab == Tab.OVERVIEW
 	if tab == Tab.MISSIONS:
 		_refresh_special_actions()
-		_refresh_missions()
-	else:
+	elif tab == Tab.ROLES:
 		_refresh_roles_tab()
+	else:
+		_refresh_overview()
 	call_deferred("_focus_first_nav_button")
+
+
+## Cariyeler sekmesi: köydeki herkes, durumuyla birlikte. Birine basınca pencere o cariyeye geçer
+## (10 cariyeyi tek tek köyde aramadan yönetmek için).
+func _refresh_overview() -> void:
+	_overview_nav_buttons.clear()
+	for child in _overview_list.get_children():
+		child.queue_free()
+	var mm := get_node_or_null("/root/MissionManager")
+	if mm == null or not ("concubines" in mm):
+		return
+	var ids: Array = mm.concubines.keys()
+	ids.sort()
+	if ids.is_empty():
+		var empty := Label.new()
+		empty.text = tr("cm_popup.overview_empty")
+		empty.modulate = Color(1, 1, 1, 0.55)
+		_overview_list.add_child(empty)
+		return
+	for cid in ids:
+		var c: Concubine = mm.concubines[cid]
+		if c == null:
+			continue
+		var btn := Button.new()
+		btn.focus_mode = Control.FOCUS_ALL
+		btn.custom_minimum_size = Vector2(0, 52)
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.add_theme_font_size_override("font_size", 17)
+		_style_focus(btn)
+		var mark: String = "▶ " if (_concubine != null and _concubine.id == c.id) else "   "
+		var status_text: String = c.get_status_name()
+		match c.status:
+			Concubine.Status.YARALI:
+				if c.injured_days_left > 0:
+					status_text += " (%s)" % (tr("cm_popup.overview_days") % c.injured_days_left)
+			Concubine.Status.GÖREVDE:
+				var mref: Variant = mm.missions.get(c.current_mission_id, null)
+				if mref is Mission:
+					status_text += ": " + String(mm.get_mission_display_name(mref))
+		var parts: PackedStringArray = PackedStringArray()
+		parts.append("%s%s" % [mark, c.name])
+		var row_dots: String = ""
+		if int(c.role) != Concubine.Role.NONE:
+			var row_pts: int = c.get_role_points(int(c.role))
+			for di in range(Concubine.ROLE_POINT_CAP):
+				row_dots += "●" if di < row_pts else "○"
+		parts.append("%s %s" % [_role_name(int(c.role)), row_dots])
+		parts.append(status_text)
+		if c.unspent_points > 0:
+			parts.append(tr("cm_popup.overview_points") % c.unspent_points)
+		btn.text = "  ·  ".join(parts)
+		btn.set_meta("cid", c.id)
+		btn.pressed.connect(_select_concubine.bind(c.id))
+		_overview_list.add_child(btn)
+		_overview_nav_buttons.append(btn)
+
+
+## Cariyeler sekmesinden birini seç: pencere o cariyeye geçer ve görev sekmesine döner.
+func _select_concubine(cid: int) -> void:
+	var mm := get_node_or_null("/root/MissionManager")
+	if mm == null or not mm.concubines.has(cid):
+		return
+	_concubine = mm.concubines[cid]
+	_info_label.text = ""
+	_refresh_concubine_info()
+	_switch_tab(Tab.MISSIONS)
 
 
 ## Sekmeler arası Q/E (klavye) veya L2/R2 (gamepad) ile geçiş — MentorBriefPopupUI'deki
 ## "Q/E sekme" konvansiyonuyla tutarlı.
 func _cycle_tab(direction: int) -> void:
-	var tabs := [Tab.MISSIONS, Tab.ROLES]
+	var tabs := [Tab.MISSIONS, Tab.ROLES, Tab.OVERVIEW]
 	var idx := tabs.find(_active_tab)
 	idx = wrapi(idx + direction, 0, tabs.size())
 	_switch_tab(tabs[idx])
@@ -502,60 +666,6 @@ func _style_tab_button(btn: Button, active: bool) -> void:
 		btn.remove_theme_stylebox_override("normal")
 
 
-# ─── Mission list ─────────────────────────────────────────────────────────────
-
-func _refresh_missions() -> void:
-	_mission_nav_buttons.clear()
-	_soldier_stepper_rows.clear()
-	_focused_soldier_mid = ""
-	_hovered_soldier_mid = ""
-	for child in _mission_list.get_children():
-		child.queue_free()
-	if _concubine == null:
-		return
-	var mm := get_node_or_null("/root/MissionManager")
-	if mm == null:
-		_missions_title_label.text = tr("cm_popup.assignable_missions")
-		_add_mission_empty(tr("cm_popup.no_mission_system"))
-		return
-
-	# Cariye ödenmiş ama henüz tamamlanmamış bir rol görevi bekliyorsa, liste SADECE o
-	# göreve daralır — rol kazanmak öncelikli bir taahhüttür (bkz. request_concubine_role).
-	var track_mission: Mission = mm.get_role_track_mission(_concubine.id) if mm.has_method("get_role_track_mission") else null
-	var missions: Array
-	if track_mission != null and track_mission.status == Mission.Status.MEVCUT:
-		_missions_title_label.text = tr("cm_popup.role_mission")
-		_add_role_track_banner(track_mission)
-		missions = [track_mission]
-	else:
-		_missions_title_label.text = tr("cm_popup.assignable_missions")
-		missions = mm.get_available_missions() if mm.has_method("get_available_missions") else []
-
-	if missions.is_empty():
-		_add_mission_empty(tr("cm_popup.no_missions_available"))
-		return
-	var available_soldiers := _get_available_soldiers(mm)
-	for mission in missions:
-		_mission_list.add_child(_make_mission_row(mission, available_soldiers))
-
-
-func _add_role_track_banner(mission: Mission) -> void:
-	var lbl := Label.new()
-	lbl.text = tr("cm_popup.role_track_banner") % _role_name(mission.grants_concubine_role)
-	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	lbl.add_theme_font_size_override("font_size", 11)
-	lbl.modulate = Color(0.95, 0.8, 0.45, 0.95)
-	_mission_list.add_child(lbl)
-
-
-func _add_mission_empty(text: String) -> void:
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.modulate = Color(1, 1, 1, 0.55)
-	_mission_list.add_child(lbl)
-
-
 # ─── Rol-özel aksiyonlar (Görevler sekmesinde, mevcut role bağlı) ──────────────
 
 func _refresh_special_actions() -> void:
@@ -566,13 +676,40 @@ func _refresh_special_actions() -> void:
 	_special_action_nav_buttons.clear()
 	if _concubine == null:
 		return
+	_add_dispatch_action()
 	match _concubine.role:
 		Concubine.Role.TIBBIYECI:
 			_add_healer_treat_action()
-		Concubine.Role.TÜCCAR:
-			_add_trader_mission_action()
 		Concubine.Role.KOMUTAN:
 			_add_commander_info_line()
+
+
+## "Göreve Yolla": haritayı seçim modunda açar; hedef hex'i ve görevi orada seçeriz.
+func _add_dispatch_action() -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	_special_actions_box.add_child(row)
+
+	var btn := Button.new()
+	btn.text = tr("dm.dispatch_action")
+	btn.disabled = _concubine.status != Concubine.Status.BOŞTA
+	btn.focus_mode = Control.FOCUS_ALL
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.add_theme_font_size_override("font_size", 18)
+	btn.pressed.connect(_on_dispatch_pressed)
+	_style_focus(btn)
+	row.add_child(btn)
+	_special_action_nav_buttons.append(btn)
+
+
+func _on_dispatch_pressed() -> void:
+	if _concubine == null:
+		return
+	var cid: int = _concubine.id
+	hide_popup()
+	var sm := get_node_or_null("/root/SceneManager")
+	if sm and sm.has_method("change_to_world_map"):
+		sm.change_to_world_map({"source": "village", "select_mission_concubine_id": cid})
 
 
 func _add_healer_treat_action() -> void:
@@ -609,32 +746,6 @@ func _on_healer_treat_pressed() -> void:
 	_refresh_special_actions()
 
 
-func _add_trader_mission_action() -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	_special_actions_box.add_child(row)
-
-	var btn := Button.new()
-	btn.text = tr("cm_popup.trader_mission_action")
-	btn.disabled = _concubine.status != Concubine.Status.BOŞTA
-	btn.focus_mode = Control.FOCUS_ALL
-	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn.pressed.connect(_on_trader_mission_pressed)
-	_style_focus(btn)
-	row.add_child(btn)
-	_special_action_nav_buttons.append(btn)
-
-
-func _on_trader_mission_pressed() -> void:
-	if _concubine == null:
-		return
-	var concubine := _concubine
-	var host := VillageWorldPopups.get_host()
-	hide_popup()
-	if host:
-		host.open_trade_mission(concubine)
-
-
 func _add_commander_info_line() -> void:
 	var lbl := Label.new()
 	lbl.text = tr("cm_popup.commander_info")
@@ -644,366 +755,44 @@ func _add_commander_info_line() -> void:
 	_special_actions_box.add_child(lbl)
 
 
-func _make_mission_row(mission, available_soldiers: int) -> Control:
-	var can_assign := _can_assign_mission(mission)
-	var mid := _mission_id(mission)
-	var req_army := _mission_required_army(mission)
-	var needs_soldiers := req_army > 0
-
-	var card := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	if can_assign:
-		sb.bg_color = Color(0.16, 0.12, 0.08, 0.6)
-		sb.border_color = Color(0.45, 0.75, 0.35)
-	else:
-		sb.bg_color = Color(0.08, 0.07, 0.06, 0.45)
-		sb.border_color = Color(0.3, 0.28, 0.26, 0.5)
-	sb.corner_radius_top_left     = 6
-	sb.corner_radius_top_right    = 6
-	sb.corner_radius_bottom_left  = 6
-	sb.corner_radius_bottom_right = 6
-	sb.set_content_margin_all(8)
-	sb.border_width_left = 3
-	card.add_theme_stylebox_override("panel", sb)
-
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 4)
-	card.add_child(col)
-
-	# Row 1: type badge + name
-	var header_row := HBoxContainer.new()
-	header_row.add_theme_constant_override("separation", 6)
-	col.add_child(header_row)
-
-	var type_badge := Label.new()
-	type_badge.text = _mission_type_label(mission)
-	type_badge.add_theme_font_size_override("font_size", 10)
-	type_badge.modulate = _mission_type_color(mission) if can_assign else Color(1, 1, 1, 0.35)
-	header_row.add_child(type_badge)
-
-	var name_lbl := Label.new()
-	name_lbl.text = _mission_name(mission)
-	name_lbl.add_theme_font_size_override("font_size", 14)
-	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_lbl.modulate = Color(1, 1, 1, 1.0) if can_assign else Color(1, 1, 1, 0.45)
-	header_row.add_child(name_lbl)
-
-	# Row 2: details (duration / difficulty / required army)
-	var detail_lbl := Label.new()
-	detail_lbl.text = _mission_detail_line(mission, available_soldiers)
-	detail_lbl.add_theme_font_size_override("font_size", 10)
-	detail_lbl.modulate = Color(0.85, 0.78, 0.6, 0.85) if can_assign else Color(1, 1, 1, 0.3)
-	col.add_child(detail_lbl)
-
-	# Row 3: lock reason OR soldier stepper + assign button
-	var action_row := HBoxContainer.new()
-	action_row.add_theme_constant_override("separation", 6)
-	col.add_child(action_row)
-
-	if not can_assign:
-		var reason := Label.new()
-		reason.text = "⛔ " + _lock_reason(mission, available_soldiers)
-		reason.add_theme_font_size_override("font_size", 10)
-		reason.modulate = Color(1, 0.5, 0.45, 0.9)
-		reason.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		action_row.add_child(reason)
-	else:
-		if needs_soldiers and not mid.is_empty():
-			if not _soldier_counts.has(mid):
-				_soldier_counts[mid] = req_army
-			var cur_soldiers: int = _soldier_counts[mid]
-
-			# Stepper (− / sayı / +): sadece bu kart fokuslu ya da fare üzerindeyken görünür.
-			# Diğer zamanlarda yerine statik bir "seçili asker" etiketi gösteriliyor — hem daha
-			# sade görünüyor hem de hangi kartın şu an ayarlanabilir olduğunu netleştiriyor.
-			var stepper_row := HBoxContainer.new()
-			stepper_row.add_theme_constant_override("separation", 4)
-			stepper_row.visible = false
-			action_row.add_child(stepper_row)
-
-			var minus_btn := Button.new()
-			minus_btn.text = "−"
-			minus_btn.custom_minimum_size = Vector2(30, 30)
-			minus_btn.focus_mode = Control.FOCUS_NONE
-			minus_btn.pressed.connect(_adjust_soldiers.bind(mid, -1, req_army, available_soldiers))
-			_style_focus(minus_btn)
-			stepper_row.add_child(minus_btn)
-
-			var soldier_lbl := Label.new()
-			soldier_lbl.text = "⚔ %d / %d" % [cur_soldiers, available_soldiers]
-			soldier_lbl.add_theme_font_size_override("font_size", 12)
-			soldier_lbl.custom_minimum_size = Vector2(80, 0)
-			soldier_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			soldier_lbl.name = "SoldierLabel_" + mid
-			stepper_row.add_child(soldier_lbl)
-
-			var plus_btn := Button.new()
-			plus_btn.text = "+"
-			plus_btn.custom_minimum_size = Vector2(30, 30)
-			plus_btn.focus_mode = Control.FOCUS_NONE
-			plus_btn.pressed.connect(_adjust_soldiers.bind(mid, 1, req_army, available_soldiers))
-			_style_focus(plus_btn)
-			stepper_row.add_child(plus_btn)
-
-			var static_lbl := Label.new()
-			static_lbl.text = tr("cm_popup.soldiers_selected") % cur_soldiers
-			static_lbl.add_theme_font_size_override("font_size", 12)
-			static_lbl.name = "SoldierStaticLabel_" + mid
-			action_row.add_child(static_lbl)
-
-			_soldier_stepper_rows[mid] = {"stepper": stepper_row, "static": static_lbl}
-			card.mouse_filter = Control.MOUSE_FILTER_PASS
-			card.mouse_entered.connect(_on_mission_card_mouse_entered.bind(mid))
-			card.mouse_exited.connect(_on_mission_card_mouse_exited.bind(mid))
-
-		var spacer := Control.new()
-		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		action_row.add_child(spacer)
-
-		var assign_btn := Button.new()
-		assign_btn.text = tr("cm_popup.assign_button")
-		assign_btn.custom_minimum_size = Vector2(72, 34)
-		assign_btn.focus_mode = Control.FOCUS_ALL
-		assign_btn.pressed.connect(_on_assign_pressed.bind(mission))
-		_style_focus(assign_btn)
-		# Sol/Sağ ile asker sayısını ayarlayabilmek için (bkz. _input), gerekli veriyi
-		# butonun meta'sında taşıyoruz — mouse'suz stepper kontrolü için.
-		if needs_soldiers and not mid.is_empty():
-			assign_btn.set_meta("mission_id", mid)
-			assign_btn.set_meta("req_army", req_army)
-			assign_btn.set_meta("available_soldiers", available_soldiers)
-		action_row.add_child(assign_btn)
-		_mission_nav_buttons.append(assign_btn)
-
-	return card
 
 
 # ─── Soldier stepper ──────────────────────────────────────────────────────────
 
-func _adjust_soldiers(mission_id: String, delta: int, req_min: int, available: int) -> void:
-	if not _soldier_counts.has(mission_id):
-		_soldier_counts[mission_id] = req_min
-	var cur: int = _soldier_counts[mission_id]
-	cur = clampi(cur + delta, req_min, available)
-	_soldier_counts[mission_id] = cur
-	_update_soldier_label(mission_id, available)
 
 
-func _update_soldier_label(mission_id: String, available: int) -> void:
-	var cur: int = _soldier_counts.get(mission_id, 0)
-	# Find the label by name across the mission list
-	var lbl := _find_named_node(_mission_list, "SoldierLabel_" + mission_id)
-	if lbl is Label:
-		(lbl as Label).text = "⚔ %d / %d" % [cur, available]
-	var row: Dictionary = _soldier_stepper_rows.get(mission_id, {})
-	var static_lbl: Label = row.get("static")
-	if is_instance_valid(static_lbl):
-		static_lbl.text = tr("cm_popup.soldiers_selected") % cur
 
 
-## Fokuslu (gamepad/klavye) ya da fare üzerinde olan kartın asker stepper'ını gösterir,
-## diğerlerini statik etikete döndürür.
-func _refresh_soldier_stepper_visibility() -> void:
-	var active_mid := _focused_soldier_mid if not _focused_soldier_mid.is_empty() else _hovered_soldier_mid
-	for mid in _soldier_stepper_rows.keys():
-		var row: Dictionary = _soldier_stepper_rows[mid]
-		var stepper: Control = row.get("stepper")
-		var static_lbl: Label = row.get("static")
-		var show_stepper: bool = (String(mid) == active_mid)
-		if is_instance_valid(stepper):
-			stepper.visible = show_stepper
-		if is_instance_valid(static_lbl):
-			static_lbl.visible = not show_stepper
 
 
-func _on_mission_card_mouse_entered(mid: String) -> void:
-	_hovered_soldier_mid = mid
-	_refresh_soldier_stepper_visibility()
 
 
-func _on_mission_card_mouse_exited(mid: String) -> void:
-	if _hovered_soldier_mid == mid:
-		_hovered_soldier_mid = ""
-	_refresh_soldier_stepper_visibility()
 
 
-func _find_named_node(root: Node, target_name: String) -> Node:
-	if root.name == target_name:
-		return root
-	for child in root.get_children():
-		var found := _find_named_node(child, target_name)
-		if found:
-			return found
-	return null
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
-func _get_available_soldiers(mm: Node) -> int:
-	if not mm.has_method("_find_barracks"):
-		return 0
-	var barracks = mm._find_barracks()
-	if barracks == null:
-		return 0
-	var total := 0
-	if "assigned_workers" in barracks:
-		total = int(barracks.assigned_workers)
-	elif "assigned_worker_ids" in barracks:
-		total = (barracks.assigned_worker_ids as Array).size()
-	else:
-		return 0
-	# Kışlaya atanmış TOPLAM asker sayısı, o an başka görevlerde olan askerleri düşmüyordu —
-	# birden fazla cariyeye art arda aynı askerler "müsaitmiş" gibi gösterilip atanabiliyordu
-	# (bkz. MissionCenter.gd:_get_available_soldier_count, aynı deseni burada da uyguluyoruz).
-	var on_mission := 0
-	if mm.has_method("get_total_soldiers_on_mission"):
-		on_mission = int(mm.get_total_soldiers_on_mission())
-	return maxi(0, total - on_mission)
 
 
-func _can_assign_mission(mission) -> bool:
-	if _concubine == null:
-		return false
-	if _concubine.status != Concubine.Status.BOŞTA:
-		return false
-	if mission is Mission:
-		if mission.required_concubine_id >= 0 and _concubine.id != mission.required_concubine_id:
-			return false
-		if mission.required_concubine_role >= 0 and int(_concubine.role) != mission.required_concubine_role:
-			return false
-		if not mission.is_unlocked_for_concubine(_concubine):
-			return false
-		return _concubine.can_handle_mission(mission)
-	return true
 
 
-func _lock_reason(mission, available_soldiers: int = 0) -> String:
-	if _concubine == null:
-		return tr("cm_popup.not_eligible")
-	match _concubine.status:
-		Concubine.Status.GÖREVDE:
-			return tr("cm_popup.lock_on_mission")
-		Concubine.Status.YARALI:
-			return tr("cm_popup.lock_injured")
-		Concubine.Status.DİNLENİYOR:
-			return tr("cm_popup.lock_resting")
-	if not (mission is Mission):
-		return tr("cm_popup.not_eligible")
-	if mission.required_concubine_id >= 0 and _concubine.id != mission.required_concubine_id:
-		return tr("cm_popup.lock_mission_specific")
-	if mission.required_concubine_role >= 0 and int(_concubine.role) != mission.required_concubine_role:
-		var role_name := _role_name(mission.required_concubine_role)
-		return tr("cm_popup.lock_role_requirement") % role_name
-	if not mission.is_unlocked_for_concubine(_concubine):
-		if mission.unlock_leverage_min > 0:
-			return tr("cm_popup.lock_leverage") % mission.unlock_leverage_min
-		if mission.unlock_level_min > 0:
-			return tr("cm_popup.lock_level") % mission.unlock_level_min
-			return tr("cm_popup.lock_story")
-	if _concubine.level < mission.required_cariye_level:
-		return tr("cm_popup.lock_cariye_level") % [mission.required_cariye_level, _concubine.level]
-	if mission.required_army_size > 0 and available_soldiers < mission.required_army_size:
-		return tr("cm_popup.lock_insufficient_soldiers") % [available_soldiers, mission.required_army_size]
-	if _concubine.health < 30:
-		return tr("cm_popup.lock_health_low")
-	if _concubine.moral < 20:
-		return tr("cm_popup.lock_morale_low")
-	return tr("cm_popup.not_eligible")
 
 
-func _mission_name(mission) -> String:
-	if mission is Mission:
-		return mission.name
-	if mission is Dictionary:
-		return String(mission.get("name", tr("cm_popup.mission_fallback")))
-	return tr("cm_popup.mission_fallback")
 
 
-func _mission_id(mission) -> String:
-	if mission is Mission:
-		return mission.id
-	if mission is Dictionary:
-		return String(mission.get("id", ""))
-	return ""
 
 
-func _mission_required_army(mission) -> int:
-	if mission is Mission:
-		return mission.required_army_size
-	if mission is Dictionary:
-		return int(mission.get("required_army_size", 0))
-	return 0
 
 
-func _mission_detail_line(mission, available_soldiers: int) -> String:
-	var parts: PackedStringArray = []
-	if mission is Mission:
-		var dur: float = mission.duration
-		if dur > 0:
-			parts.append(_format_duration(dur))
-		var diff: String = _difficulty_label(mission.difficulty)
-		if not diff.is_empty():
-			parts.append(diff)
-		if mission.required_cariye_level > 1:
-			parts.append("Lv.%d+" % mission.required_cariye_level)
-		if mission.required_army_size > 0:
-			parts.append(tr("cm_popup.min_soldiers") % [mission.required_army_size, available_soldiers])
-	elif mission is Dictionary:
-		var army := int(mission.get("required_army_size", 0))
-		if army > 0:
-			parts.append(tr("cm_popup.min_soldiers") % [army, available_soldiers])
-	return "  •  ".join(parts)
 
 
-func _format_duration(minutes: float) -> String:
-	if minutes <= 0:
-		return ""
-	var total := int(minutes)
-	var d := total / 1440
-	var h := (total % 1440) / 60
-	var m := total % 60
-	if d > 0:
-		return tr("cm_popup.duration_days_hours") % [d, h] if h > 0 else tr("cm_popup.duration_days") % d
-	if h > 0 and m > 0:
-		return tr("cm_popup.duration_hours_minutes") % [h, m]
-	elif h > 0:
-		return tr("cm_popup.duration_hours") % h
-	return tr("cm_popup.duration_minutes") % m
 
 
-func _difficulty_label(difficulty: int) -> String:
-	match difficulty:
-		Mission.Difficulty.KOLAY:     return tr("cm_popup.difficulty_easy")
-		Mission.Difficulty.ORTA:      return tr("cm_popup.difficulty_medium")
-		Mission.Difficulty.ZOR:       return tr("cm_popup.difficulty_hard")
-		Mission.Difficulty.EFSANEVİ: return tr("cm_popup.difficulty_legendary")
-	return ""
 
 
-func _mission_type_label(mission) -> String:
-	if not (mission is Mission):
-		return tr("cm_popup.type_mission")
-	match mission.mission_type:
-		Mission.MissionType.SAVAŞ:       return tr("cm_popup.type_war")
-		Mission.MissionType.KEŞİF:       return tr("cm_popup.type_discovery")
-		Mission.MissionType.DİPLOMASİ:   return tr("cm_popup.type_diplomacy")
-		Mission.MissionType.TİCARET:     return tr("cm_popup.type_trade")
-		Mission.MissionType.İSTİHBARAT:  return tr("cm_popup.type_intel")
-		Mission.MissionType.BÜROKRASİ:   return tr("cm_popup.type_bureaucracy")
-	return tr("cm_popup.type_mission")
 
 
-func _mission_type_color(mission) -> Color:
-	if not (mission is Mission):
-		return Color(1, 1, 1, 0.7)
-	match mission.mission_type:
-		Mission.MissionType.SAVAŞ:       return Color(0.95, 0.4, 0.35)
-		Mission.MissionType.KEŞİF:       return Color(0.45, 0.82, 0.48)
-		Mission.MissionType.DİPLOMASİ:   return Color(0.45, 0.65, 0.95)
-		Mission.MissionType.TİCARET:     return Color(0.95, 0.82, 0.3)
-		Mission.MissionType.İSTİHBARAT:  return Color(0.75, 0.48, 0.9)
-		Mission.MissionType.BÜROKRASİ:   return Color(0.78, 0.78, 0.78)
-	return Color(1, 1, 1, 0.7)
 
 
 func _role_name(role: int) -> String:
@@ -1013,7 +802,6 @@ func _role_name(role: int) -> String:
 		Concubine.Role.AJAN:      return tr("cm_popup.role_agent")
 		Concubine.Role.DİPLOMAT: return tr("cm_popup.role_diplomat")
 		Concubine.Role.TÜCCAR:   return tr("cm_popup.role_trader")
-		Concubine.Role.ALIM:     return tr("cm_popup.role_scholar")
 		Concubine.Role.TIBBIYECI: return tr("cm_popup.role_physician")
 	return tr("cm_popup.role_unspecified")
 
@@ -1021,34 +809,93 @@ func _role_name(role: int) -> String:
 # ─── Roller sekmesi ─────────────────────────────────────────────────────────────
 # Roller ağır bir karar: her buton kilitli başlar, fokuslanınca maliyet + fayda bilgisi
 # gösterir. Seçilince bedel ödenir ve Görevler sekmesi SADECE o rolü kazandıracak göreve
-# daralır (bkz. _refresh_missions) — rol ancak bu görev başarıyla bitince gerçekten atanır.
+# (Eğitim görevi kalktı: rol anında verilir, yalnız altın ödenir.)
 
 func _refresh_roles_tab() -> void:
 	if not is_instance_valid(_role_button_row):
 		return
 	for child in _role_button_row.get_children():
 		child.queue_free()
+	if is_instance_valid(_point_button_row):
+		for child in _point_button_row.get_children():
+			child.queue_free()
 	_roles_nav_buttons.clear()
 	if _concubine == null:
 		return
-	var mm := get_node_or_null("/root/MissionManager")
-	var track_mission: Mission = mm.get_role_track_mission(_concubine.id) if mm and mm.has_method("get_role_track_mission") else null
-	var pending_role: int = int(track_mission.grants_concubine_role) if track_mission != null else -1
-
 	for role in _ROLE_BUTTONS_ORDER:
-		var btn := _make_role_button(role, pending_role)
+		var btn := _make_role_button(role)
 		_role_button_row.add_child(btn)
 		_roles_nav_buttons.append(btn)
 
+	# Rol altındaki gelişim puanı düğmeleri: "+ ●●○○○" (boş puan varsa ve tavan dolmadıysa basılır).
+	if is_instance_valid(_point_button_row):
+		for role in _ROLE_BUTTONS_ORDER:
+			var pbtn := _make_point_button(role)
+			_point_button_row.add_child(pbtn)
+			_roles_nav_buttons.append(pbtn)
+
 	_drop_role_btn.visible = int(_concubine.role) != Concubine.Role.NONE
 	if _drop_role_btn.visible:
-		_drop_role_btn.disabled = pending_role >= 0 or _concubine.status != Concubine.Status.BOŞTA
+		_drop_role_btn.disabled = _concubine.status != Concubine.Status.BOŞTA
 		_roles_nav_buttons.append(_drop_role_btn)
+	_dismiss_armed = false
+	_dismiss_btn.text = tr("cm_popup.dismiss")
+	_dismiss_btn.disabled = _concubine.status != Concubine.Status.BOŞTA
+	_roles_nav_buttons.append(_dismiss_btn)
 
 	_update_role_info_panel(_ROLE_BUTTONS_ORDER[0])
 
 
-func _make_role_button(role: int, pending_role: int) -> Button:
+## "+" düğmesi: o role 1 boş puan verir (geri alınamaz, rol başına en çok 5). Noktalar rol
+## düğmesinin altında görünür.
+func _make_point_button(role: int) -> Button:
+	var btn := Button.new()
+	btn.custom_minimum_size = Vector2(100, 40)
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.focus_mode = Control.FOCUS_ALL
+	btn.set_meta("role", role)
+	_style_focus(btn)
+	var can: bool = _concubine.can_spend_point(role)
+	btn.text = "+"
+	btn.add_theme_font_size_override("font_size", 24)
+	btn.disabled = not can
+	var sb := StyleBoxFlat.new()
+	sb.set_corner_radius_all(6)
+	sb.set_border_width_all(2)
+	if can:
+		sb.bg_color = Color(0.16, 0.3, 0.14, 0.9)
+		sb.border_color = Color(0.55, 0.9, 0.45)
+	else:
+		sb.bg_color = Color(0.1, 0.09, 0.08, 0.5)
+		sb.border_color = Color(0.3, 0.28, 0.25, 0.6)
+	btn.add_theme_stylebox_override("normal", sb)
+	btn.add_theme_stylebox_override("disabled", sb)
+	btn.pressed.connect(_on_point_button_pressed.bind(role))
+	return btn
+
+
+## Rol düğmesinin altındaki puan noktaları: ●●○○○
+func _points_dots(role: int) -> String:
+	var pts: int = _concubine.get_role_points(role)
+	var dots: String = ""
+	for i in range(Concubine.ROLE_POINT_CAP):
+		dots += "●" if i < pts else "○"
+	return dots
+
+
+func _on_point_button_pressed(role: int) -> void:
+	if _concubine == null:
+		return
+	if not _concubine.spend_point(role):
+		return
+	_info_label.text = tr("cm_popup.point_given") % _role_name(role)
+	_info_label.modulate = Color(0.6, 0.95, 0.55, 1)
+	_refresh_concubine_info()
+	_refresh_roles_tab()
+	call_deferred("_focus_first_nav_button")
+
+
+func _make_role_button(role: int) -> Button:
 	var btn := Button.new()
 	btn.custom_minimum_size = Vector2(100, 56)
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1069,22 +916,18 @@ func _make_role_button(role: int, pending_role: int) -> Button:
 	sb.border_width_bottom = 2
 
 	var is_current: bool = int(_concubine.role) == role
-	var is_pending: bool = pending_role == role
+	var dots: String = _points_dots(role)
+	btn.custom_minimum_size = Vector2(100, 66)
 	if is_current:
-		btn.text = "✓ %s" % _role_name(role)
+		btn.text = "✓ %s\n%s" % [_role_name(role), dots]
 		sb.bg_color = Color(0.18, 0.32, 0.18, 0.85)
 		sb.border_color = Color(0.5, 0.9, 0.45)
 		btn.disabled = true
-	elif is_pending:
-		btn.text = "🎓 %s" % _role_name(role)
-		sb.bg_color = Color(0.32, 0.26, 0.1, 0.85)
-		sb.border_color = Color(0.95, 0.8, 0.35)
-		btn.disabled = true
 	else:
-		btn.text = "🔒 %s" % _role_name(role)
+		btn.text = "%s\n%s" % [_role_name(role), dots]
 		sb.bg_color = Color(0.12, 0.1, 0.08, 0.6)
 		sb.border_color = Color(0.4, 0.36, 0.3, 0.7)
-		btn.disabled = pending_role >= 0 or _concubine.status != Concubine.Status.BOŞTA
+		btn.disabled = _concubine.status != Concubine.Status.BOŞTA
 	btn.add_theme_stylebox_override("normal", sb)
 	btn.add_theme_stylebox_override("disabled", sb)
 	btn.pressed.connect(_on_role_button_pressed.bind(role))
@@ -1105,9 +948,9 @@ func _on_role_button_pressed(role: int) -> void:
 	_info_label.modulate = Color(0.6, 0.95, 0.55, 1) if ok else Color(1, 0.55, 0.5, 1)
 	if not ok:
 		return
+	# Rol anında değişti: aynı sekmede kal, bilgi ve düğmeleri tazele.
+	_refresh_concubine_info()
 	_refresh_roles_tab()
-	# Rol için ödendi — Görevler sekmesine geç, orada artık sadece bu rolün görevi var.
-	_switch_tab(Tab.MISSIONS)
 
 
 func _on_drop_role_pressed() -> void:
@@ -1132,41 +975,66 @@ func _update_role_info_panel(role: int) -> void:
 	var lines: PackedStringArray = []
 	lines.append(_role_name(role))
 	lines.append("")
-	lines.append(_role_benefit_text(role))
+	# Aktif yetenekler: cariye görevde yaparsa; pasif yetenekler: rol köyde olduğu sürece geçerli.
+	var ab: Dictionary = _role_abilities(role, mm)
+	lines.append("▸ " + tr("cm_popup.abilities_active"))
+	lines.append(String(ab.get("active", "")))
+	lines.append("")
+	lines.append("▸ " + tr("cm_popup.abilities_passive"))
+	lines.append(String(ab.get("passive", "")))
+	if not bool(ab.get("held", true)):
+		lines.append(tr("cm_popup.role_missing_line"))
+	lines.append("")
+	lines.append(tr("cm_popup.role_points_line") % [_concubine.get_role_points(role), Concubine.ROLE_POINT_CAP])
+	lines.append(tr("cm_popup.points_free_line") % _concubine.unspent_points)
 	lines.append("")
 	if int(_concubine.role) == role:
 		lines.append(tr("cm_popup.current_role_note"))
 	else:
-		var track_mission: Mission = mm.get_role_track_mission(_concubine.id) if mm and mm.has_method("get_role_track_mission") else null
-		if track_mission != null and int(track_mission.grants_concubine_role) == role:
-			lines.append(tr("cm_popup.training_ready"))
-		elif track_mission != null:
-			lines.append(tr("cm_popup.other_role_in_progress"))
-		else:
-			var cost: Dictionary = vm.get_role_training_cost(role) if vm and vm.has_method("get_role_training_cost") else {}
-			if cost.is_empty():
-				lines.append(tr("cm_popup.no_training_defined"))
-			else:
-				lines.append(tr("cm_popup.cost_line") % _format_role_cost_display(cost))
-				lines.append(tr("cm_popup.training_after_payment"))
+		var cost: Dictionary = vm.get_role_training_cost(role) if vm and vm.has_method("get_role_training_cost") else {}
+		if not cost.is_empty():
+			lines.append(tr("cm_popup.cost_line") % _format_role_cost_display(cost))
 	_role_info_label.text = "\n".join(lines)
 
 
-func _role_benefit_text(role: int) -> String:
+## Rolün aktif (görev) ve pasif (köyde bulunduğu sürece) yetenekleri, güncel sayılarla.
+## {"active": String, "passive": String, "held": bool (köyde bu rolde cariye var mı)}
+func _role_abilities(role: int, mm: Node) -> Dictionary:
+	var held: bool = false
+	var strength: int = 0
+	var best_points: int = 0
+	if mm != null and mm.has_method("has_role"):
+		held = bool(mm.call("has_role", role))
+		strength = int(mm.call("get_role_strength", role))
+		for c in mm.get_concubines_by_role(role):
+			best_points = maxi(best_points, int(c.get_role_points(role)))
+	var out := {"active": "", "passive": "", "held": held}
 	match role:
 		Concubine.Role.KOMUTAN:
-			return tr("cm_popup.benefit_commander")
+			out["active"] = tr("cm_popup.ab.komutan.active")
+			var norm: float = float(20 + 16 * best_points) / 100.0
+			var atk: int = int(round((0.10 + 0.30 * norm) * 100.0))
+			var def: int = int(round((0.08 + 0.22 * norm) * 100.0))
+			var cap: int = int(mm.call("get_leadership_cap")) if mm != null and mm.has_method("get_leadership_cap") else 3
+			out["passive"] = tr("cm_popup.ab.komutan.passive") % [atk, def, cap]
 		Concubine.Role.AJAN:
-			return tr("cm_popup.benefit_agent")
+			out["active"] = tr("cm_popup.ab.ajan.active")
+			var n: int = int(mm.call("get_intel_visible_count")) if mm != null and mm.has_method("get_intel_visible_count") else 1
+			out["passive"] = tr("cm_popup.ab.ajan.passive") % n
 		Concubine.Role.DİPLOMAT:
-			return tr("cm_popup.benefit_diplomat")
+			out["active"] = tr("cm_popup.ab.diplomat.active")
+			out["passive"] = tr("cm_popup.ab.diplomat.passive3") % (10 * strength)
 		Concubine.Role.TÜCCAR:
-			return tr("cm_popup.benefit_trader")
-		Concubine.Role.ALIM:
-			return tr("cm_popup.benefit_scholar")
+			out["active"] = tr("cm_popup.ab.tuccar.active")
+			out["passive"] = tr("cm_popup.ab.tuccar.passive") % (10 * strength)
 		Concubine.Role.TIBBIYECI:
-			return tr("cm_popup.benefit_physician")
-	return ""
+			out["active"] = tr("cm_popup.ab.tibbiyeci.active")
+			var cas: float = float(mm.call("get_casualty_multiplier")) if mm != null and mm.has_method("get_casualty_multiplier") else 1.0
+			var heal: float = float(mm.call("get_healing_time_multiplier")) if mm != null and mm.has_method("get_healing_time_multiplier") else 1.0
+			out["passive"] = tr("cm_popup.ab.tibbiyeci.passive") % [int(round((cas - 1.0) * 100.0)), int(round((heal - 1.0) * 100.0))]
+	return out
+
+
 
 
 func _format_role_cost_display(cost: Dictionary) -> String:
@@ -1184,22 +1052,6 @@ func _format_role_cost_display(cost: Dictionary) -> String:
 
 # ─── Assign ───────────────────────────────────────────────────────────────────
 
-func _on_assign_pressed(mission) -> void:
-	if _concubine == null:
-		return
-	var mid := _mission_id(mission)
-	if mid.is_empty():
-		return
-	var mm := get_node_or_null("/root/MissionManager")
-	if mm == null or not mm.has_method("assign_mission_to_concubine"):
-		_info_label.text = tr("cm_popup.assign_failed")
-		return
-	var soldiers := _soldier_counts.get(mid, 0) as int
-	if mm.assign_mission_to_concubine(_concubine.id, mid, soldiers):
-		mission_assigned.emit(_concubine.id, mid)
-		hide_popup()
-	else:
-		_info_label.text = tr("cm_popup.mission_assign_failed")
 
 
 # ─── Styling ──────────────────────────────────────────────────────────────────
@@ -1226,7 +1078,8 @@ func _all_nav_buttons() -> Array[Button]:
 	combined.append_array(_tab_nav_buttons)
 	if _active_tab == Tab.MISSIONS:
 		combined.append_array(_special_action_nav_buttons)
-		combined.append_array(_mission_nav_buttons)
+	elif _active_tab == Tab.OVERVIEW:
+		combined.append_array(_overview_nav_buttons)
 	else:
 		combined.append_array(_roles_nav_buttons)
 	return combined
@@ -1236,10 +1089,18 @@ func _focus_first_nav_button() -> void:
 	# Görevler sekmesinde görev varsa doğrudan ilk göreve odaklan (en sık kullanılan aksiyon);
 	# Roller sekmesinde ilk rol butonuna odaklan. Yukarı basınca sekme butonlarına dönülür.
 	var start_idx: int = 0
-	if _active_tab == Tab.MISSIONS and not _mission_nav_buttons.is_empty():
-		start_idx = _tab_nav_buttons.size() + _special_action_nav_buttons.size()
+	if _active_tab == Tab.MISSIONS and not _special_action_nav_buttons.is_empty():
+		# İlk özel aksiyon "Göreve Yolla": en sık kullanılan, doğrudan ona odaklan.
+		start_idx = _tab_nav_buttons.size()
 	elif _active_tab == Tab.ROLES and not _roles_nav_buttons.is_empty():
 		start_idx = _tab_nav_buttons.size()
+	elif _active_tab == Tab.OVERVIEW and not _overview_nav_buttons.is_empty():
+		# Şu an seçili cariyenin satırına odaklan.
+		start_idx = _tab_nav_buttons.size()
+		for i in range(_overview_nav_buttons.size()):
+			if _concubine != null and int(_overview_nav_buttons[i].get_meta("cid", -1)) == _concubine.id:
+				start_idx = _tab_nav_buttons.size() + i
+				break
 	_focus_nearest_nav_button(start_idx)
 
 
@@ -1256,8 +1117,6 @@ func _focus_nearest_nav_button(preferred_index: int) -> bool:
 		_focused_nav_row = idx
 		get_viewport().gui_release_focus()
 		btn.grab_focus()
-		if is_instance_valid(_mission_scroll) and _mission_nav_buttons.find(btn) >= 0:
-			_mission_scroll.ensure_control_visible(btn)
 		return true
 	return false
 
@@ -1275,26 +1134,25 @@ func _move_nav_focus(direction: int) -> void:
 		_focused_nav_row = idx
 		get_viewport().gui_release_focus()
 		btn.grab_focus()
-		if is_instance_valid(_mission_scroll) and _mission_nav_buttons.find(btn) >= 0:
-			_mission_scroll.ensure_control_visible(btn)
 		return
 
 
 func _on_gui_focus_changed(control: Control) -> void:
 	if not visible or not _is_open:
 		return
+	# "Köyden yolla" onayı başka düğmeye geçilince sıfırlanır (yanlışlıkla ikinci basış olmasın).
+	if _dismiss_armed and control != _dismiss_btn:
+		_dismiss_armed = false
+		if is_instance_valid(_dismiss_btn):
+			_dismiss_btn.text = tr("cm_popup.dismiss")
 	if control != null and control is Button:
 		var all := _all_nav_buttons()
 		var idx := all.find(control)
 		if idx >= 0:
 			_focused_nav_row = idx
-			_focused_soldier_mid = String(control.get_meta("mission_id")) if control.has_meta("mission_id") else ""
-			_refresh_soldier_stepper_visibility()
 			if control.has_meta("role"):
 				_update_role_info_panel(int(control.get_meta("role")))
 			return
-	_focused_soldier_mid = ""
-	_refresh_soldier_stepper_visibility()
 	call_deferred("_reclaim_nav_focus")
 
 
@@ -1313,9 +1171,9 @@ func _update_nav_hint() -> void:
 	var im := get_node_or_null("/root/InputManager")
 	var is_pad := im != null and bool(im.get("last_input_from_joypad"))
 	if is_pad:
-		_nav_hint_label.text = tr("cm_popup.nav_hint_gamepad")
+		_nav_hint_label.text = tr("cm_popup.nav_hint_gamepad2")
 	else:
-		_nav_hint_label.text = tr("cm_popup.nav_hint_keyboard")
+		_nav_hint_label.text = tr("cm_popup.nav_hint_keyboard2")
 
 
 func _find_first_button(node: Node) -> Button:
@@ -1339,6 +1197,87 @@ func _on_dim_gui_input(event: InputEvent) -> void:
 		hide_popup()
 
 
+## Roller sekmesinin satırları: rol düğmeleri, "+" düğmeleri, alt düğmeler (rolü bırak / köyden yolla).
+func _roles_grid_rows() -> Array:
+	var role_row: Array = []
+	for c in _role_button_row.get_children():
+		if c is Button:
+			role_row.append(c)
+	var point_row: Array = []
+	for c in _point_button_row.get_children():
+		if c is Button:
+			point_row.append(c)
+	var bottom: Array = []
+	if _drop_role_btn.visible:
+		bottom.append(_drop_role_btn)
+	bottom.append(_dismiss_btn)
+	return [role_row, point_row, bottom]
+
+
+func _roles_grid_focus(btn: Button) -> void:
+	_focused_nav_row = _all_nav_buttons().find(btn)
+	get_viewport().gui_release_focus()
+	btn.grab_focus()
+
+
+## Izgarada bir adım: dx sütun, dy satır. Devre dışı düğmeler atlanır.
+func _roles_grid_move(dx: int, dy: int) -> void:
+	var rows: Array = _roles_grid_rows()
+	var owner := get_viewport().gui_get_focus_owner()
+	var ri: int = -1
+	var ci: int = -1
+	for r in range(rows.size()):
+		var idx: int = (rows[r] as Array).find(owner)
+		if idx >= 0:
+			ri = r
+			ci = idx
+			break
+	if ri < 0:
+		_focus_first_nav_button()
+		return
+	if dx != 0:
+		var row: Array = rows[ri]
+		for step in range(1, row.size()):
+			var cand: Button = row[wrapi(ci + dx * step, 0, row.size())]
+			if is_instance_valid(cand) and not cand.disabled:
+				_roles_grid_focus(cand)
+				return
+		return
+	# Satır değiştir: hedef satırda aynı sütuna en yakın etkin düğme.
+	for step in range(1, rows.size()):
+		var nr: int = wrapi(ri + dy * step, 0, rows.size())
+		var target_row: Array = rows[nr]
+		var best: Button = null
+		var best_dist: int = 9999
+		for j in range(target_row.size()):
+			var b: Button = target_row[j]
+			if not is_instance_valid(b) or b.disabled:
+				continue
+			var d: int = absi(j - mini(ci, target_row.size() - 1))
+			if d < best_dist:
+				best_dist = d
+				best = b
+		if best != null:
+			_roles_grid_focus(best)
+			return
+
+
+## "Köyden yolla": iki basışla onay. Cariye köyden ayrılır (geri alınamaz).
+func _on_dismiss_pressed() -> void:
+	if _concubine == null:
+		return
+	if not _dismiss_armed:
+		_dismiss_armed = true
+		_dismiss_btn.text = tr("cm_popup.dismiss_confirm")
+		return
+	var vm := get_node_or_null("/root/VillageManager")
+	var cid: int = _concubine.id
+	var nm: String = _concubine.name
+	hide_popup()
+	if vm != null and vm.has_method("dismiss_cariye"):
+		vm.call("dismiss_cariye", cid)
+
+
 func _input(event: InputEvent) -> void:
 	if not visible or not _is_open:
 		return
@@ -1349,6 +1288,22 @@ func _input(event: InputEvent) -> void:
 		return
 	var nav_blocked := Time.get_ticks_msec() < _suppress_nav_until_msec
 	if not nav_blocked:
+		# Roller sekmesi iki boyutlu: sol/sağ satır içinde, yukarı/aşağı satırlar arasında gezer.
+		if _active_tab == Tab.ROLES:
+			var gx: int = 0
+			var gy: int = 0
+			if event.is_action_pressed("ui_left"):
+				gx = -1
+			elif event.is_action_pressed("ui_right"):
+				gx = 1
+			elif event.is_action_pressed("ui_up"):
+				gy = -1
+			elif event.is_action_pressed("ui_down"):
+				gy = 1
+			if gx != 0 or gy != 0:
+				get_viewport().set_input_as_handled()
+				_roles_grid_move(gx, gy)
+				return
 		if event.is_action_pressed("ui_down"):
 			get_viewport().set_input_as_handled()
 			_move_nav_focus(1)
@@ -1370,18 +1325,6 @@ func _input(event: InputEvent) -> void:
 			if owner is Button and _all_nav_buttons().find(owner) >= 0:
 				get_viewport().set_input_as_handled()
 				(owner as Button).pressed.emit()
-				return
-		if event.is_action_pressed("ui_left") or event.is_action_pressed("ui_right"):
-			var owner := get_viewport().gui_get_focus_owner()
-			if owner is Button and _mission_nav_buttons.find(owner) >= 0 and owner.has_meta("req_army"):
-				get_viewport().set_input_as_handled()
-				var delta := -1 if event.is_action_pressed("ui_left") else 1
-				_adjust_soldiers(
-					String(owner.get_meta("mission_id")),
-					delta,
-					int(owner.get_meta("req_army")),
-					int(owner.get_meta("available_soldiers"))
-				)
 				return
 	elif event.is_action_pressed("ui_up") or event.is_action_pressed("ui_down"):
 		get_viewport().set_input_as_handled()

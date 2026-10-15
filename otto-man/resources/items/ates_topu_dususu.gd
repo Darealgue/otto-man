@@ -13,7 +13,6 @@ func _init():
 	item_name = tr("item.ates_topu_dususu.name")
 	description = tr("item.ates_topu_dususu.description")
 	flavor_text = "Ateşli düşüş"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.FALL_ATTACK
 	tags = ["elemental_fire"]
 	affected_stats = ["fall_fire"]
@@ -24,7 +23,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("fall_attack_impacted"):
 		if not player.is_connected("fall_attack_impacted", _on_fall_attack_impacted):
 			player.connect("fall_attack_impacted", _on_fall_attack_impacted)
-		print("[Ateş Topu Düşüşü] ✅ Fall attack alev patlaması (1 stamina hücresi)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -32,7 +30,6 @@ func deactivate(player: CharacterBody2D):
 		if _player.has_signal("fall_attack_impacted") and _player.is_connected("fall_attack_impacted", _on_fall_attack_impacted):
 			_player.disconnect("fall_attack_impacted", _on_fall_attack_impacted)
 	_player = null
-	print("[Ateş Topu Düşüşü] ❌ Kaldırıldı")
 
 func _on_fall_attack_impacted(position: Vector2) -> void:
 	apply_fall_attack_effect_at(position, false)

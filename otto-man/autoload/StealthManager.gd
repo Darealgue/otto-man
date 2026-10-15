@@ -65,7 +65,6 @@ func raise_alarm(reason: String = "", source_enemy_id: String = "") -> void:
 	alarm_source_enemy_id = source_enemy_id
 	_perception_fade_remaining = PERCEPTION_FADE_DURATION
 	alarm_raised.emit(reason)
-	print("[StealthManager] ALARM — reason=%s source=%s" % [reason, source_enemy_id])
 	call_deferred("_apply_alarm_world_effects")
 
 
@@ -111,10 +110,8 @@ func on_segment_completed() -> void:
 		stealth_rescue_bonus_next = true
 		add_stealth_score(STEALTH_SCORE_SEGMENT_CLEAR)
 		_apply_segment_stealth_gold_bonus()
-		print("[StealthManager] Segment gizli tamamlandı — sonraki segment rescue bonusu aktif (score=%d)" % stealth_score)
 	else:
 		stealth_rescue_bonus_next = false
-		print("[StealthManager] Segment alarm ile tamamlandı — rescue bonusu yok")
 
 
 func can_stealth_exit() -> bool:
@@ -144,10 +141,6 @@ func _apply_segment_stealth_gold_bonus() -> void:
 		return
 	var prev: float = float(drs.get("gold_multiplier_accumulated"))
 	drs.set("gold_multiplier_accumulated", prev + STEALTH_SEGMENT_GOLD_BONUS)
-	print("[StealthManager] Segment stealth altın bonusu +%.2f (toplam çarpan=%.2f)" % [
-		STEALTH_SEGMENT_GOLD_BONUS,
-		float(drs.get("gold_multiplier_accumulated")),
-	])
 
 
 func consume_stealth_rescue_bonus(base_chance: float) -> float:

@@ -64,6 +64,7 @@ func _ready() -> void:
 	process_priority = -1000
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	theme = _MEDIEVAL_THEME
+	UiFontFloor.attach(self)
 	_owner_npc = get_parent() as Node2D
 	_build_ui()
 	send_button.pressed.connect(_on_send_button_pressed)
@@ -508,8 +509,6 @@ func InitializeWindow(Info):
 	# Runs last: it appends a narration row on top of the freshly rebuilt chat log, so it must not
 	# be undone by the rebuild above.
 	_apply_ai_availability()
-	print("INITIALIZED WORKER")
-	print("WindowInfo: ", Info)
 
 
 func _ensure_npc_auxiliary_fields(info: Dictionary) -> void:

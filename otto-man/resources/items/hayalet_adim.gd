@@ -6,7 +6,6 @@ func _init():
 	item_name = tr("item.hayalet_adim.name")
 	description = tr("item.hayalet_adim.description")
 	flavor_text = "Düşman gölgeyle dövüşür"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.DODGE
 	affected_stats = ["dodge_feint"]
 
@@ -14,8 +13,6 @@ func _init():
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Hayalet Adım] ✅ Dodge sırasında eğilme = feint")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Hayalet Adım] ❌ Kaldırıldı")

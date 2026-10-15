@@ -35,14 +35,12 @@ var decoration_manager: DecorationManager
 # Called when the node enters the scene tree
 func _ready() -> void:
 	if DEBUG_BASE_CHUNK:
-		print("[BaseChunk] Initialized:", name)
-		print("  - Size:", get_chunk_size())
-		print("  - Connections:", get_connections())
+		pass
 	
 	# SpawnManager is now handled by tile-based system in level generator
 	# No need to initialize SpawnManager here anymore
 	if DEBUG_BASE_CHUNK:
-		print("[BaseChunk] Using tile-based enemy spawn system")
+		pass
 	
 	# Initialize trap manager
 	trap_manager = get_node_or_null("TrapManager") as TrapManager
@@ -67,8 +65,6 @@ func _ready() -> void:
 		decoration_manager.initialize(chunk_type, level)
 
 func _initialize_chunk() -> void:
-	print("[BaseChunk] Initializing chunk: ", name)
-	print("  - Size: ", size_in_units)
 	
 	# Setup connection points
 	_setup_connection_points()
@@ -145,7 +141,6 @@ func _add_connection_point(points_node: Node, direction: Direction) -> void:
 	var point = points_node.get_node_or_null(point_name)
 	if point:
 		connection_points[direction] = point
-		print("  - Added connection point: ", point_name)
 
 func has_connection(direction: Direction) -> bool:
 	return direction in connections

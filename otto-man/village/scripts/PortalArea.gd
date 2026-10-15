@@ -103,9 +103,8 @@ func _trigger_transition() -> void:
 		var dungeon_level: int = _get_dungeon_level()
 		if dungeon_level > 0:
 			calculated_return_hours = base_return_hours + float(dungeon_level - 1) * hours_per_level_increase
-			print("[PortalArea] 📊 Level-based return time: Level %d -> %.1f hours (base: %.1f + %.1f per level)" % [dungeon_level, calculated_return_hours, base_return_hours, hours_per_level_increase])
 		else:
-			print("[PortalArea] ⚠️ Could not find dungeon level, using fixed return time: %.1f hours" % travel_hours_back)
+			pass
 	
 	if calculated_return_hours > 0.0:
 		payload["travel_hours_back"] = calculated_return_hours
@@ -134,13 +133,8 @@ func _trigger_transition() -> void:
 				drs.sync_warmup_limits()
 			if drs.is_run_complete():
 				var max_seg: int = int(drs.run_max_segments) if "run_max_segments" in drs else int(drs.MAX_SEGMENTS)
-				print("[PortalArea] Run complete (%d/%d segments) -> Village with full rewards" % [
-					drs.run_segments_completed if "run_segments_completed" in drs else drs.run_segment_count,
-					max_seg,
-				])
 				# Köye dön akışına devam et (aşağıdaki bloklar ödül transferini halleder)
 			else:
-				print("[PortalArea] Dungeon level complete -> Camp (mid-run), not village")
 				SceneManager.change_to_camp(payload)
 				_hold_timer = 0.0
 				return
@@ -353,7 +347,7 @@ func _transfer_forest_resources_to_village() -> void:
 		if amount > 0:
 			log_parts.append("%d %s" % [amount, type])
 	if log_parts.size() > 0:
-		print("[PortalArea] 🌲 Forest resources transferred to village: %s" % ", ".join(log_parts))
+		pass
 
 func _apply_roguelike_mechanics(is_dead: bool) -> void:
 	"""
@@ -371,12 +365,10 @@ func _apply_roguelike_mechanics(is_dead: bool) -> void:
 	# Clear powerups (always, both death and success)
 	if powerup_manager and powerup_manager.has_method("clear_all_powerups"):
 		powerup_manager.clear_all_powerups()
-		print("[PortalArea] 🎮 Roguelike: All powerups cleared")
 	
 	# Zindan itemlarının etkilerini temizle (köyde kalmasın; hem ölüm hem çıkış kapısı)
 	if has_node("/root/ItemManager") and ItemManager.has_method("clear_all_items"):
 		ItemManager.clear_all_items()
-		print("[PortalArea] 🎒 Roguelike: All item effects cleared on return to village")
 	
 	# Reset health (always)
 	if player_stats:
@@ -384,7 +376,6 @@ func _apply_roguelike_mechanics(is_dead: bool) -> void:
 		player_stats.current_health = max_health
 		if player_stats.has_signal("health_changed"):
 			player_stats.health_changed.emit(max_health)
-		print("[PortalArea] 💚 Roguelike: Health reset to %.1f" % max_health)
 	
 	# Handle inventory and dungeon gold
 	if is_dead:
@@ -393,7 +384,6 @@ func _apply_roguelike_mechanics(is_dead: bool) -> void:
 			var envanter: Array = global_player_data.get("envanter")
 			lost_items_count = envanter.size()
 			global_player_data.set("envanter", [])
-			print("[PortalArea] 💀 Roguelike: Inventory cleared (%d items lost)" % lost_items_count)
 		
 		# Clear dungeon gold on death
 		if global_player_data and global_player_data.has_method("clear_dungeon_gold"):
@@ -401,23 +391,20 @@ func _apply_roguelike_mechanics(is_dead: bool) -> void:
 			if "dungeon_gold" in global_player_data:
 				lost_gold = global_player_data.dungeon_gold
 			global_player_data.clear_dungeon_gold()
-			print("[PortalArea] 💀 Roguelike: Lost %d gold on death" % lost_gold)
 	else:
 		# Success: Keep inventory, transfer dungeon gold to global
 		if global_player_data and "envanter" in global_player_data:
 			var envanter: Array = global_player_data.get("envanter")
-			print("[PortalArea] ✅ Roguelike: Successfully returned with %d items" % envanter.size())
 		
 		# Transfer dungeon gold to global gold on successful exit
 		if global_player_data and global_player_data.has_method("transfer_dungeon_gold_to_global"):
 			var transferred = global_player_data.transfer_dungeon_gold_to_global()
 			if transferred > 0:
-				print("[PortalArea] 💰 Roguelike: Transferred %d gold to global inventory" % transferred)
+				pass
 	
 	# Reset kill count (for powerup system)
 	if powerup_manager and "enemy_kill_count" in powerup_manager:
 		powerup_manager.set("enemy_kill_count", 0)
-		print("[PortalArea] 🎮 Roguelike: Kill count reset")
 
 func _show_mission_result_dialog(result_type: String, mission_name: String, rewards: Dictionary, penalties: Dictionary, lost_items_count: int = 0) -> void:
 	"""Show mission result dialog."""

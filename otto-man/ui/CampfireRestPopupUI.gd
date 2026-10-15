@@ -25,6 +25,7 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	theme = _MEDIEVAL_THEME
+	UiFontFloor.attach(self)
 	_build_ui()
 	_build_rest_sequence_overlay()
 	visible = false

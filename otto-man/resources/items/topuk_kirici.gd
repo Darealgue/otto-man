@@ -11,13 +11,11 @@ func _init():
 	item_name = tr("item.topuk_kirici.name")
 	description = tr("item.topuk_kirici.description")
 	flavor_text = "Ayağa kalkarken vur"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SLIDE
 	affected_stats = ["post_crouch_slide_bonus"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Topuk Kırıcı] Crouch/slide sonrası ilk vuruş +%50")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)

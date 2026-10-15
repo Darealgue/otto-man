@@ -6,7 +6,6 @@ func _init():
 	item_name = tr("item.son_kale.name")
 	description = tr("item.son_kale.description")
 	flavor_text = "Duvar yıkılınca gürler"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.BLOCK
 	affected_stats = ["guard_break_shockwave"]
 
@@ -15,8 +14,6 @@ func _init():
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Son Kale] ✅ Gard kırılması artık şok dalgası")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Son Kale] ❌ Kaldırıldı")

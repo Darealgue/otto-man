@@ -41,7 +41,6 @@ func _apply_guard_master_effects() -> void:
 		current_player.extend_parry_window(parry_bonus)
 	
 	var synergy_text = " (Shield Master synergy)" if synergy_active else ""
-	print("[Guard Master] Activated - +" + str(block_bonus) + " block charges, +" + str(int(parry_bonus * 100)) + "% parry window" + synergy_text)
 
 func _on_synergy_activated(synergy_id: String) -> void:
 	if synergy_id == "shield_master":
@@ -75,5 +74,4 @@ func deactivate(player: CharacterBody2D) -> void:
 		powerup_manager.disconnect("synergy_activated", _on_synergy_activated)
 	
 	current_player = null
-	print("[Guard Master] Deactivated")
 	super.deactivate(player)

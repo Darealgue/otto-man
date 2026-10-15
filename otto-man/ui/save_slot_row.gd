@@ -136,7 +136,7 @@ static func location_suffix(scene_path: String) -> String:
 		return ""
 	if scene_path.contains("Village"):
 		return ""
-	var name := LocaleManager.get_scene_display_name(scene_path)
-	if name.is_empty():
+	var scene_name := LocaleManager.get_scene_display_name(scene_path)
+	if scene_name.is_empty():
 		return ""
-	return " · " + name
+	return " · " + scene_name

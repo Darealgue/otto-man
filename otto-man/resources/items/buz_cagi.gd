@@ -14,7 +14,6 @@ func _init():
 	item_name = tr("item.buz_cagi.name")
 	description = tr("item.buz_cagi.description")
 	flavor_text = "Buzlu düşüş"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.FALL_ATTACK
 	tags = ["elemental_ice"]
 	affected_stats = ["fall_frost"]
@@ -25,7 +24,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("fall_attack_impacted"):
 		if not player.is_connected("fall_attack_impacted", _on_fall_attack_impacted):
 			player.connect("fall_attack_impacted", _on_fall_attack_impacted)
-	print("[Buz Çağı] ✅ Fall attack donma dalgası (1 stamina hücresi)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -33,7 +31,6 @@ func deactivate(player: CharacterBody2D):
 		if _player.is_connected("fall_attack_impacted", _on_fall_attack_impacted):
 			_player.disconnect("fall_attack_impacted", _on_fall_attack_impacted)
 	_player = null
-	print("[Buz Çağı] ❌ Kaldırıldı")
 
 func _on_fall_attack_impacted(position: Vector2) -> void:
 	apply_fall_attack_effect_at(position, false)

@@ -295,12 +295,9 @@ func _apply_player_knockback(player: Node, force_multiplier: float = 1.0):
 		var state_machine = player.get_node_or_null("StateMachine")
 		if state_machine and state_machine.has_method("transition_to"):
 			state_machine.transition_to("Hurt")
-			print("[Cannonball] Forced player into Hurt state for knockback")
 	
-	print("[Cannonball] Applied knockback to player: force=" + str(knockback_data.force) + ", up_force=" + str(knockback_data.up_force))
 
 func _create_fallback_sprite():
-	print("[Cannonball] Creating fallback sprite")
 	# Remove any existing sprite
 	if sprite:
 		sprite.queue_free()
@@ -326,7 +323,6 @@ func _create_fallback_sprite():
 	fallback_sprite.texture = texture
 	
 	add_child(fallback_sprite)
-	print("[Cannonball] Fallback sprite created and added")
 
 func _show_explosion_range():
 	# Create explosion range visual

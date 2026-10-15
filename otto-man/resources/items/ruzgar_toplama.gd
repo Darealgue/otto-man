@@ -12,14 +12,11 @@ func _init():
 	item_name = tr("item.ruzgar_toplama.name")
 	description = tr("item.ruzgar_toplama.description")
 	flavor_text = "Durmadan hareket eden asla yorulmaz"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SPECIAL
 	affected_stats = ["parkour_momentum"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Rüzgâr Toplama] ✅ Parkur eylemleri stamina iade ediyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Rüzgâr Toplama] ❌ Kaldırıldı")

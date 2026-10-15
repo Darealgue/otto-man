@@ -4,13 +4,6 @@
 extends Node
 class_name ItemEffect
 
-enum ItemRarity {
-	COMMON,
-	UNCOMMON,
-	RARE,
-	LEGENDARY
-}
-
 enum ItemCategory {
 	STAMINA,
 	BLOCK,
@@ -31,7 +24,6 @@ var item_id: String = ""
 var item_name: String = "Unnamed Item"
 var description: String = "This item needs a description"
 var flavor_text: String = ""
-var rarity: ItemRarity = ItemRarity.COMMON
 var category: ItemCategory = ItemCategory.SPECIAL
 var affected_stats: Array[String] = []
 

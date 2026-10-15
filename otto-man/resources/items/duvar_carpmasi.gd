@@ -27,7 +27,6 @@ func _init():
 	item_name = tr("item.duvar_carpmasi.name")
 	description = tr("item.duvar_carpmasi.description")
 	flavor_text = "Duvar da barut gibi patlar"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.HEAVY_ATTACK
 	affected_stats = ["wall_slam_blast"]
 

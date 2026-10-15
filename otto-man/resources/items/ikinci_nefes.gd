@@ -10,7 +10,6 @@ func _init():
 	item_name = tr("item.ikinci_nefes.name")
 	description = tr("item.ikinci_nefes.description")
 	flavor_text = "İkinci şans"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["revive_once"]
 
@@ -19,5 +18,4 @@ func try_revive_player() -> bool:
 	if _used:
 		return false
 	_used = true
-	print("[İkinci Nefes] 💚 Dirildin! (1 can)")
 	return true

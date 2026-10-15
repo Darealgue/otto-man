@@ -17,7 +17,6 @@ func _init():
 	item_name = tr("item.agirliksiz.name")
 	description = tr("item.agirliksiz.description")
 	flavor_text = "Havada zaman yavaşlar"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.HEAVY_ATTACK
 	affected_stats = ["air_combo_float"]
 
@@ -28,7 +27,6 @@ func activate(player: CharacterBody2D):
 	_original_float_duration = player.air_combo_float_duration
 	player.air_combo_gravity_scale = _original_gravity_scale * GRAVITY_SCALE_MULT
 	player.air_combo_float_duration = _original_float_duration * FLOAT_DURATION_MULT
-	print("[Ağırlıksız] ✅ Juggle penceresi uzadı")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -36,4 +34,3 @@ func deactivate(player: CharacterBody2D):
 		_player.air_combo_gravity_scale = _original_gravity_scale
 		_player.air_combo_float_duration = _original_float_duration
 	_player = null
-	print("[Ağırlıksız] ❌ Kaldırıldı")

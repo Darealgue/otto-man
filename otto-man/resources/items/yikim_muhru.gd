@@ -14,19 +14,16 @@ func _init():
 	item_name = tr("item.yikim_muhru.name")
 	description = tr("item.yikim_muhru.description")
 	flavor_text = "Fazla güç, fazla bedel ister"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.STAMINA
 	affected_stats = ["heavy_overcharge"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Yıkım Mührü] ✅ Ağır saldırı overcharge edilebilir")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Yıkım Mührü] ❌ Kaldırıldı")
 
 func _on_heavy_attack_impact(_attack_name: String) -> void:
 	if not is_instance_valid(_player):

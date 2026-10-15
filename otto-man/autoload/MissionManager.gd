@@ -35,6 +35,8 @@ var next_concubine_id: int = 1
 var mission_rotation_timer: float = 0.0
 var mission_rotation_interval: float = 30.0  # 30 saniyede bir görev rotasyonu
 var _next_daily_dynamic_spawn_day: int = 2
+## false: günlük rastgele görev panosu üretilmez; görev oyuncu tarafından haritadan verilir.
+const LEGACY_DAILY_BOARD_ENABLED: bool = false
 const DAILY_DYNAMIC_SPAWN_CHANCE: float = 0.32
 const DAILY_DYNAMIC_MAX_AVAILABLE: int = 2
 const WORLD_NEWS_BASE_DAILY_CAP: int = 2
@@ -59,7 +61,6 @@ var _world_news_count_day: int = 0
 var _world_news_count_day_id: int = -1
 var _last_world_event_spawn_day: int = -9999
 var settlements: Array[Dictionary] = []  # [{id, name, type, relation, wealth, stability, military, biases:{wood:int,stone:int,food:int}}]
-var trade_routes: Array[Dictionary] = []  # [{from, to, products:[], distance, risk, active, relation}]
 var mission_history: Array[Dictionary] = []  # En son gerçekleşen görev sonuçları (LIFO)
 
 # Kaydetme/Yükleme (SaveManager profil alt klasörü)
@@ -185,7 +186,6 @@ func reset_for_new_game() -> void:
 	world_event_templates.clear()
 	active_rate_modifiers.clear()
 	settlement_trade_modifiers.clear()
-	trade_routes.clear()
 	bandit_activity_active = false
 	bandit_trade_multiplier = 1.0
 	bandit_risk_level = 0
@@ -308,56 +308,39 @@ func create_random_concubine() -> Concubine:
 	else:  # level 3
 		cariye.experience = randi_range(0, 150)
 	
-	# Rastgele statlar oluştur
-	# Her stat için 20-80 arası rastgele değer
-	# Bir ana stat 60-90 arası olacak (uzmanlık alanı)
-	var all_skills = [
-		Concubine.Skill.SAVAŞ,
-		Concubine.Skill.DİPLOMASİ,
-		Concubine.Skill.TİCARET,
-		Concubine.Skill.BÜROKRASİ,
-		Concubine.Skill.KEŞİF
-	]
-	
-	# Önce tüm statları 20-50 arası rastgele değerlerle başlat
-	for skill in all_skills:
-		cariye.skills[skill] = randi_range(20, 50)
-	
-	# Bir rastgele ana stat seç ve 60-90 arası yap (uzmanlık alanı)
-	var main_skill = all_skills[randi() % all_skills.size()]
-	cariye.skills[main_skill] = randi_range(60, 90)
-	
-	# İkinci bir statı da 50-70 arası yap (ikincil yetenek)
-	var remaining_skills = all_skills.duplicate()
-	remaining_skills.erase(main_skill)
-	var secondary_skill = remaining_skills[randi() % remaining_skills.size()]
-	cariye.skills[secondary_skill] = randi_range(50, 70)
+	# Başlangıç seviyesi kadar (seviye - 1) boş gelişim puanı ile gelir.
+	cariye.unspent_points = maxi(0, cariye.level - 1)
 	
 	# Görünüm rastgele oluştur
 	cariye.appearance = AppearanceDB.generate_random_concubine_appearance()
 	
 	return cariye
 
+## Henüz oluşturulmamış bir cariye için kimlik ayırır (kurtarma kararı penceresi özellikleri
+## göstersin diye); cariye kabul edilirse add_concubine_from_rescue bu kimliği kullanır.
+func reserve_concubine_id() -> int:
+	var rid: int = next_concubine_id
+	next_concubine_id += 1
+	return rid
+
+
 ## Zindandan kurtarılan cariyeyi MissionManager'a ekler (köy sahnesinde spawn + save için).
 ## cariye_data: { isim, leverage?, appearance (VillagerAppearance veya dict) }
 ## Döndürür: yeni cariye id (VillageManager.add_cariye_with_id ile senkron için).
 func add_concubine_from_rescue(cariye_data: Dictionary) -> int:
 	var cariye = Concubine.new()
-	cariye.id = next_concubine_id
-	next_concubine_id += 1
+	# Zindanda karar penceresi için ayrılmış kimlik varsa onu kullan (özellikler kimlikten türer).
+	var reserved_id: int = int(cariye_data.get("id", -1))
+	if reserved_id > 0 and not concubines.has(reserved_id):
+		cariye.id = reserved_id
+		next_concubine_id = maxi(next_concubine_id, reserved_id + 1)
+	else:
+		cariye.id = next_concubine_id
+		next_concubine_id += 1
 	cariye.name = cariye_data.get("isim", "İsimsiz")
 	cariye.level = 1
 	cariye.experience = 0
 	cariye.max_experience = 100
-	var all_skills = [
-		Concubine.Skill.SAVAŞ,
-		Concubine.Skill.DİPLOMASİ,
-		Concubine.Skill.TİCARET,
-		Concubine.Skill.BÜROKRASİ,
-		Concubine.Skill.KEŞİF
-	]
-	for skill in all_skills:
-		cariye.skills[skill] = 50
 	if cariye_data.has("appearance"):
 		var app = cariye_data["appearance"]
 		if app is Dictionary and app.size() > 0:
@@ -372,6 +355,9 @@ func add_concubine_from_rescue(cariye_data: Dictionary) -> int:
 	if cariye.name in CONCUBINE_NAMES and not cariye.name in _used_names:
 		_used_names.append(cariye.name)
 	concubines[cariye.id] = cariye
+	var digest_join: Node = get_node_or_null("/root/VillageDigest")
+	if digest_join != null:
+		digest_join.call("report_concubine_joined", cariye.name)
 	return cariye.id
 
 
@@ -440,7 +426,7 @@ func _create_rescue_onboarding_chain(cariye_id: int, cariye_name: String) -> voi
 	post_news(
 		"village",
 		tr("news.rescue_chain.start.title") % display_name,
-		tr("news.rescue_chain.start.body"),
+		tr("news.rescue_chain.start.body2"),
 		Color(1.0, 0.88, 0.95),
 		"info"
 	)
@@ -513,94 +499,26 @@ func is_mission_listing_available(mission: Mission) -> bool:
 func _on_concubine_role_assigned(cariye_id: int, role: Concubine.Role) -> void:
 	if role == Concubine.Role.NONE:
 		return
-	setup_role_mission_chain(cariye_id, role)
+	# Rol imza görevleri kaldırıldı: rol artık anında/100 altına değiştiği için her (cariye, rol)
+	# çifti için 100-200 altınlık zincir üretmek altın çiftliğine yol açıyordu. Yalnız kişisel
+	# hikâye zinciri (küçük ödüllü, kimlik başına bir kez) devam eder.
 	setup_story_chain_for_concubine(cariye_id)
 
 
-func _role_chain_state_key(cariye_id: int, role: Concubine.Role) -> String:
-	return "%d:%d" % [cariye_id, int(role)]
 
 
-func _role_mission_id(cariye_id: int, role: Concubine.Role, step: int) -> String:
-	return "role_%d_%d_%d" % [int(role), cariye_id, step]
 
 
 func _story_mission_id(cariye_id: int, step: int) -> String:
 	return "story_%d_%d" % [cariye_id, step]
 
 
-func _role_chain_id(cariye_id: int) -> String:
-	return "role_chain_%d" % cariye_id
 
 
 func _story_chain_id(cariye_id: int) -> String:
 	return "story_chain_%d" % cariye_id
 
 
-func setup_role_mission_chain(cariye_id: int, role: Concubine.Role) -> void:
-	if role == Concubine.Role.NONE or not concubines.has(cariye_id):
-		return
-	var state_key: String = _role_chain_state_key(cariye_id, role)
-	var first_mid: String = _role_mission_id(cariye_id, role, 1)
-	var is_new: bool = not missions.has(first_mid)
-	if bool(_role_chains_started.get(state_key, false)) and not is_new:
-		return
-	var steps: Array[Dictionary] = RoleMissionCatalog.get_role_mission_steps(role)
-	if steps.is_empty():
-		return
-	var cariye: Concubine = concubines[cariye_id]
-	var display_name: String = cariye.name.strip_edges()
-	if display_name.is_empty():
-		display_name = tr("cariye.unknown")
-	var chain_id: String = _role_chain_id(cariye_id)
-	if not mission_chains.has(chain_id):
-		create_mission_chain(
-			chain_id,
-			tr("mission.role.chain_name") % [display_name, cariye.get_role_name()],
-			Mission.ChainType.SEQUENTIAL,
-			RoleMissionCatalog.get_role_chain_rewards()
-		)
-	var prev_id: String = ""
-	for i in range(steps.size()):
-		var step: Dictionary = steps[i]
-		var mid: String = _role_mission_id(cariye_id, role, i + 1)
-		if missions.has(mid):
-			prev_id = mid
-			continue
-		var prereqs: Array = []
-		if not prev_id.is_empty():
-			prereqs = [prev_id]
-		var m: Mission = _build_personal_chain_mission(
-			mid,
-			tr(String(step.get("name_key", ""))) % display_name,
-			tr(String(step.get("desc_key", ""))) % display_name,
-			int(step.get("type", Mission.MissionType.BÜROKRASİ)),
-			float(step.get("duration", 120.0)),
-			float(step.get("success", 0.8)),
-			cariye_id,
-			int(role),
-			prereqs,
-			step.get("rewards", {}) as Dictionary,
-			chain_id,
-			0,
-			0
-		)
-		missions[mid] = m
-		add_mission_to_chain(mid, chain_id, i)
-		if i + 1 < steps.size():
-			m.unlocks_missions = [_role_mission_id(cariye_id, role, i + 2)]
-		prev_id = mid
-	_role_chains_started[state_key] = true
-	if is_new:
-		post_news(
-			"village",
-			tr("news.role_chain.start.title") % display_name,
-			tr("news.role_chain.start.body") % cariye.get_role_name(),
-			Color(0.85, 0.92, 1.0),
-			"info"
-		)
-		mission_unlocked.emit(first_mid)
-	mission_list_changed.emit()
 
 
 func setup_story_chain_for_concubine(cariye_id: int) -> void:
@@ -668,12 +586,6 @@ func setup_story_chain_for_concubine(cariye_id: int) -> void:
 
 func restore_role_story_chains_after_load() -> void:
 	for cariye_id in concubines.keys():
-		var cariye: Concubine = concubines[cariye_id]
-		if cariye.role != Concubine.Role.NONE:
-			var sk: String = _role_chain_state_key(int(cariye_id), cariye.role)
-			if bool(_role_chains_started.get(sk, false)) or missions.has(_role_mission_id(int(cariye_id), cariye.role, 1)):
-				_role_chains_started[sk] = true
-				setup_role_mission_chain(int(cariye_id), cariye.role)
 		if bool(_story_chains_active.get(cariye_id, false)) or missions.has(_story_mission_id(int(cariye_id), 1)):
 			_story_chains_active[cariye_id] = true
 			setup_story_chain_for_concubine(int(cariye_id))
@@ -724,8 +636,6 @@ func _build_personal_chain_mission(
 
 # Görev ata
 func assign_mission_to_concubine(cariye_id: int, mission_id: String, soldier_count: int = 0) -> bool:
-	print("=== MISSIONMANAGER ATAMA DEBUG ===")
-	print("🔄 Görev atanıyor: Cariye %d -> Görev %s (Asker: %d)" % [cariye_id, mission_id, soldier_count])
 	
 	if not concubines.has(cariye_id):
 		print("❌ Cariye bulunamadı: %d" % cariye_id)
@@ -738,25 +648,19 @@ func assign_mission_to_concubine(cariye_id: int, mission_id: String, soldier_cou
 	var cariye = concubines[cariye_id]
 	var mission = missions[mission_id]
 	
-	print("✅ Cariye bulundu: %s (ID: %d)" % [cariye.name, cariye_id])
-	print("✅ Görev bulundu: %s (ID: %s)" % [mission.name, mission_id])
 	
 	if not (mission is Dictionary):
 		if mission.required_concubine_id >= 0 and cariye_id != mission.required_concubine_id:
-			print("❌ Bu görev yalnızca kurtarılan cariye için: %d" % mission.required_concubine_id)
 			return false
 		if mission.required_concubine_role >= 0 and int(cariye.role) != mission.required_concubine_role:
-			print("❌ Bu görev için gerekli rol atanmamış.")
 			return false
 		if not mission.is_unlocked_for_concubine(cariye):
-			print("❌ Hikâye kilidi: leverage veya seviye yetersiz.")
 			return false
 	
 	# Dictionary görevleri için özel işlem (defense görevleri otomatik değil)
 	if mission is Dictionary:
 		var mission_type = mission.get("type", "")
 		if mission_type == "defense":
-			print("❌ Savunma görevleri otomatik gerçekleşir, cariye atanamaz!")
 			return false
 		
 		# Raid görevleri için asker sayısı ve göreve giden askerlerin worker ID'leri
@@ -773,14 +677,8 @@ func assign_mission_to_concubine(cariye_id: int, mission_id: String, soldier_cou
 	# Cariye görev alabilir mi? (Dictionary görevleri için kontrol yapma)
 	if not (mission is Dictionary):
 		if not cariye.can_handle_mission(mission):
-			print("❌ Cariye görev alamaz: %s" % cariye.name)
-			print("   - Seviye: %d (Gerekli: %d)" % [cariye.level, mission.required_cariye_level])
-			print("   - Durum: %s (Gerekli: BOŞTA)" % Concubine.Status.keys()[cariye.status])
-			print("   - Sağlık: %d/%d (Min: %d)" % [cariye.health, cariye.max_health, cariye.max_health * 0.5])
-			print("   - Moral: %d/%d (Min: %d)" % [cariye.moral, cariye.max_moral, cariye.max_moral * 0.3])
 			return false
 	
-	print("✅ Cariye görev alabilir: %s" % cariye.name)
 	
 	# Görev başlat (Mission objesi için)
 	if not (mission is Dictionary):
@@ -800,9 +698,6 @@ func assign_mission_to_concubine(cariye_id: int, mission_id: String, soldier_cou
 						for i in range(n):
 							worker_ids.append(available_ids[i])
 				_raid_mission_extra[mission_id] = { "mission_exit_x": exit_x, "assigned_soldier_worker_ids": worker_ids }
-				print("[RAID_DEBUG] Mission objesi (askerli): mission_id=%s exit_x=%.0f worker_ids=%s" % [mission_id, exit_x, str(worker_ids)])
-			print("✅ Görev başlatıldı: %s -> %s" % [cariye.name, mission.name])
-			print("📋 Aktif görev sayısı: %d" % active_missions.size())
 			
 			mission_started.emit(cariye_id, mission_id)
 			return true
@@ -830,18 +725,14 @@ func assign_mission_to_concubine(cariye_id: int, mission_id: String, soldier_cou
 						worker_ids.append(available_ids[i])
 					mission["assigned_soldier_worker_ids"] = worker_ids
 			_raid_mission_extra[mission_id] = { "mission_exit_x": exit_x, "assigned_soldier_worker_ids": worker_ids }
-			print("[RAID_DEBUG] Dictionary (askerli/raid): mission_id=%s exit_x=%.0f worker_ids=%s" % [mission_id, exit_x, str(worker_ids)])
 			if mission.get("type", "") == "raid":
-				print("⚔️ Raid görevi: %d asker atandı" % soldier_count)
+				pass
 		
-		print("✅ Dictionary görev başlatıldı: %s -> %s" % [cariye.name, mission.get("name", mission_id)])
 		mission_started.emit(cariye_id, mission_id)
 		return true
 	
-	print("❌ Görev başlatılamadı!")
 	return false
 	
-	print("==================================")
 
 # Görev iptal et
 func cancel_mission(cariye_id: int, mission_id: String) -> bool:
@@ -879,7 +770,14 @@ func check_active_missions():
 			# Başarı şansını hesapla
 			var cariye = concubines[cariye_id]
 			var success_chance = cariye.calculate_mission_success_chance(mission)
-			var successful = randf() < success_chance
+			var tier: String = ""
+			var successful: bool
+			if mission is Mission and mission.has_meta("directed"):
+				tier = _directed_roll_tier(cariye, mission, success_chance)
+				successful = tier == "big" or tier == "success" or tier == "near"
+				_directed_prepare_for_tier(cariye, mission, tier)
+			else:
+				successful = randf() < success_chance
 			
 			# Görev tamamla
 			var results = mission.complete_mission(successful)
@@ -887,7 +785,10 @@ func check_active_missions():
 			
 			# Sonuçları işle
 			process_mission_results(cariye_id, mission_id, successful, results)
-			
+			var captured_now: bool = false
+			if not tier.is_empty():
+				captured_now = _directed_finish(cariye_id, cariye, mission, tier, results)
+
 			# Geçmişe ekle (zenginleştirilmiş kayıt)
 			var history_entry: Dictionary = results.duplicate(true)
 			history_entry["cariye_name"] = cariye.name
@@ -910,8 +811,9 @@ func check_active_missions():
 			if successful:
 				on_mission_completed(mission_id)
 
-			# Aktif görevlerden çıkar
-			_register_world_map_returning_unit(cariye_id, mission_id, mission)
+			# Aktif görevlerden çıkar (esir düşen cariye dönüş yoluna çıkmaz)
+			if not captured_now:
+				_register_world_map_returning_unit(cariye_id, mission_id, mission)
 			completed_missions.append(cariye_id)
 			
 			# Sinyal gönder
@@ -1303,11 +1205,9 @@ func get_mission_stats() -> Dictionary:
 func process_mission_results(cariye_id: int, mission_id: String, successful: bool, results: Dictionary):
 	var cariye = concubines[cariye_id]
 	var mission = missions[mission_id]
-	
-	# Ticaret görevleri için özel işleme
-	if mission.mission_type == Mission.MissionType.TİCARET and mission.has_meta("trade_route_id"):
-		_process_trade_mission_completion(cariye_id, mission_id, successful, mission)
-		return
+	if mission is Mission and mission.has_meta("directed_effect"):
+		_apply_directed_effect(mission, cariye, successful)
+
 	
 	if successful:
 		var is_raid_mission: bool = mission is Dictionary and String(mission.get("type", "")) == "raid"
@@ -1331,70 +1231,12 @@ func process_mission_results(cariye_id: int, mission_id: String, successful: boo
 			var amount = mission.penalties[penalty_type]
 			if penalty_type == "cariye_injured":
 				cariye.take_damage(30)
-				print("⚠️ %s yaralandı!" % cariye.name)
+				var digest_inj: Node = get_node_or_null("/root/VillageDigest")
+				if digest_inj != null:
+					digest_inj.call("report_concubine_injured", cariye.name)
 			else:
 				_apply_penalty(penalty_type, amount)
 
-# Ticaret görevi tamamlama işlemi
-func _process_trade_mission_completion(cariye_id: int, mission_id: String, successful: bool, mission: Mission):
-	if not successful:
-		# Başarısız ticaret görevi - cezaları uygula
-		for penalty_type in mission.penalties:
-			var amount = mission.penalties[penalty_type]
-			if penalty_type == "cariye_injured":
-				var cariye = concubines[cariye_id]
-				cariye.take_damage(30)
-			else:
-				_apply_penalty(penalty_type, amount)
-		return
-	
-	var cariye = concubines[cariye_id]
-	var route = mission.get_meta("trade_route", {})
-	if route.is_empty():
-		return
-	
-	var products = mission.required_resources  # Götürülen mallar
-	
-	# Kâr hesaplama (zaten mission.rewards içinde hesaplanmış)
-	var total_profit = mission.rewards.get("gold", 0)
-	
-	# Altın ekle
-	var gpd = get_node_or_null("/root/GlobalPlayerData")
-	if gpd:
-		gpd.gold += total_profit
-	
-	# İlişki artışı (yetenek bonuslu)
-	var trade_skill = cariye.get_skill_level(Concubine.Skill.TİCARET)
-	var base_relation_gain = 2 + randi_range(0, 3)  # 2-5 temel
-	var skill_relation_bonus = 1.0
-	
-	if trade_skill >= 90:
-		skill_relation_bonus = 1.5  # %50 bonus
-	elif trade_skill >= 80:
-		skill_relation_bonus = 1.25  # %25 bonus
-	
-	var final_relation_gain = int(base_relation_gain * skill_relation_bonus)
-	_increase_settlement_relation(route.get("to", ""), final_relation_gain)
-	
-	# Cariye deneyim kazancı (ticaret görevleri için özel)
-	var exp_gain = 30 + (trade_skill / 2)  # Yetenek arttıkça daha fazla exp
-	var leveled_up = cariye.add_experience(int(exp_gain))
-	if leveled_up:
-		concubine_leveled_up.emit(cariye_id, cariye.level)
-	
-	# Haber
-	var skill_text = ""
-	if trade_skill >= 100:
-		skill_text = tr("news.trade_skill.legendary")
-	elif trade_skill >= 90:
-		skill_text = tr("news.trade_skill.master")
-	elif trade_skill >= 80:
-		skill_text = tr("news.trade_skill.expert")
-	
-	var settlement_name = route.get("to_name", "?")
-	post_news("village", tr("news.trade_success.title") % skill_text,
-		tr("news.trade_success.body") % [cariye.name, settlement_name, total_profit, final_relation_gain],
-		Color(0.8, 1, 0.8), "success")
 
 # Ödül uygula
 func _grant_village_resource(resource_type: String, delta: int) -> int:
@@ -1425,7 +1267,6 @@ func _apply_reward(reward_type: String, amount):
 	elif amount is String:
 		int_amount = int(amount)
 	else:
-		print("⚠️ Bilinmeyen ödül tipi: " + str(amount))
 		return
 	
 	match reward_type:
@@ -1433,7 +1274,6 @@ func _apply_reward(reward_type: String, amount):
 			var global_data = get_node_or_null("/root/GlobalPlayerData")
 			if global_data:
 				global_data.gold += int_amount
-				print("💰 +%d altın kazandın!" % int_amount)
 		"wood_rate":
 			_active_rate_add("wood", int_amount, 1, "Görev Ödülü")
 		"stone_rate":
@@ -1443,7 +1283,13 @@ func _apply_reward(reward_type: String, amount):
 		"wood", "stone", "food", "medicine":
 			var applied: int = _grant_village_resource(reward_type, int_amount)
 			if applied > 0:
-				print("📦 +%d %s (köy stoğu)" % [applied, reward_type])
+				pass
+		"villager":
+			# Diplomat devşirmesi: köylüler köye gelir (barınak yoksa misafir olarak).
+			var vm_v: Node = get_node_or_null("/root/VillageManager")
+			if vm_v != null and vm_v.has_method("add_villager"):
+				for _i in range(maxi(0, int_amount)):
+					vm_v.call("add_villager")
 		"reputation":
 			update_player_reputation(int_amount)
 		"stability_bonus", "world_stability":
@@ -1471,7 +1317,6 @@ func _apply_penalty(penalty_type: String, amount):
 	elif amount is String:
 		int_amount = int(amount)
 	else:
-		print("⚠️ Bilinmeyen ceza tipi: " + str(amount))
 		return
 	
 	match penalty_type:
@@ -1479,7 +1324,6 @@ func _apply_penalty(penalty_type: String, amount):
 			var global_data = get_node_or_null("/root/GlobalPlayerData")
 			if global_data:
 				global_data.gold = max(0, global_data.gold + int_amount)  # amount negatif olacak
-				print("💸 %d altın kaybettin!" % abs(int_amount))
 		"food_rate":
 			_active_rate_add("food", int_amount, 1, "Görev Cezası")
 		"wood_rate":
@@ -1489,7 +1333,7 @@ func _apply_penalty(penalty_type: String, amount):
 		"wood", "stone", "food", "medicine":
 			var applied: int = _grant_village_resource(penalty_type, int_amount)
 			if applied < 0:
-				print("📦 %d %s kaybedildi (köy stoğu)" % [abs(applied), penalty_type])
+				pass
 		"reputation":
 			update_player_reputation(int_amount)
 		"stability_penalty":
@@ -1724,8 +1568,9 @@ func get_world_map_active_unit_markers() -> Array[Dictionary]:
 		var mission_type_tag: String = _extract_mission_type_tag(mission_data)
 		var target_q: int = int(target_info.get("q", origin_q))
 		var target_r: int = int(target_info.get("r", origin_r))
+		var out_path_pts: Array[Dictionary] = _get_world_path_points(wm, origin_q, origin_r, target_q, target_r)
 		var current_coords: Dictionary = _sample_world_position_on_path(
-			_get_world_path_points(wm, origin_q, origin_r, target_q, target_r),
+			out_path_pts,
 			progress,
 			origin_q,
 			origin_r
@@ -1735,14 +1580,19 @@ func get_world_map_active_unit_markers() -> Array[Dictionary]:
 		var reveal_radius_outbound: int = _get_unit_reveal_radius(wm, current_q, current_r, mission_type_tag, false)
 		_reveal_world_map_for_unit(wm, current_q, current_r, "mission_team", reveal_radius_outbound)
 		var cariye_name: String = "Cariye"
+		var cariye_role: int = -1
 		if concubines.has(cariye_id):
 			var c = concubines[cariye_id]
 			if c and "name" in c:
 				cariye_name = String(c.name)
+			if c and "role" in c:
+				cariye_role = int(c.role)
 		out.append({
 			"unit_type": "mission_team",
 			"cariye_id": int(cariye_id),
 			"cariye_name": cariye_name,
+			"role": cariye_role,
+			"path": out_path_pts,
 			"mission_id": mission_id,
 			"mission_name": _get_mission_name_safe(mission_data, mission_id),
 			"mission_type_tag": mission_type_tag,
@@ -1766,8 +1616,9 @@ func get_world_map_active_unit_markers() -> Array[Dictionary]:
 		var rr0: int = int(ret.get("start_r", origin_r))
 		var rq1: int = int(ret.get("target_q", origin_q))
 		var rr1: int = int(ret.get("target_r", origin_r))
+		var ret_path_pts: Array[Dictionary] = _get_world_path_points(wm, rq0, rr0, rq1, rr1)
 		var current_return_coords: Dictionary = _sample_world_position_on_path(
-			_get_world_path_points(wm, rq0, rr0, rq1, rr1),
+			ret_path_pts,
 			p,
 			rq0,
 			rr0
@@ -1776,10 +1627,17 @@ func get_world_map_active_unit_markers() -> Array[Dictionary]:
 		var cr: int = int(current_return_coords.get("r", rr0))
 		var reveal_radius_returning: int = _get_unit_reveal_radius(wm, cq, cr, String(ret.get("mission_type_tag", "")), true)
 		_reveal_world_map_for_unit(wm, cq, cr, "mission_team", reveal_radius_returning)
+		var ret_role: int = -1
+		if concubines.has(int(cariye_key)):
+			var rc = concubines[int(cariye_key)]
+			if rc and "role" in rc:
+				ret_role = int(rc.role)
 		out.append({
 			"unit_type": "returning_team",
 			"cariye_id": int(cariye_key),
 			"cariye_name": String(ret.get("cariye_name", "Cariye")),
+			"role": ret_role,
+			"path": ret_path_pts,
 			"mission_id": String(ret.get("mission_id", "")),
 			"mission_name": String(ret.get("mission_name", "Gorev Donusu")),
 			"mission_type_tag": String(ret.get("mission_type_tag", "")),
@@ -1851,6 +1709,7 @@ func _ensure_mission_has_world_objective_hex(mission: Mission) -> void:
 	if mission == null:
 		return
 	if not String(mission.world_hex_key).is_empty():
+		_reveal_mission_objective_hex(mission)
 		return
 	var wm: Node = get_node_or_null("/root/WorldManager")
 	if wm and wm.has_method("pick_random_mission_objective_hex"):
@@ -1868,6 +1727,24 @@ func _ensure_mission_has_world_objective_hex(mission: Mission) -> void:
 				break
 		if not assigned.is_empty():
 			mission.world_hex_key = assigned
+			_reveal_mission_objective_hex(mission)
+
+
+## Görev hedefi keşfedilmemiş bir hex'e düştüyse haritada görünsün ve seçilebilsin diye açılır.
+## Aksi halde sisli hex'e yalnız Ajan gönderilebildiği için (örn. ilk cariye zincirinin görevi)
+## görev oyuncu tarafından hiç görülemezdi.
+func _reveal_mission_objective_hex(mission: Mission) -> void:
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	if wm == null or not ("world_map_tiles" in wm) or not wm.has_method("discover_tiles"):
+		return
+	var key: String = String(mission.world_hex_key)
+	if not wm.world_map_tiles.has(key):
+		return
+	var tile: Dictionary = wm.world_map_tiles[key]
+	if bool(tile.get("discovered", false)):
+		return
+	wm.call("discover_tiles", {"q": int(tile.get("q", 0)), "r": int(tile.get("r", 0))}, 1, "mission_objective", true)
+
 
 func _is_world_hex_used_by_other_available_player_map_mission(hex_key: String, mission_id_to_ignore: String = "") -> bool:
 	for mid in missions.keys():
@@ -2009,7 +1886,7 @@ func get_player_map_strategy_missions_at_hex(q: int, r: int) -> Array[Dictionary
 			continue
 		if m.status != Mission.Status.MEVCUT:
 			continue
-		if not m.allow_player_map_completion:
+		if not m.player_can_complete_on_map():
 			continue
 		_ensure_mission_has_world_objective_hex(m)
 		if String(m.world_hex_key) != key:
@@ -2033,7 +1910,7 @@ func resolve_player_map_mission_with_strategy(mission_id: String, strategy_index
 		return {"ok": false, "reason": tr("wm.mission.resolve.invalid")}
 	if m.status != Mission.Status.MEVCUT:
 		return {"ok": false, "reason": tr("wm.mission.resolve.not_available")}
-	if not m.allow_player_map_completion:
+	if not m.player_can_complete_on_map():
 		return {"ok": false, "reason": tr("wm.mission.resolve.not_player_map")}
 	_ensure_mission_has_world_objective_hex(m)
 	if String(m.world_hex_key) != key:
@@ -2069,6 +1946,9 @@ func get_world_map_mission_objective_markers() -> Array[Dictionary]:
 			continue
 		if m.status != Mission.Status.MEVCUT:
 			continue
+		# Ajansız: durumunu bilmediğimiz köylerin kriz görevleri haritada görünmez.
+		if not m.target_settlement_id.is_empty() and not is_settlement_intel_visible(m.target_settlement_id):
+			continue
 		_ensure_mission_has_world_objective_hex(m)
 		var hk: String = String(m.world_hex_key)
 		if hk.is_empty():
@@ -2099,7 +1979,7 @@ func try_complete_player_missions_at_hex_with_report(q: int, r: int) -> Dictiona
 			continue
 		if m.status != Mission.Status.MEVCUT:
 			continue
-		if not m.allow_player_map_completion:
+		if not m.player_can_complete_on_map():
 			continue
 		if m.player_map_strategies.size() > 0:
 			continue
@@ -2157,8 +2037,12 @@ func _build_player_map_resolution_entry(mission: Mission, successful: bool) -> D
 func _process_player_map_mission_results(mission: Mission, successful: bool, _results: Dictionary) -> void:
 	if mission == null:
 		return
-	if mission.mission_type == Mission.MissionType.TİCARET and mission.has_meta("trade_route_id"):
-		return
+	# Esir cariyenin kurtarma görevi: başarıda cariye serbest kalır, başarısızlıkta tekrar denenebilir.
+	if mission.has_meta("captive_id"):
+		if successful:
+			_free_captive(int(mission.get_meta("captive_id")))
+		else:
+			mission.status = Mission.Status.MEVCUT
 	if successful:
 		for reward_type in mission.rewards:
 			var amount = mission.rewards[reward_type]
@@ -2227,6 +2111,12 @@ func _register_world_map_returning_unit(cariye_id: int, mission_id: String, miss
 	var now_minutes: int = 0
 	if tm and tm.has_method("get_total_game_minutes"):
 		now_minutes = int(tm.call("get_total_game_minutes"))
+	# Görev zaman atlamasında (kamp ateşi dinlenmesi) işlenirse kayıt gecikir: dönüş yolu görevin gerçek bittiği andan başlasın,
+	# yoksa köye çoktan dönmüş cariye haritada hâlâ görev hexinden yeni çıkıyormuş gibi görünür.
+	if mission_data is Mission:
+		var real_end: int = int((mission_data as Mission).end_time)
+		if real_end > 0 and real_end < now_minutes:
+			now_minutes = real_end
 	var dist: int = _hex_distance_local(start_q, start_r, target_q, target_r)
 	var return_duration: int = max(20, dist * 25)
 	var cariye_name: String = "Cariye"
@@ -2658,7 +2548,6 @@ func create_dynamic_mission_templates():
 		}
 	}
 	
-	print("🎲 Dinamik görev şablonları oluşturuldu")
 
 # Başlangıç dünya olay şablonları (UI'da görünmez; yalnızca tetiklenince aktif olur)
 func _setup_world_event_templates() -> void:
@@ -2982,10 +2871,8 @@ func offer_traveler_mission() -> Mission:
 			"settlement_name": mission.target_location,
 		},
 	}):
-		print("[MissionManager] Seyyah görevi (pipeline): %s" % mission.name)
 		return mission
 	missions[mission.id] = mission
-	print("[MissionManager] Seyyah görevi: %s" % mission.name)
 	return mission
 
 
@@ -3000,7 +2887,6 @@ func get_max_concubine_level() -> int:
 
 # Görev rotasyonu - eski görevleri kaldır, yenilerini ekle
 func refresh_missions():
-	print("🔄 Görev rotasyonu başlıyor...")
 	
 	# Mevcut görevlerden bazılarını kaldır (sadece MEVCUT olanlar)
 	var missions_to_remove = []
@@ -3026,12 +2912,10 @@ func refresh_missions():
 		var new_mission = generate_random_dynamic_mission()
 		if new_mission:
 			if try_enqueue_mission_spawn(new_mission, "dynamic_mission", {"post_news": false}):
-				print("✨ Yeni dinamik görev (pipeline): " + new_mission.name)
+				pass
 			else:
 				missions[new_mission.id] = new_mission
-				print("✨ Yeni dinamik görev: " + new_mission.name)
 	
-	print("🔄 Görev rotasyonu tamamlandı")
 
 # --- DÜNYA OLAYLARI YÖNETİMİ ---
 
@@ -3138,7 +3022,11 @@ func post_news(category: String, title: String, content: String, color: Color = 
 		"color": emphasis_color,
 		"original_color": color,
 		"priority": priority,
-		"read": false
+		"read": false,
+		# true: köy özeti satırları (VillageDigest) bu olayı kendi yapılandırılmış satırıyla zaten gösteriyor
+		"digest_skip": bool(flags.get("digest_skip", false)),
+		# true: dünya kategorisinde yayınlansa da köyü doğrudan ilgilendirir (baskın uyarısı); köy satırlarına girer
+		"digest_keep": bool(flags.get("digest_keep", false)),
 	}
 	_next_news_id += 1
 	
@@ -3149,7 +3037,6 @@ func post_news(category: String, title: String, content: String, color: Color = 
 	if VillagerAiInitializer:
 		# Send news without icon to save context
 		var news_str = "%s: %s" % [title, content]
-		print("MissionManager: Sending news to NPCs: ", news_str)
 		VillagerAiInitializer.update_latest_news(news_str)
 	
 	if is_village:
@@ -3280,20 +3167,31 @@ func _update_active_missions_during_skip(total_hours: float) -> void:
 		var success_chance: float = 0.5
 		if cariye.has_method("calculate_mission_success_chance"):
 			success_chance = cariye.calculate_mission_success_chance(mission)
-		var successful: bool = randf() < success_chance
+		var skip_tier: String = ""
+		var successful: bool
+		if mission is Mission and mission.has_meta("directed") and cariye is Concubine:
+			skip_tier = _directed_roll_tier(cariye, mission, success_chance)
+			successful = skip_tier == "big" or skip_tier == "success" or skip_tier == "near"
+			_directed_prepare_for_tier(cariye, mission, skip_tier)
+		else:
+			successful = randf() < success_chance
+		var skip_captured: bool = false
 		if mission.has_method("complete_mission"):
 			var results = mission.complete_mission(successful)
 			if cariye.has_method("complete_mission"):
 				cariye.complete_mission(successful, mission_id)
 			if has_method("process_mission_results"):
 				process_mission_results(cariye_id, mission_id, successful, results)
+			if not skip_tier.is_empty():
+				skip_captured = _directed_finish(cariye_id, cariye, mission, skip_tier, results)
 			if successful:
 				on_mission_completed(mission_id)
 			mission_completed.emit(cariye_id, mission_id, successful, results)
 			if successful and mission is Mission:
 				_try_resolve_world_incident_for_completed_mission(mission as Mission)
 				_try_grant_pending_role_for_completed_mission(mission as Mission)
-		_register_world_map_returning_unit(cariye_id, mission_id, mission)
+		if not skip_captured:
+			_register_world_map_returning_unit(cariye_id, mission_id, mission)
 		active_missions.erase(cariye_id)
 
 ## Gün sonu: süreli üretim/tüccar/modifikator; `silent` yüklemelerde haber atmadan temizlik.
@@ -3323,6 +3221,7 @@ func prune_time_limited_state_for_day(day: int, silent: bool = false) -> void:
 
 func _on_new_day(day: int):
 	prune_time_limited_state_for_day(day, false)
+	_tick_concubine_recovery()
 	_expire_stale_missions(day)
 
 	# Haritadaki komsu id'leri: WM `get_relation("Köy", ad)` tek kaynak; eski rastgele drift sadece haritada olmayanlara.
@@ -3417,6 +3316,10 @@ func _count_available_non_chain_missions() -> int:
 	return n
 
 func _maybe_spawn_daily_dynamic_mission(day: int) -> void:
+	# Rastgele görev panosu kapalı: görevleri artık oyuncu haritadan hex seçerek verir
+	# (bkz. create_player_directed_mission). Olay/rol/kurtarma görevleri ayrı üretilir.
+	if not LEGACY_DAILY_BOARD_ENABLED:
+		return
 	if day < _next_daily_dynamic_spawn_day:
 		return
 	if _count_available_non_chain_missions() >= DAILY_DYNAMIC_MAX_AVAILABLE:
@@ -3724,7 +3627,8 @@ func add_active_trader(origin_settlement: Dictionary, arrives_day: int, stays_da
 	product_text = product_text.substr(0, product_text.length() - 2)  # Son virgülü kaldır
 	
 	var type_name = _get_trader_type_name(trader_type)
-	_post_news_tr("village", "news.trader_arrived.title", "news.trader_arrived.body", Color(0.8, 1, 0.8), "success", [type_name, trader_name, product_text])
+	# Başlıkta tür adı, gövdede tüccar adı + satılanlar (önceden üç argüman başlığa gidiyor, gövde biçimlenmiyordu)
+	_post_news_tr("village", "news.trader_arrived.title", "news.trader_arrived.body", Color(0.8, 1, 0.8), "success", [type_name], [trader_name, product_text])
 	
 	return trader
 
@@ -3808,40 +3712,94 @@ func _generate_trader_name(trader_type: TraderType) -> String:
 	return prefixes[0] + " " + first_names[0] + " Tüccar"
 
 # Tüccar ürünleri oluştur
+## Tüccar ürün kademeleri: fakir tüccar yalnızca temel kaynak satar; diğerleri işlenmiş / el işi / silah
+## satar ve bunlar kademeye göre çarpanla ÇOK daha pahalıdır (birim fiyatı = aralıktan çekilen taban x çarpan).
+const TRADER_TIERS: Dictionary = {
+	"basic": ["food", "wood", "stone"],
+	"processed": ["lumber", "brick", "bread", "soap", "tea"],
+	"crafted": ["metal", "cloth", "medicine", "garment"],
+	"arms": ["weapon_t2", "weapon_t3"],
+}
+const TRADER_TIER_PRICE_MULT: Dictionary = {
+	"basic": 1.0,
+	"processed": 2.2,
+	"crafted": 3.2,
+	"arms": 5.0,
+}
+
+
+func _trader_tier_of(resource: String) -> String:
+	for tier in TRADER_TIERS:
+		if resource in TRADER_TIERS[tier]:
+			return String(tier)
+	return "basic"
+
+
+## Tüccar tipine göre ürün slotları (kademe sırası). product_count kadarı kullanılır.
+func _trader_slots_for(trader_type: TraderType) -> Array[String]:
+	var slots: Array[String] = []
+	match trader_type:
+		TraderType.POOR:
+			slots = ["basic", "basic"]
+		TraderType.RICH:
+			slots = ["crafted", "crafted", "processed", "processed"]
+			if randf() < 0.25:
+				slots[3] = "arms"
+		TraderType.SPECIAL:
+			slots = ["special", "crafted", "processed"]
+		TraderType.NOMAD:
+			slots = ["basic", "processed", "processed", "crafted", "crafted"]
+			var roll: float = randf()
+			if roll < 0.08:
+				slots[4] = "arms_t3"
+			elif roll < 0.28:
+				slots[4] = "arms"
+		_:  # NORMAL
+			slots = ["processed", "processed", "basic"]
+	return slots
+
+
 func _generate_trader_products(trader_type: TraderType, relation: int, origin_settlement: Dictionary, config: Dictionary) -> Array[Dictionary]:
 	var products: Array[Dictionary] = []
-	var available_resources = ["food", "wood", "stone"]
-	available_resources.shuffle()
-	
-	var product_count = config.get("product_count", 2)
+	var product_count: int = int(config.get("product_count", 2))
 	var price_range = config.get("price_range", [50, 130])
-	var relation_multiplier = config.get("relation_multiplier", 1.0)
-	
-	# Özel tüccar için özel ürün ekle
-	if trader_type == TraderType.SPECIAL:
-		var special_resource = config.get("special_resource", "food")
-		if not special_resource in available_resources:
-			available_resources.append(special_resource)
-		# Özel ürünü başa ekle
-		available_resources.erase(special_resource)
-		available_resources.insert(0, special_resource)
-	
-	for i in range(min(product_count, available_resources.size())):
-		var resource = available_resources[i]
-		var base_price = price_range[0] + randi_range(0, price_range[1] - price_range[0])
-		
+	var relation_multiplier: float = float(config.get("relation_multiplier", 1.0))
+	var special_resource: String = String(config.get("special_resource", ""))
+	var taken: Array[String] = []
+	var slots: Array[String] = _trader_slots_for(trader_type)
+
+	for slot in slots:
+		if products.size() >= product_count:
+			break
+		var resource: String = ""
+		if slot == "special":
+			resource = special_resource if not special_resource.is_empty() else "food"
+		elif slot == "arms_t3":
+			resource = "weapon_t3"
+		else:
+			var pool: Array = (TRADER_TIERS.get(slot, TRADER_TIERS["basic"]) as Array).duplicate()
+			pool.shuffle()
+			for candidate in pool:
+				if String(candidate) not in taken:
+					resource = String(candidate)
+					break
+		if resource.is_empty() or resource in taken:
+			continue
+		taken.append(resource)
+
+		var tier: String = _trader_tier_of(resource)
+		var tier_mult: float = float(TRADER_TIER_PRICE_MULT.get(tier, 1.0))
+		var base_price: int = int(round(float(price_range[0] + randi_range(0, price_range[1] - price_range[0])) * tier_mult))
 		# Özel tüccar için özel ürün indirimli
-		if trader_type == TraderType.SPECIAL and resource == config.get("special_resource", ""):
+		if trader_type == TraderType.SPECIAL and resource == special_resource:
 			base_price = int(base_price * 0.7)  # %30 indirim
-		
-		var final_price = int(base_price * relation_multiplier)
-		
+		var final_price: int = maxi(1, int(base_price * relation_multiplier))
 		products.append({
 			"resource": resource,
 			"price_per_unit": final_price,
-			"base_price": base_price
+			"base_price": base_price,
+			"tier": tier,
 		})
-	
 	return products
 
 # Tüccar tipi ismini al
@@ -3920,9 +3878,21 @@ func buy_from_trader(trader_id: String, resource: String, quantity: int) -> bool
 	return true
 
 # Yerleşim ilişkisini artır
+## Diplomatın pasifi: oyuncunun kendi seçtiği eylemlerden doğan köy ilişkisi KAYIPLARI etkin puan
+## başına %10 azalır (en çok %50). Kazançlara ve oyuncunun elinde olmayan sonuçlara dokunmaz.
+func soften_relation_loss(amount: int) -> int:
+	if amount >= 0 or not has_role(Concubine.Role.DİPLOMAT):
+		return amount
+	var cut: float = 0.10 * float(get_role_strength(Concubine.Role.DİPLOMAT))
+	if cut <= 0.0:
+		return amount
+	return -int(ceil(float(-amount) * (1.0 - cut)))
+
+
 func _increase_settlement_relation(settlement_id: String, amount: int):
 	if settlement_id.is_empty():
 		return
+	amount = soften_relation_loss(amount)
 	var wm: Node = get_node_or_null("/root/WorldManager")
 	if wm and _mm_settlement_on_world_map(settlement_id) and wm.has_method("_get_settlement_display_name") and wm.has_method("change_relation"):
 		var nm: String = String(wm.call("_get_settlement_display_name", settlement_id))
@@ -4073,30 +4043,7 @@ func sync_settlement_relations_from_world_map() -> void:
 				var wr: int = int(wm.call("get_relation", "Köy", nm))
 				var legacy: int = clampi(int(round(50.0 + float(wr) * 0.5)), 0, 100)
 				settlements[i]["relation"] = legacy
-	refresh_trade_route_stats_from_settlements()
 
-## `trade_routes` baslangicta kurulur; diplomasi degisince risk/aktif ortalama guncellenir (mesafe urun sabit).
-func refresh_trade_route_stats_from_settlements() -> void:
-	if settlements.size() < 2:
-		return
-	if trade_routes.is_empty():
-		_initialize_trade_routes()
-		return
-	var id_to_rel: Dictionary = {}
-	for s in settlements:
-		if s is Dictionary:
-			id_to_rel[String(s.get("id", ""))] = float(s.get("relation", 50))
-	for idx in range(trade_routes.size()):
-		var route: Dictionary = trade_routes[idx]
-		var fid: String = String(route.get("from", ""))
-		var tid: String = String(route.get("to", ""))
-		var rf: float = float(id_to_rel.get(fid, 50.0))
-		var rt: float = float(id_to_rel.get(tid, 50.0))
-		var avg: float = (rf + rt) / 2.0
-		route["relation"] = avg
-		route["risk"] = _calculate_route_risk(avg)
-		route["active"] = avg >= 30.0
-		trade_routes[idx] = route
 
 func is_settlement_under_active_intel(settlement_id: String) -> bool:
 	if settlement_id.is_empty():
@@ -4173,208 +4120,15 @@ func _mm_settlement_on_world_map(settlement_id: Variant) -> bool:
 	var wm: Node = get_node_or_null("/root/WorldManager")
 	return wm != null and "world_map_settlement_positions" in wm and (wm.world_map_settlement_positions as Dictionary).has(sid)
 
-# Ticaret rotalarını başlat
-func _initialize_trade_routes():
-	trade_routes = []
-	
-	# Yerleşimler arası rotalar oluştur
-	if settlements.size() < 2:
-		return
-	
-	for i in range(settlements.size()):
-		for j in range(i + 1, settlements.size()):
-			var from_settlement = settlements[i]
-			var to_settlement = settlements[j]
-			
-			# Rota oluştur (ilişkiye göre aktif/pasif)
-			var relation_from = from_settlement.get("relation", 50)
-			var relation_to = to_settlement.get("relation", 50)
-			var avg_relation = (relation_from + relation_to) / 2.0
-			
-			var route = {
-				"id": "route_%s_%s" % [from_settlement.get("id", ""), to_settlement.get("id", "")],
-				"from": from_settlement.get("id", ""),
-				"from_name": from_settlement.get("name", ""),
-				"to": to_settlement.get("id", ""),
-				"to_name": to_settlement.get("name", ""),
-				"products": _get_route_products(from_settlement, to_settlement),
-				"distance": randf_range(1.0, 5.0),
-				"risk": _calculate_route_risk(avg_relation),
-				"active": avg_relation >= 30,  # 30+ ilişki gerekli
-				"relation": avg_relation
-			}
-			
-			trade_routes.append(route)
 
-# Rota ürünlerini belirle
-func _get_route_products(from_settlement: Dictionary, to_settlement: Dictionary) -> Array[String]:
-	# Her yerleşimin bias'ına göre ürünler
-	var from_biases = from_settlement.get("biases", {})
-	var to_biases = to_settlement.get("biases", {})
-	
-	var products: Array[String] = []
-	
-	# From'dan To'ya giden ürünler (from'un fazla ürettiği)
-	for resource in from_biases.keys():
-		if from_biases[resource] > 1:
-			products.append(resource)
-	
-	# To'dan From'a giden ürünler (to'nun fazla ürettiği)
-	for resource in to_biases.keys():
-		if to_biases[resource] > 1 and not resource in products:
-			products.append(resource)
-	
-	# En az 1 ürün olsun
-	if products.is_empty():
-		products = ["food", "wood", "stone"]
-	
-	return products
 
-# Rota risk seviyesini hesapla
-func _calculate_route_risk(relation: float) -> String:
-	if relation >= 70:
-		return "Düşük"
-	elif relation >= 50:
-		return "Orta"
-	elif relation >= 30:
-		return "Yüksek"
-	else:
-		return "Çok Yüksek"
 
-# Aktif rotaları al
-func get_active_trade_routes() -> Array[Dictionary]:
-	var active_routes: Array[Dictionary] = []
-	for route in trade_routes:
-		if route.get("active", false):
-			active_routes.append(route)
-	return active_routes
 
-# Rota bul (ID ile)
-func _find_route_by_id(route_id: String) -> Dictionary:
-	for route in trade_routes:
-		if route.get("id") == route_id:
-			return route
-	return {}
 
-# Ticaret görevi oluştur (rota ve ürünlerle)
-func create_trade_mission_for_route(cariye_id: int, route_id: String, products: Dictionary, soldier_count: int = 0) -> Mission:
-	var route = _find_route_by_id(route_id)
-	if route.is_empty():
-		return null
-	
-	# Rota aktif mi kontrol et
-	if not route.get("active", false):
-		return null
-	
-	var mission = Mission.new()
-	mission.id = "trade_route_%d" % Time.get_unix_time_from_system()
-	mission.name = "Ticaret: %s → %s" % [route.get("from_name", "?"), route.get("to_name", "?")]
-	mission.description = "%s'ye ticaret malı götür." % route.get("to_name", "?")
-	mission.mission_type = Mission.MissionType.TİCARET
-	mission.difficulty = _get_route_difficulty(route)
-	mission.duration = route.get("distance", 2.0) * 60.0  # Mesafe * 60 dakika
-	mission.success_chance = _calculate_trade_success_chance(route, cariye_id)
-	mission.required_cariye_level = 1
-	mission.required_army_size = soldier_count
-	mission.required_resources = products  # Götürülecek mallar
-	mission.rewards = _calculate_trade_rewards(route, products, cariye_id)
-	mission.penalties = _calculate_trade_penalties(route)
-	mission.target_location = route.get("to_name", "?")
-	mission.distance = route.get("distance", 2.0)
-	mission.risk_level = route.get("risk", "Orta")
-	
-	# Rota bilgisini mission'a ekle (tamamlama için)
-	mission.set_meta("trade_route_id", route_id)
-	mission.set_meta("trade_route", route)
-	
-	return mission
 
-# Rota zorluğunu belirle
-func _get_route_difficulty(route: Dictionary) -> Mission.Difficulty:
-	var risk = route.get("risk", "Orta")
-	match risk:
-		"Düşük": return Mission.Difficulty.KOLAY
-		"Orta": return Mission.Difficulty.ORTA
-		"Yüksek": return Mission.Difficulty.ZOR
-		"Çok Yüksek": return Mission.Difficulty.EFSANEVİ
-		_: return Mission.Difficulty.ORTA
 
-# Ticaret başarı şansını hesapla
-func _calculate_trade_success_chance(route: Dictionary, cariye_id: int) -> float:
-	var base_chance = 0.8  # %80 temel şans
-	
-	# Rota riskine göre düşüş
-	var risk = route.get("risk", "Orta")
-	match risk:
-		"Düşük": base_chance = 0.9
-		"Orta": base_chance = 0.8
-		"Yüksek": base_chance = 0.7
-		"Çok Yüksek": base_chance = 0.6
-	
-	# Cariye yeteneği bonusu
-	if concubines.has(cariye_id):
-		var cariye = concubines[cariye_id]
-		var trade_skill = cariye.get_skill_level(Concubine.Skill.TİCARET)
-		var skill_bonus = (trade_skill - 50) * 0.002  # Her 1 yetenek = %0.2 bonus
-		base_chance += skill_bonus
 
-	var vce := get_node_or_null("/root/VillageCardEffects")
-	if vce:
-		base_chance += vce.get_trade_success_bonus()
 
-	return clamp(base_chance, 0.5, 0.98)  # Min %50, Max %98
-
-# Ticaret ödüllerini hesapla
-func _calculate_trade_rewards(route: Dictionary, products: Dictionary, cariye_id: int) -> Dictionary:
-	var rewards: Dictionary = {}
-	var total_profit = 0
-	
-	# Temel kâr hesaplama
-	for resource in products.keys():
-		var quantity = products[resource]
-		var base_value = _get_resource_base_value(resource)
-		var route_multiplier = 1.2 + (route.get("relation", 50) - 50) * 0.01  # İlişkiye göre kâr
-		total_profit += int(base_value * quantity * route_multiplier)
-	
-	# Cariye yeteneği bonusu
-	if concubines.has(cariye_id):
-		var cariye = concubines[cariye_id]
-		var trade_skill = cariye.get_skill_level(Concubine.Skill.TİCARET)
-		var level = cariye.level
-		
-		var skill_bonus_multiplier = 1.0 + (trade_skill * 0.005)  # Her 1 yetenek = %0.5 bonus
-		var level_bonus_multiplier = 1.0 + (level * 0.02)  # Her 1 seviye = %2 bonus
-		
-		# Özel yetenekler
-		if trade_skill >= 100:
-			skill_bonus_multiplier *= 1.1  # %10 ekstra (Efsane)
-		elif trade_skill >= 90:
-			skill_bonus_multiplier *= 1.05  # %5 ekstra (Efendi)
-		elif trade_skill >= 80:
-			skill_bonus_multiplier *= 1.02  # %2 ekstra (Usta)
-		
-		total_profit = int(total_profit * skill_bonus_multiplier * level_bonus_multiplier)
-	
-	rewards["gold"] = total_profit
-	return rewards
-
-# Ticaret cezalarını hesapla
-func _calculate_trade_penalties(route: Dictionary) -> Dictionary:
-	var penalties: Dictionary = {}
-	var risk = route.get("risk", "Orta")
-	
-	match risk:
-		"Düşük":
-			penalties["gold"] = -4
-		"Orta":
-			penalties["gold"] = -6
-		"Yüksek":
-			penalties["gold"] = -9
-		"Çok Yüksek":
-			penalties["gold"] = -12
-			penalties["cariye_injured"] = 1
-	
-	return penalties
 
 # Kaynak temel değeri
 func _get_resource_base_value(resource: String) -> int:
@@ -4455,6 +4209,17 @@ const EVENT_RELIEF_TEMPLATES: Dictionary = {
 		"key": "wolf", "type": Mission.MissionType.SAVAŞ, "difficulty": Mission.Difficulty.ORTA,
 		"duration": 200.0, "success": 0.6, "level": 2, "army": 3,
 		"cost": {}, "rewards": {"stone": 5, "reputation": 1}, "penalties": {"army_losses": 1},
+	},
+	# Toplama alanı engelleri: oyuncu aynı olayı haritadaki challenge ile kendisi de çözebilir
+	"gather_bandits": {
+		"key": "gather_bandits", "type": Mission.MissionType.SAVAŞ, "difficulty": Mission.Difficulty.ORTA,
+		"duration": 200.0, "success": 0.6, "level": 2, "army": 3,
+		"cost": {}, "rewards": {"gold": 10, "reputation": 1}, "penalties": {"army_losses": 1},
+	},
+	"gather_birds": {
+		"key": "gather_birds", "type": Mission.MissionType.KEŞİF, "difficulty": Mission.Difficulty.KOLAY,
+		"duration": 150.0, "success": 0.75, "level": 1, "army": 0,
+		"cost": {"gold": 4}, "rewards": {"gold": 6}, "penalties": {"gold": -2},
 	},
 }
 
@@ -4743,11 +4508,9 @@ func create_raid_mission(target_settlement: String, day: int = 0, difficulty: St
 			"subcategory": "warning",
 		},
 	}):
-		print("⚔️ Baskın görevi (pipeline): %s (Gün: %d)" % [target_settlement, day])
 		return mission
 	missions[mission_id] = mission
 	post_news("world", tr("news.raid_chance.title"), tr("news.raid_chance.body") % target_settlement, Color(1, 0.8, 0.8), "warning")
-	print("⚔️ Baskın görevi oluşturuldu: %s (Gün: %d)" % [target_settlement, day])
 	return mission
 
 func get_world_map_action_preview(action_type: String, settlement_name: String, distance: int = 0, settlement_faction: String = "") -> Dictionary:
@@ -4909,6 +4672,811 @@ func _create_world_map_diplomacy_mission(settlement_id: String, settlement_name:
 		"target": settlement_name
 	}
 
+## ─── Oyuncu yönlendirmeli görevler (haritadan hex seçilerek) ───────────────────
+## Akış: ConcubineMissionPopupUI "Göreve Yolla" -> WorldMapScene seçim modu
+## (DirectedMissionController) -> burada seçenek listesi + görev üretimi.
+## Bkz. docs/CONCUBINE_MAP_MISSIONS_PLAN.md.
+
+const DIRECTED_MIN_DURATION: float = 60.0
+const DIRECTED_MAX_DURATION: float = 960.0
+## Hediye tutarının başarı şansına en çok katkısı (gift.max'e ulaşınca).
+const DIRECTED_GIFT_CHANCE_BONUS: float = 0.12
+
+
+## Kışlada şu an göreve çıkabilecek asker sayısı.
+func get_available_soldier_count() -> int:
+	var barracks: Node = _find_barracks()
+	if barracks == null or not ("assigned_worker_ids" in barracks):
+		return 0
+	var free_in_barracks: int = _get_available_soldier_worker_ids_for_mission(barracks, "").size()
+	# Komutanların önderlik kapasitesi: aynı anda bu kadar asker görevde olabilir.
+	var cap_left: int = maxi(0, get_leadership_cap() - get_total_soldiers_on_mission())
+	return mini(free_in_barracks, cap_left)
+
+
+## Kışlada boşta olan asker (önderlik sınırından bağımsız): kapasite mesajı ayırt etmek için.
+func get_free_barracks_soldier_count() -> int:
+	var barracks: Node = _find_barracks()
+	if barracks == null or not ("assigned_worker_ids" in barracks):
+		return 0
+	return _get_available_soldier_worker_ids_for_mission(barracks, "").size()
+
+
+func _directed_village_origin() -> Vector2i:
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	if wm == null:
+		return Vector2i.ZERO
+	var vp: Dictionary = _get_world_map_player_village_pos(wm)
+	return Vector2i(int(vp.get("q", 0)), int(vp.get("r", 0)))
+
+
+func _directed_tile_at(q: int, r: int) -> Dictionary:
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	if wm == null or not ("world_map_tiles" in wm):
+		return {}
+	var key: String = str(q) + "," + str(r)
+	if wm.world_map_tiles.has(key):
+		return wm.world_map_tiles[key]
+	return {}
+
+
+## Hedef hex için cariyenin yapabileceği seçenekler.
+## {"ok": bool, "reason": String, "kind": String, "tile": Dictionary,
+##  "options": Array[Dictionary], "available_soldiers": int, "distance": int}
+func get_directed_mission_options(cariye_id: int, q: int, r: int) -> Dictionary:
+	var result: Dictionary = {"ok": false, "reason": "", "kind": "", "tile": {}, "options": [],
+		"available_soldiers": 0, "distance": 0}
+	if not concubines.has(cariye_id):
+		result["reason"] = tr("dm.reason.no_concubine")
+		return result
+	var cariye: Concubine = concubines[cariye_id]
+	var tile: Dictionary = _directed_tile_at(q, r)
+	var kind: String = DirectedMissionCatalog.target_kind_for_tile(tile)
+	result["tile"] = tile
+	result["kind"] = kind
+	if kind.is_empty():
+		result["reason"] = tr("dm.reason.bad_hex")
+		return result
+	if kind == DirectedMissionCatalog.KIND_HOME:
+		result["reason"] = tr("dm.reason.home_hex")
+		return result
+	# Boş arazi bir komşu köyün yakınındaysa (2 hex) o köyün toprağı sayılır: yağma hedefi olur.
+	if kind == DirectedMissionCatalog.KIND_WILD:
+		var wm_near: Node = get_node_or_null("/root/WorldManager")
+		if wm_near != null and "world_map_settlement_positions" in wm_near:
+			for sid in wm_near.world_map_settlement_positions.keys():
+				var sp: Dictionary = wm_near.world_map_settlement_positions[sid]
+				if _hex_distance_local(int(sp.get("q", 0)), int(sp.get("r", 0)), q, r) <= 2:
+					tile = tile.duplicate()
+					tile["near_settlement_id"] = String(sid)
+					tile["near_settlement_name"] = String(sp.get("name", ""))
+					result["tile"] = tile
+					break
+	var origin: Vector2i = _directed_village_origin()
+	var dist: int = _hex_distance_local(origin.x, origin.y, q, r)
+	result["distance"] = dist
+	result["available_soldiers"] = get_available_soldier_count()
+	var raw: Array[Dictionary] = DirectedMissionCatalog.get_options(int(cariye.role), kind, tile)
+	# Esir cariyenin tutulduğu hex'e Komutan kurtarma sefer gönderebilir (kind fog olsa bile).
+	var captive_m: Mission = _captive_rescue_mission_at(q, r)
+	if captive_m != null and int(cariye.role) == Concubine.Role.KOMUTAN and kind != DirectedMissionCatalog.KIND_HOME:
+		raw.push_front({
+			"id": "commander_rescue",
+			"title_key": "dm.opt.commander_rescue.title",
+			"desc_key": "dm.opt.commander_rescue.desc",
+			"mission_type": Mission.MissionType.SAVAŞ,
+			"difficulty": Mission.Difficulty.ORTA,
+			"base_minutes": 180.0, "per_hex_minutes": 40.0, "chance": 0.62,
+			"rewards": {"reputation": 1},
+			"penalties": {"army_losses": 1, "cariye_injured": true},
+			"soldiers": {"min": 2, "max": -1, "rec": 4},
+			"gift": {},
+			"executor": DirectedMissionCatalog.EXEC_PLAYER_OR_KOMUTAN,
+			"effect": "rescue:" + captive_m.id,
+		})
+	# Haritada bu hex'te bekleyen eski tip görevler (rol eğitimi, olay yardımı...) de seçenek olur.
+	var role_now: int = int(cariye.role)
+	for lm in _legacy_missions_at(q, r):
+		if kind == DirectedMissionCatalog.KIND_FOG and role_now != Concubine.Role.AJAN:
+			continue
+		if lm.required_concubine_id >= 0 and cariye_id != lm.required_concubine_id:
+			continue
+		if lm.required_concubine_role >= 0 and role_now != lm.required_concubine_role:
+			continue
+		if not lm.is_unlocked_for_concubine(cariye):
+			continue
+		var army: int = maxi(0, lm.required_army_size)
+		raw.append({
+			"id": "legacy:" + lm.id,
+			"title_text": get_mission_display_name(lm),
+			"desc_text": get_mission_display_description(lm) if has_method("get_mission_display_description") else lm.description,
+			"mission_type": int(lm.mission_type),
+			"difficulty": int(lm.difficulty),
+			"rewards": lm.rewards.duplicate(true),
+			"penalties": lm.penalties.duplicate(true),
+			"soldiers": {"min": army, "max": -1, "rec": army} if army > 0 else {},
+			"gift": {},
+			"executor": lm.executor,
+			"effect": "",
+			"legacy_mission_id": lm.id,
+		})
+	if raw.is_empty():
+		result["reason"] = tr("dm.reason.fog_agent_only") if kind == DirectedMissionCatalog.KIND_FOG else tr("dm.reason.no_option")
+		return result
+	var out: Array[Dictionary] = []
+	for opt in raw:
+		var row: Dictionary = opt.duplicate(true)
+		if opt.has("legacy_mission_id"):
+			var lmo: Mission = missions[String(opt["legacy_mission_id"])] as Mission
+			row["duration"] = lmo.duration
+			row["chance"] = cariye.calculate_mission_success_chance(lmo)
+			out.append(row)
+			continue
+		var preview: Mission = _build_directed_mission(cariye, opt, tile, q, r, dist, 0, 0)
+		row["locked_reason"] = _directed_locked_reason(opt, tile)
+		if opt.has("sell_value"):
+			row["sell_rate"] = _directed_sell_rate(cariye, opt, tile) * (1.25 if cariye.has_trait("greedy") else 1.0)
+		row["duration"] = preview.duration
+		row["chance"] = cariye.calculate_mission_success_chance(preview)
+		row["rewards"] = preview.rewards.duplicate(true)
+		row["penalties"] = preview.penalties.duplicate(true)
+		out.append(row)
+	result["options"] = out
+	result["ok"] = true
+	return result
+
+
+## Seçeneğin şu an neden yapılamadığı (boşsa yapılabilir): devşirme için ilişki, bekleme, barınak.
+func _directed_locked_reason(option: Dictionary, tile: Dictionary) -> String:
+	if not option.has("relation_min"):
+		return ""
+	var sid: String = String(tile.get("settlement_id", ""))
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	if wm != null and not sid.is_empty() and wm.has_method("get_relation") and wm.has_method("_get_settlement_display_name"):
+		var nm: String = String(wm.call("_get_settlement_display_name", sid))
+		var rel: int = int(wm.call("get_relation", "Köy", nm))
+		if rel < int(option["relation_min"]):
+			return tr("dm.reason.recruit_relation")
+	var until: int = int((directed_state.get("recruit_until", {}) as Dictionary).get(sid, 0))
+	if until > _current_day():
+		return tr("dm.reason.recruit_cooldown")
+	var vm: Node = get_node_or_null("/root/VillageManager")
+	if vm != null and vm.has_method("can_add_villager") and not bool(vm.call("can_add_villager")):
+		return tr("dm.reason.no_housing")
+	return ""
+
+
+## Yağma ganimetinin asker sayısına göre çarpanı. Asker seçilmediyse (önizleme) 1.0.
+func directed_loot_factor(option: Dictionary, soldier_count: int) -> float:
+	if not bool(option.get("loot_scale", false)) or soldier_count <= 0:
+		return 1.0
+	var rec: int = maxi(1, int((option.get("soldiers", {}) as Dictionary).get("rec", 1)))
+	return clampf(float(soldier_count) / float(rec), 0.5, 1.3)
+
+
+## Tüccarın bir birim malı kaç altına sattığı: temel değer x köy ilişkisi x ticaret yeteneği x seviye.
+func _directed_sell_rate(cariye: Concubine, option: Dictionary, tile: Dictionary) -> float:
+	var base: float = float(option.get("sell_value", 0))
+	var relation: float = 50.0
+	var sid: String = String(tile.get("settlement_id", ""))
+	if not sid.is_empty():
+		for s in settlements:
+			if s is Dictionary and String(s.get("id", "")) == sid:
+				relation = float(s.get("relation", 50))
+				break
+	var rel_mult: float = clampf(1.2 + (relation - 50.0) * 0.01, 0.8, 1.7)
+	# Tüccar puanı: her puan satış kârına +%6 (5 puanda +%30).
+	var skill_mult: float = 1.0 + float(cariye.get_role_points(Concubine.Role.TÜCCAR)) * 0.06
+	return base * rel_mult * skill_mult
+
+
+func _build_directed_mission(cariye: Concubine, option: Dictionary, tile: Dictionary, q: int, r: int,
+		dist: int, soldier_count: int, gift_amount: int) -> Mission:
+	var m := Mission.new()
+	m.id = "directed_" + str(next_mission_id)
+	next_mission_id += 1
+	m.name = tr(String(option.get("title_key", "")))
+	m.description = tr(String(option.get("desc_key", "")))
+	m.mission_type = int(option.get("mission_type", Mission.MissionType.KEŞİF)) as Mission.MissionType
+	m.difficulty = int(option.get("difficulty", Mission.Difficulty.KOLAY)) as Mission.Difficulty
+	var dur: float = float(option.get("base_minutes", 120.0)) + float(option.get("per_hex_minutes", 40.0)) * float(dist)
+	if cariye.has_trait("fast"):
+		dur *= 0.8
+	m.duration = clampf(dur, DIRECTED_MIN_DURATION, DIRECTED_MAX_DURATION)
+	var chance: float = float(option.get("chance", 0.7))
+	var gift: Dictionary = option.get("gift", {})
+	if gift_amount > 0 and gift is Dictionary and int(gift.get("max", 0)) > 0:
+		chance += DIRECTED_GIFT_CHANCE_BONUS * clampf(float(gift_amount) / float(gift.get("max", 1)), 0.0, 1.0)
+	m.success_chance = clampf(chance, 0.05, 0.98)
+	m.required_cariye_level = 1
+	m.required_army_size = 0
+	# Uzak hedef biraz daha çok kazandırır: mesafe başına +%4, en çok x1.6 (bina üretimini ezmesin).
+	var reward_mult: float = clampf(1.0 + 0.04 * float(dist), 1.0, 1.6)
+	# Yağma: götürülen asker önerilenden azsa ganimet düşer, fazlaysa biraz artar (0.5x - 1.3x).
+	reward_mult *= directed_loot_factor(option, soldier_count)
+	var rewards: Dictionary = {}
+	var src_rewards: Dictionary = option.get("rewards", {})
+	for k in src_rewards.keys():
+		var amount = src_rewards[k]
+		if String(k) in ["reputation"]:
+			rewards[k] = int(amount)
+		else:
+			rewards[k] = maxi(1, int(round(float(amount) * reward_mult)))
+	# Alım: verilen altın başarıda mal olarak geri gelir (fiyat satış fiyatından yüksek).
+	if gift_amount > 0 and option.has("buy_item"):
+		var bought: int = int(floor(float(gift_amount) / maxf(0.1, float(option.get("buy_price", 3.0)))))
+		if bought > 0:
+			rewards[String(option["buy_item"])] = int(rewards.get(String(option["buy_item"]), 0)) + bought
+	# Tüccar: götürdüğü mal başarıda altına çevrilir.
+	if gift_amount > 0 and option.has("sell_value"):
+		rewards["gold"] = int(rewards.get("gold", 0)) + int(round(float(gift_amount) * _directed_sell_rate(cariye, option, tile)))
+	# Köylü devşirme: verilen altın / kişi başı bedel kadar köylü gelir.
+	if gift_amount > 0 and option.has("recruit_gold_per"):
+		var heads: int = int(floor(float(gift_amount) / maxf(1.0, float(option["recruit_gold_per"]))))
+		if heads > 0:
+			rewards["villager"] = heads
+	# Açgözlü: altın ödülü %25 fazla.
+	if rewards.has("gold") and cariye.has_trait("greedy"):
+		rewards["gold"] = int(round(float(rewards["gold"]) * 1.25))
+	m.rewards = rewards
+	var penalties: Dictionary = {}
+	var src_pen: Dictionary = option.get("penalties", {})
+	for k in src_pen.keys():
+		var pv = src_pen[k]
+		if String(k) == "army_losses":
+			penalties[k] = maxi(1, int(ceil(float(soldier_count) * 0.35))) if soldier_count > 0 else int(pv)
+		else:
+			penalties[k] = pv
+	m.penalties = penalties
+	m.world_hex_key = str(q) + "," + str(r)
+	var sname: String = String(tile.get("settlement_name", ""))
+	m.target_location = sname if not sname.is_empty() else m.world_hex_key
+	m.target_settlement_id = String(tile.get("settlement_id", ""))
+	if m.target_settlement_id.is_empty():
+		m.target_settlement_id = String(tile.get("near_settlement_id", ""))
+	m.distance = float(dist)
+	match m.difficulty:
+		Mission.Difficulty.KOLAY:
+			m.risk_level = "Düşük"
+		Mission.Difficulty.ORTA:
+			m.risk_level = "Orta"
+		_:
+			m.risk_level = "Yüksek"
+	m.allow_player_map_completion = false
+	m.executor = String(option.get("executor", "cariye_only"))
+	m.status = Mission.Status.MEVCUT
+	m.set_meta("directed", true)
+	m.set_meta("directed_option", String(option.get("id", "")))
+	m.set_meta("directed_effect", String(option.get("effect", "")))
+	m.set_meta("directed_gift", gift_amount)
+	m.set_meta("directed_gift_res", String((option.get("gift", {}) as Dictionary).get("res", "gold")))
+	m.set_meta("directed_soldiers", soldier_count)
+	return m
+
+
+## Seçilen hex + seçenekle görevi üretip cariyeyi yola çıkarır.
+## {"ok": bool, "reason": String, "mission_id": String}
+func create_player_directed_mission(cariye_id: int, q: int, r: int, option_id: String,
+		soldier_count: int = 0, gift_amount: int = 0) -> Dictionary:
+	var info: Dictionary = get_directed_mission_options(cariye_id, q, r)
+	if not bool(info.get("ok", false)):
+		return {"ok": false, "reason": String(info.get("reason", "")), "mission_id": ""}
+	var cariye: Concubine = concubines[cariye_id]
+	if cariye.status != Concubine.Status.BOŞTA:
+		return {"ok": false, "reason": tr("dm.reason.not_idle"), "mission_id": ""}
+	var option: Dictionary = {}
+	for o in info["options"]:
+		if String(o.get("id", "")) == option_id:
+			option = o
+			break
+	if option.is_empty():
+		return {"ok": false, "reason": tr("dm.reason.no_option"), "mission_id": ""}
+	# Haritada bekleyen eski tip görev (rol eğitimi, olay yardımı): doğrudan mevcut göreve atanır.
+	if option.has("legacy_mission_id"):
+		var lmid: String = String(option["legacy_mission_id"])
+		var lsc: Dictionary = option.get("soldiers", {})
+		var lavail: int = int(info.get("available_soldiers", 0))
+		var lsoldiers: int = 0
+		if not lsc.is_empty():
+			if lavail < int(lsc.get("min", 0)):
+				return {"ok": false, "reason": tr("dm.reason.no_soldiers"), "mission_id": ""}
+			lsoldiers = clampi(soldier_count, int(lsc.get("min", 0)), lavail)
+		if not assign_mission_to_concubine(cariye_id, lmid, lsoldiers):
+			return {"ok": false, "reason": tr("dm.reason.cant_handle"), "mission_id": ""}
+		mission_list_changed.emit()
+		return {"ok": true, "reason": "", "mission_id": lmid}
+	var lock_reason: String = String(option.get("locked_reason", ""))
+	if not lock_reason.is_empty():
+		return {"ok": false, "reason": lock_reason, "mission_id": ""}
+	var soldiers_cfg: Dictionary = option.get("soldiers", {})
+	var min_soldiers: int = int(soldiers_cfg.get("min", 0)) if soldiers_cfg is Dictionary else 0
+	var avail: int = int(info.get("available_soldiers", 0))
+	if soldiers_cfg.is_empty():
+		soldier_count = 0
+	else:
+		if avail < min_soldiers:
+			# Kışlada asker var ama komutanların önderlik kapasitesi doluysa farklı söylenir.
+			var cap_blocked: bool = get_free_barracks_soldier_count() >= min_soldiers
+			return {"ok": false, "reason": tr("dm.reason.leadership_full") if cap_blocked else tr("dm.reason.no_soldiers"), "mission_id": ""}
+		soldier_count = clampi(soldier_count, min_soldiers, avail)
+	var gift_cfg: Dictionary = option.get("gift", {})
+	var gift_res: String = ""
+	if gift_cfg.is_empty():
+		gift_amount = 0
+	else:
+		gift_res = String(gift_cfg.get("res", "gold"))
+		gift_amount = clampi(gift_amount, 0, int(gift_cfg.get("max", 0)))
+	var vm: Node = get_node_or_null("/root/VillageManager")
+	var cost: Dictionary = {}
+	if cariye.has_trait("stubborn") and cariye.stamina < int(float(Concubine.STAMINA_MAX) * 0.5):
+		return {"ok": false, "reason": tr("dm.reason.refuses"), "mission_id": ""}
+	if gift_amount > 0:
+		# Açgözlü cariye götürdüğü şeyden %20 fazla harcar (altın ödülü de %25 fazladır).
+		cost[gift_res] = int(ceil(float(gift_amount) * (1.2 if cariye.has_trait("greedy") else 1.0)))
+		if vm == null or not vm.has_method("can_afford_resources") or not bool(vm.call("can_afford_resources", cost)):
+			return {"ok": false, "reason": tr("dm.reason.cant_afford"), "mission_id": ""}
+	var tile: Dictionary = info["tile"]
+	var m: Mission = _build_directed_mission(cariye, option, tile, q, r, int(info.get("distance", 0)), soldier_count, gift_amount)
+	if not cariye.can_handle_mission(m):
+		return {"ok": false, "reason": tr("dm.reason.cant_handle"), "mission_id": ""}
+	missions[m.id] = m
+	if gift_amount > 0 and vm != null:
+		vm.call("spend_resources", cost)
+	if not assign_mission_to_concubine(cariye_id, m.id, soldier_count):
+		missions.erase(m.id)
+		if gift_amount > 0 and vm != null and vm.has_method("apply_resource_delta"):
+			# Altın apply_resource_delta ile değil GlobalPlayerData ile iade edilir.
+			var refund: int = int(cost.get(gift_res, gift_amount))
+			if gift_res == "gold":
+				_apply_reward("gold", refund)
+			else:
+				vm.call("apply_resource_delta", gift_res, refund)
+		return {"ok": false, "reason": tr("dm.reason.cant_handle"), "mission_id": ""}
+	mission_list_changed.emit()
+	return {"ok": true, "reason": "", "mission_id": m.id}
+
+
+## Görev bitince (başarı/başarısızlık) seçeneğin etkisini uygular. Etki dizgesi "a:1;b".
+func _apply_directed_effect(mission: Mission, cariye: Concubine, successful: bool) -> void:
+	if not successful:
+		return
+	var effect: String = String(mission.get_meta("directed_effect", ""))
+	if effect.is_empty():
+		return
+	var gift: int = int(mission.get_meta("directed_gift", 0))
+	var parts: PackedStringArray = effect.split(";")
+	for token in parts:
+		var kv: PackedStringArray = token.split(":")
+		var key: String = kv[0]
+		var arg: int = int(kv[1]) if kv.size() > 1 else 0
+		match key:
+			"relation":
+				if not mission.target_settlement_id.is_empty():
+					var rel_gain: int = arg + int(gift / 10)
+					# Tatlı Dilli cariye ilişkiyi her olumlu girişimde 1 fazla artırır.
+					if rel_gain > 0 and cariye.has_trait("silver_tongue"):
+						rel_gain += 1
+					_increase_settlement_relation(mission.target_settlement_id, rel_gain)
+			"reveal":
+				var wm: Node = get_node_or_null("/root/WorldManager")
+				var hk: PackedStringArray = mission.world_hex_key.split(",")
+				if wm != null and wm.has_method("discover_tiles") and hk.size() == 2:
+					wm.call("discover_tiles", {"q": int(hk[0]), "r": int(hk[1])}, maxi(1, arg), "directed_mission")
+			"camp_clear":
+				var wm_camp: Node = get_node_or_null("/root/WorldManager")
+				var ck: PackedStringArray = mission.world_hex_key.split(",")
+				if wm_camp != null and wm_camp.has_method("clear_bandit_camp_at") and ck.size() == 2:
+					wm_camp.call("clear_bandit_camp_at", int(ck[0]), int(ck[1]))
+			"recruit":
+				# Devşirilen her köylü için köyle ilişki düşer, köyün nüfusu azalır, bekleme başlar.
+				var heads: int = int(mission.rewards.get("villager", 0))
+				if heads > 0 and not mission.target_settlement_id.is_empty():
+					_increase_settlement_relation(mission.target_settlement_id, -3 * heads)
+					var wm_rec: Node = get_node_or_null("/root/WorldManager")
+					if wm_rec != null and "world_settlement_states" in wm_rec and wm_rec.world_settlement_states.has(mission.target_settlement_id):
+						var st: Dictionary = wm_rec.world_settlement_states[mission.target_settlement_id]
+						st["population"] = maxi(20, int(st.get("population", 80)) - heads)
+						wm_rec.world_settlement_states[mission.target_settlement_id] = st
+					var cds: Dictionary = directed_state.get("recruit_until", {})
+					cds[mission.target_settlement_id] = _current_day() + 7
+					directed_state["recruit_until"] = cds
+			"trade_boost":
+				# Tüccar anlaşması: DIRECTED_EFFECT_DAYS gün boyunca köye tüccar daha sık gelir.
+				directed_state["trade_boost_until_day"] = _current_day() + DIRECTED_EFFECT_DAYS
+			"dungeon_infiltrate", "dungeon_clear":
+				var wm_d: Node = get_node_or_null("/root/WorldManager")
+				var dk: PackedStringArray = mission.world_hex_key.split(",")
+				if wm_d != null and wm_d.has_method("set_dungeon_directed_effect") and dk.size() == 2:
+					var kind: String = "intel" if key == "dungeon_infiltrate" else "cleared"
+					wm_d.call("set_dungeon_directed_effect", int(dk[0]), int(dk[1]), kind, _current_day() + DIRECTED_EFFECT_DAYS)
+			"rescue":
+				var rescue_mid: String = kv[1] if kv.size() > 1 else ""
+				if missions.has(rescue_mid) and missions[rescue_mid] is Mission:
+					var captive: int = int(missions[rescue_mid].get_meta("captive_id", -1))
+					if captive >= 0:
+						_free_captive(captive)
+			"challenge_clear":
+				# Komutan challenge'ı çözer: haritadan kalkar, toplama engeliyse bağlı köy olayı biter.
+				# Item açma ödülü OYUNCUNUN içeriğidir; cariye yalnız altın ödülünü (görev ödülü) getirir.
+				var wm_ch: Node = get_node_or_null("/root/WorldManager")
+				var chk: PackedStringArray = mission.world_hex_key.split(",")
+				if wm_ch != null and chk.size() == 2 and wm_ch.has_method("get_challenge_at"):
+					var cq: int = int(chk[0])
+					var cr: int = int(chk[1])
+					var ch: Dictionary = wm_ch.call("get_challenge_at", cq, cr)
+					var ev_id: String = String(ch.get("blockade_event", ""))
+					if not ev_id.is_empty():
+						var vm_ch: Node = get_node_or_null("/root/VillageManager")
+						if vm_ch != null and vm_ch.has_method("clear_event"):
+							vm_ch.call("clear_event", ev_id)
+					if not ch.is_empty():
+						wm_ch.call("remove_challenge_at", cq, cr)
+			_:
+				pass
+
+
+## ─── Faz 3: sonuç kademeleri, yaralanma, esirlik, süreli etkiler ────────────────
+
+signal concubine_captured(cariye_id: int)
+signal concubine_rescued(cariye_id: int)
+
+const DIRECTED_BIG_BASE: float = 0.10
+const DIRECTED_NEAR_SHARE: float = 0.35
+const DIRECTED_CATASTROPHE_BASE: float = 0.20
+## Süreli etkilerin (tüccar anlaşması, ajan istihbaratı, komutan temizliği) süresi, gün.
+const DIRECTED_EFFECT_DAYS: int = 10
+const DIRECTED_RANSOM_GOLD: int = 60
+
+## Kayda yazılan süreli durum (SaveManager mm_directed_state).
+var directed_state: Dictionary = {"trade_boost_until_day": 0}
+
+
+func _current_day() -> int:
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	return int(tm.get_day()) if tm != null and tm.has_method("get_day") else 0
+
+
+## Tüccar anlaşması süresince köye tüccar gelme şansı için çarpan (VillageManager okur).
+func get_trade_boost_multiplier() -> float:
+	var mult: float = 1.0
+	if int(directed_state.get("trade_boost_until_day", 0)) >= _current_day():
+		mult = 2.0
+	# Tüccar rolü varsa köye tüccar gelme şansı etkin puan başına %10 artar.
+	if has_role(Concubine.Role.TÜCCAR):
+		mult *= 1.0 + 0.1 * float(get_role_strength(Concubine.Role.TÜCCAR))
+	return mult
+
+
+func get_trade_boost_days_left() -> int:
+	return maxi(0, int(directed_state.get("trade_boost_until_day", 0)) - _current_day())
+
+
+## Tek zar yerine 5 kademe: big, success, near (kıl payı), fail, catastrophe (esirlik).
+func _directed_roll_tier(cariye: Concubine, mission: Mission, success_chance: float) -> String:
+	var roll: float = randf()
+	if roll < success_chance:
+		var big_p: float = DIRECTED_BIG_BASE + (0.12 if cariye.has_trait("lucky") else 0.0)
+		return "big" if randf() < big_p else "success"
+	var miss: float = (roll - success_chance) / maxf(0.001, 1.0 - success_chance)
+	if miss < DIRECTED_NEAR_SHARE:
+		return "near"
+	var cat_p: float = DIRECTED_CATASTROPHE_BASE * (1.5 if cariye.has_trait("reckless") else 1.0)
+	var tail: float = (miss - DIRECTED_NEAR_SHARE) / (1.0 - DIRECTED_NEAR_SHARE)
+	# Esirlik yalnız tehlikeli görevlerde (cezasında "cariye_injured" olanlar) olur.
+	if tail > 1.0 - cat_p and mission.penalties.has("cariye_injured"):
+		return "catastrophe"
+	return "fail"
+
+
+## complete_mission çağrılmadan ÖNCE: ödül/ceza kademe ve özelliklere göre ayarlanır.
+func _directed_prepare_for_tier(cariye: Concubine, mission: Mission, tier: String) -> void:
+	if tier == "big" or tier == "near":
+		var mult: float = 1.5 if tier == "big" else 0.5
+		for k in mission.rewards.keys():
+			if String(k) == "reputation":
+				if tier == "big":
+					mission.rewards[k] = int(mission.rewards[k]) + 1
+				continue
+			mission.rewards[k] = maxi(1, int(round(float(mission.rewards[k]) * mult)))
+	elif tier == "fail" or tier == "catastrophe":
+		if mission.penalties.has("army_losses"):
+			var loss: float = float(mission.penalties["army_losses"])
+			if cariye.has_trait("beloved"):
+				loss *= 0.6
+			if tier == "catastrophe":
+				loss += 1.0
+			mission.penalties["army_losses"] = maxi(1, int(ceil(loss)))
+
+
+func _injure_concubine(cariye: Concubine, days: int) -> void:
+	if cariye.has_trait("fragile"):
+		days = int(ceil(float(days) * 1.5))
+	# Tıbbiyeci yoksa yaralar uzar, varsa kısalır.
+	days = int(ceil(float(days) * get_healing_time_multiplier()))
+	cariye.status = Concubine.Status.YARALI
+	cariye.injured_days_left = maxi(1, days)
+	cariye.stamina = maxi(0, cariye.stamina - 15)
+	var digest: Node = get_node_or_null("/root/VillageDigest")
+	if digest != null and digest.has_method("report_concubine_injured"):
+		digest.call("report_concubine_injured", cariye.name)
+
+
+## process_mission_results SONRASI: yaralanma, moral, özellikler, esirlik. true: cariye esir düştü.
+func _directed_finish(cariye_id: int, cariye: Concubine, mission: Mission, tier: String, results: Dictionary) -> bool:
+	var captured: bool = false
+	var escaped: bool = false
+	var danger: bool = mission.penalties.has("cariye_injured")
+	match tier:
+		"big":
+			cariye.add_experience(50)
+			post_news("village", tr("dm.news.big.title"), tr("dm.news.big.body") % [cariye.name, mission.name], Color(0.7, 1.0, 0.7), "success")
+		"near":
+			cariye.stamina = maxi(0, cariye.stamina - 5)
+			if danger:
+				_injure_concubine(cariye, 1)
+		"fail":
+			if danger:
+				_injure_concubine(cariye, 2)
+		"catastrophe":
+			if danger:
+				_injure_concubine(cariye, 3)
+	if tier == "success" or tier == "big" or tier == "near":
+		if cariye.has_trait("learner"):
+			cariye.add_experience(15)
+	if tier == "fail" or tier == "catastrophe":
+		if cariye.has_trait("nervous"):
+			cariye.stamina = maxi(0, cariye.stamina - 10)
+		if cariye.has_trait("grumbler"):
+			var vm: Node = get_node_or_null("/root/VillageManager")
+			if vm != null and "village_morale" in vm:
+				vm.village_morale = maxf(0.0, float(vm.village_morale) - 3.0)
+	# Tutumlu: hediyenin dörtte biri her halükarda geri döner.
+	var gift: int = int(mission.get_meta("directed_gift", 0))
+	if gift > 0 and cariye.has_trait("frugal"):
+		var back: int = maxi(1, int(floor(float(gift) * 0.25)))
+		var gres: String = String(mission.get_meta("directed_gift_res", "gold"))
+		if gres == "gold":
+			_apply_reward("gold", back)
+		else:
+			_grant_village_resource(gres, back)
+	if tier == "catastrophe":
+		if cariye.has_trait("cunning") and randf() < 0.4:
+			escaped = true
+			cariye.stamina = maxi(0, cariye.stamina - 10)
+			post_news("village", tr("dm.news.escaped.title"), tr("dm.news.escaped.body") % [cariye.name, mission.name], Color(0.9, 0.95, 0.7), "info")
+		else:
+			captured = true
+			_capture_concubine(cariye_id, cariye, mission)
+	elif tier == "fail":
+		post_news("village", tr("dm.news.fail.title"), tr("dm.news.fail.body") % [cariye.name, mission.name], Color(1.0, 0.8, 0.7), "warning")
+	results["tier"] = tier
+	results["captured"] = captured
+	results["escaped"] = escaped
+	return captured
+
+
+func _capture_concubine(cariye_id: int, cariye: Concubine, mission: Mission) -> void:
+	cariye.status = Concubine.Status.ESIR
+	cariye.current_mission_id = ""
+	cariye.captured_hex = mission.world_hex_key
+	cariye.stamina = maxi(0, cariye.stamina - 20)
+	var rm := Mission.new()
+	rm.id = "rescue_captive_" + str(cariye_id)
+	rm.name = tr("dm.rescue.name") % cariye.name
+	rm.description = tr("dm.rescue.desc") % cariye.name
+	rm.mission_type = Mission.MissionType.SAVAŞ
+	rm.difficulty = Mission.Difficulty.ORTA
+	rm.duration = 240.0
+	rm.success_chance = 0.55
+	rm.required_cariye_level = 1
+	rm.world_hex_key = mission.world_hex_key
+	rm.target_location = mission.target_location
+	rm.risk_level = "Orta"
+	rm.rewards = {"reputation": 1}
+	rm.penalties = {}
+	rm.allow_player_map_completion = true
+	rm.executor = "player_or_komutan"
+	rm.player_map_strategies = [
+		{"text": tr("dm.rescue.strategy.raid"), "cost": {}, "success_chance": 0.5},
+		{"text": tr("dm.rescue.strategy.ransom"), "cost": {"gold": DIRECTED_RANSOM_GOLD}, "success_chance": 1.0},
+	]
+	rm.status = Mission.Status.MEVCUT
+	rm.set_meta("captive_id", cariye_id)
+	missions[rm.id] = rm
+	concubine_captured.emit(cariye_id)
+	mission_list_changed.emit()
+	post_news("village", tr("dm.news.captured.title"), tr("dm.news.captured.body") % cariye.name, Color(1.0, 0.5, 0.45), "critical")
+
+
+func _free_captive(cariye_id: int) -> void:
+	if not concubines.has(cariye_id):
+		return
+	var cariye: Concubine = concubines[cariye_id]
+	if cariye.status != Concubine.Status.ESIR:
+		return
+	cariye.status = Concubine.Status.BOŞTA
+	cariye.captured_hex = ""
+	cariye.stamina = int(float(Concubine.STAMINA_MAX) * 0.4)
+	var rid: String = "rescue_captive_" + str(cariye_id)
+	if missions.has(rid):
+		var rm = missions[rid]
+		if rm is Mission:
+			rm.status = Mission.Status.TAMAMLANDI
+	concubine_rescued.emit(cariye_id)
+	mission_list_changed.emit()
+	post_news("village", tr("dm.news.rescued.title"), tr("dm.news.rescued.body") % cariye.name, Color(0.7, 1.0, 0.7), "success")
+
+
+## Bu hex'te bekleyen, haritadan yollanmamış eski tip görevler (rol eğitimi, olay yardımı...).
+## Esir kurtarma görevi ve cariyeye yollanmış (directed) görevler hariç.
+func _legacy_missions_at(q: int, r: int) -> Array[Mission]:
+	var out: Array[Mission] = []
+	var key: String = str(q) + "," + str(r)
+	for mid in missions.keys():
+		var m = missions[mid]
+		if not (m is Mission):
+			continue
+		if m.status != Mission.Status.MEVCUT or m.has_meta("directed") or m.has_meta("captive_id"):
+			continue
+		# Durumunu bilmediğimiz (ajansız) köyün krizine yardım görevi de görünmez.
+		if not m.target_settlement_id.is_empty() and not is_settlement_intel_visible(m.target_settlement_id):
+			continue
+		_ensure_mission_has_world_objective_hex(m)
+		if String(m.world_hex_key) == key:
+			out.append(m)
+	return out
+
+
+## Esir cariyenin kurtarma görevi bu hex'te mi? (Komutan seçeneği için)
+func _captive_rescue_mission_at(q: int, r: int) -> Mission:
+	var key: String = str(q) + "," + str(r)
+	for mid in missions.keys():
+		var m = missions[mid]
+		if m is Mission and m.status == Mission.Status.MEVCUT and m.has_meta("captive_id") and String(m.world_hex_key) == key:
+			return m
+	return null
+
+
+## Gün başı: dinlenen cariyeler toparlanır, yaralılar iyileşir.
+func _tick_concubine_recovery() -> void:
+	for cid in concubines.keys():
+		var c: Concubine = concubines[cid]
+		if c == null:
+			continue
+		match c.status:
+			Concubine.Status.YARALI:
+				if c.injured_days_left > 0:
+					c.injured_days_left -= 1
+					if c.injured_days_left <= 0:
+						c.status = Concubine.Status.BOŞTA
+						c.stamina = maxi(c.stamina, int(float(Concubine.STAMINA_MAX) * 0.5))
+				else:
+					c.status = Concubine.Status.BOŞTA
+			Concubine.Status.BOŞTA, Concubine.Status.DİNLENİYOR:
+				_concubine_eat(c)
+
+
+## Dinçlik yemekle dolar: 1 meyve (food) +20, 1 ekmek (bread) +50 (yani 5 meyve ya da 2 ekmek tam doldurur).
+## Günde en çok +40 yenir; önce meyve, yoksa ekmek. Yemek yoksa dinçlik toparlanmaz.
+const STAMINA_PER_FOOD := 20
+const STAMINA_PER_BREAD := 50
+const STAMINA_EAT_PER_DAY := 40
+
+
+## Köyde meyve de ekmek de yoksa cariye açlıktan günde 10 dinçlik kaybeder; 0'a düşünce köyü terk eder.
+const STAMINA_STARVE_PER_DAY := 10
+
+
+func _concubine_eat(c: Concubine) -> void:
+	var vm: Node = get_node_or_null("/root/VillageManager")
+	if vm == null or not ("resource_levels" in vm):
+		return
+	var levels: Dictionary = vm.resource_levels
+	var fruit: int = int(levels.get("food", 0))
+	var bread: int = int(levels.get("bread", 0))
+	if fruit <= 0 and bread <= 0:
+		_concubine_starve(c)
+		return
+	var missing: int = mini(Concubine.STAMINA_MAX - c.stamina, STAMINA_EAT_PER_DAY)
+	if missing <= 0:
+		return
+	if fruit > 0:
+		var need: int = mini(fruit, int(ceil(float(missing) / float(STAMINA_PER_FOOD))))
+		_grant_village_resource("food", -need)
+		c.stamina = mini(Concubine.STAMINA_MAX, c.stamina + need * STAMINA_PER_FOOD)
+	else:
+		var need_b: int = mini(bread, int(ceil(float(missing) / float(STAMINA_PER_BREAD))))
+		_grant_village_resource("bread", -need_b)
+		c.stamina = mini(Concubine.STAMINA_MAX, c.stamina + need_b * STAMINA_PER_BREAD)
+
+
+func _concubine_starve(c: Concubine) -> void:
+	c.stamina = maxi(0, c.stamina - STAMINA_STARVE_PER_DAY)
+	var digest: Node = get_node_or_null("/root/VillageDigest")
+	if c.stamina > 0:
+		if digest != null and digest.has_method("report"):
+			digest.call("report", tr("digest.cariye.starving") % c.name, 2, "🍞")
+		return
+	var vm: Node = get_node_or_null("/root/VillageManager")
+	var cname: String = String(c.name)
+	if vm != null and vm.has_method("dismiss_cariye") and bool(vm.call("dismiss_cariye", c.id)):
+		post_news("village", tr("dm.news.starved_left.title"), tr("dm.news.starved_left.body") % cname, Color(1.0, 0.6, 0.45), "critical")
+
+
+## ─── Rol yetenekleri: köyün rolleri "yetenek"tir (docs/CONCUBINE_MAP_MISSIONS_PLAN.md) ──────
+## Aynı roldeki cariyelerden en yüksek puanlı olan belirler, her yardımcı +1 etkin puan ekler
+## (en çok 5). Esir cariye sayılmaz; görevde ya da yaralı olması yeteneği kapatmaz.
+
+func has_role(role: int) -> bool:
+	return not get_concubines_by_role(role as Concubine.Role).is_empty()
+
+
+func get_role_strength(role: int) -> int:
+	var members: Array[Concubine] = get_concubines_by_role(role as Concubine.Role)
+	if members.is_empty():
+		return 0
+	var best: int = 0
+	for c in members:
+		best = maxi(best, c.get_role_points(role))
+	return mini(Concubine.ROLE_POINT_CAP, best + members.size() - 1)
+
+
+## Asker kaybı çarpanı. Tıbbiyeci yoksa %25 fazla, varsa her etkin puan %6 azaltır (5'te x0.70).
+func get_casualty_multiplier() -> float:
+	if not has_role(Concubine.Role.TIBBIYECI):
+		return 1.25
+	return 1.0 - 0.06 * float(get_role_strength(Concubine.Role.TIBBIYECI))
+
+
+## Yaralanma/iyileşme süresi çarpanı. Tıbbiyeci yoksa x1.5, varsa her etkin puan %8 kısaltır (5'te x0.60).
+func get_healing_time_multiplier() -> float:
+	if not has_role(Concubine.Role.TIBBIYECI):
+		return 1.5
+	return 1.0 - 0.08 * float(get_role_strength(Concubine.Role.TIBBIYECI))
+
+
+## Aynı anda göreve çıkarılabilecek toplam asker: her komutan 5 + puanının iki katı kadar askere
+## önderlik eder (komutanlar toplanır); komutan yoksa 3.
+func get_leadership_cap() -> int:
+	var commanders: Array[Concubine] = get_concubines_by_role(Concubine.Role.KOMUTAN)
+	if commanders.is_empty():
+		return 3
+	var total: int = 0
+	for c in commanders:
+		total += 5 + 2 * c.get_role_points(Concubine.Role.KOMUTAN)
+	return total
+
+
+## Haritada kaç komşu köyün durumunu (kriz, baskın) biliyoruz: ajan yoksa yalnız en yakın köy,
+## ajan varsa 2 + etkin puan kadar en yakın köy.
+func get_intel_visible_count() -> int:
+	if not has_role(Concubine.Role.AJAN):
+		return 1
+	return 2 + get_role_strength(Concubine.Role.AJAN)
+
+
+func is_settlement_intel_visible(settlement_id: String) -> bool:
+	if settlement_id.is_empty():
+		return true
+	var wm: Node = get_node_or_null("/root/WorldManager")
+	if wm == null or not ("world_map_settlement_positions" in wm):
+		return true
+	var positions: Dictionary = wm.world_map_settlement_positions
+	if not positions.has(settlement_id):
+		return true
+	var origin: Vector2i = _directed_village_origin()
+	var ranked: Array = []
+	for sid in positions.keys():
+		var sp: Dictionary = positions[sid]
+		ranked.append({"id": String(sid), "d": _hex_distance_local(origin.x, origin.y, int(sp.get("q", 0)), int(sp.get("r", 0)))})
+	ranked.sort_custom(func(a, b): return int(a["d"]) < int(b["d"]))
+	var limit: int = mini(get_intel_visible_count(), ranked.size())
+	for i in range(limit):
+		if String(ranked[i]["id"]) == settlement_id:
+			return true
+	return false
+
+
 func create_defense_mission(attacker: String, day: int = 0) -> Dictionary:
 	"""Create a defense mission against an attacker"""
 	var mission_id := "defense_" + attacker + "_" + str(next_mission_id)
@@ -4939,11 +5507,9 @@ func create_defense_mission(attacker: String, day: int = 0) -> Dictionary:
 			"subcategory": "critical",
 		},
 	}):
-		print("🛡️ Savunma görevi (pipeline): %s (Gün: %d)" % [attacker, day])
 		return mission
 	missions[mission_id] = mission
 	_post_news_tr("world", "news.defense_required.title", "news.defense_required.body", Color(1, 0.3, 0.3), "critical", [], [attacker])
-	print("🛡️ Savunma görevi oluşturuldu: %s (Gün: %d)" % [attacker, day])
 	return mission
 
 func execute_battle_mission(mission_id: String, cariye_id: int) -> Dictionary:
@@ -5010,9 +5576,6 @@ func _get_available_soldier_worker_ids_for_mission(barracks: Node, exclude_missi
 		var id_val = int(wid) if wid is float else wid
 		if id_val not in busy:
 			available.append(id_val)
-	print("[RAID_DEBUG] _get_available_soldier_worker_ids: barracks_ids=%s busy=%s available=%s" % [
-		str(barracks.assigned_worker_ids), str(busy), str(available)
-	])
 	return available
 
 func get_raid_mission_extra(mission_id: String) -> Dictionary:
@@ -5150,7 +5713,7 @@ func _process_battle_results(mission: Dictionary, battle_result: Dictionary) -> 
 			world_stability = max(0, world_stability - stability_penalty)
 		
 		# Post failure news
-		post_news("world", tr("news.battle_defeat.title"), tr("news.battle_defeat.body") % [get_mission_display_name(mission), gold_loss], Color(1.0, 0.3, 0.3), "critical")
+		post_news("world", tr("news.battle_defeat.title"), tr("news.battle_defeat.body") % [get_mission_display_name(mission), gold_loss], Color(1.0, 0.3, 0.3), "critical", {"digest_keep": true})
 		
 		# Update world stability
 		world_stability = max(0, world_stability - 10)
@@ -5169,7 +5732,7 @@ func _on_unit_losses(unit_type: String, losses: int) -> void:
 	
 	# Post news about losses
 	if losses > 0:
-		post_news("world", tr("news.unit_loss.title"), tr("news.unit_loss.body") % [losses, unit_type], Color(1.0, 0.7, 0.3), "warning")
+		post_news("world", tr("news.unit_loss.title"), tr("news.unit_loss.body") % [losses, unit_type], Color(1.0, 0.7, 0.3), "warning", {"digest_keep": true})
 
 func _on_equipment_consumed(equipment_type: String, amount: int) -> void:
 	"""Handle equipment consumption signal from CombatResolver"""
@@ -5182,7 +5745,6 @@ func debug_create_test_raid() -> Dictionary:
 	var tm = get_node_or_null("/root/TimeManager")
 	var current_day: int = tm.get_day() if tm and tm.has_method("get_day") else 1
 	var test_mission := create_raid_mission("Test Yerleşimi", current_day, "medium")
-	print("🔍 Test baskın görevi oluşturuldu: ", test_mission.id)
 	return test_mission
 
 func debug_create_test_defense() -> Dictionary:
@@ -5190,14 +5752,12 @@ func debug_create_test_defense() -> Dictionary:
 	var tm = get_node_or_null("/root/TimeManager")
 	var current_day: int = tm.get_day() if tm and tm.has_method("get_day") else 1
 	var test_mission := create_defense_mission("Test Saldırgan", current_day)
-	print("🔍 Test savunma görevi oluşturuldu: ", test_mission.id)
 	return test_mission
 
 func debug_execute_test_battle(mission_id: String) -> Dictionary:
 	"""Execute a test battle for debugging"""
 	print("🔍 Test savaş başlatılıyor: ", mission_id)
 	var result := execute_battle_mission(mission_id, 1)  # Use cariye ID 1
-	print("🔍 Savaş sonucu: ", result)
 	return result
 
 func debug_create_test_forces() -> Dictionary:
@@ -5223,13 +5783,9 @@ func debug_create_test_forces() -> Dictionary:
 		300
 	)
 	
-	print("🔍 Test kuvvetleri oluşturuldu:")
-	print("  Saldırgan: ", attacker)
-	print("  Savunan: ", defender)
 	
 	# Test battle
 	var battle_result: Dictionary = cr.simulate_raid(attacker, defender)
-	print("🔍 Test savaş sonucu: ", battle_result)
 	
 	return battle_result
 
@@ -5240,15 +5796,9 @@ func debug_show_combat_stats() -> void:
 		print("❌ CombatResolver bulunamadı!")
 		return
 	
-	print("🔍 Savaş Sistemi İstatistikleri:")
-	print("  Savaş sistemi aktif: ", cr.war_enabled)
-	print("  Mevcut birlik türleri: ", cr.get_unit_types().keys())
-	print("  Dünya istikrarı: ", world_stability)
-	print("  Oyuncu itibarı: ", player_reputation)
 	
 	# Show player force
 	var player_force := _get_player_military_force()
-	print("  Oyuncu kuvveti: ", player_force)
 
 func debug_run_full_combat_test() -> void:
 	"""Run a complete combat system test"""
@@ -5258,24 +5808,19 @@ func debug_run_full_combat_test() -> void:
 	debug_show_combat_stats()
 	
 	# 2. Create test forces and battle
-	print("\n🔍 Test kuvvetleri oluşturuluyor...")
 	debug_create_test_forces()
 	
 	# 3. Create and test raid mission
-	print("\n🔍 Baskın görevi test ediliyor...")
 	var raid_mission := debug_create_test_raid()
 	debug_execute_test_battle(raid_mission.id)
 	
 	# 4. Create and test defense mission
-	print("\n🔍 Savunma görevi test ediliyor...")
 	var defense_mission := debug_create_test_defense()
 	debug_execute_test_battle(defense_mission.id)
 	
 	# 5. Show final stats
-	print("\n🔍 Test sonrası istatistikler:")
 	debug_show_combat_stats()
 	
-	print("🚀 === SAVAŞ SİSTEMİ TAM TEST BİTTİ ===")
 
 # --- CARİYE ROL YÖNETİMİ ---
 
@@ -5297,7 +5842,6 @@ func set_concubine_role(cariye_id: int, role: Concubine.Role) -> bool:
 	
 	# Yeni rolü ata
 	cariye.role = role
-	print("✅ Cariye rolü atandı: %s -> %s" % [cariye.name, cariye.get_role_name()])
 	
 	# Rol atama sinyali gönder
 	emit_signal("concubine_role_changed", cariye_id, role)
@@ -5320,8 +5864,6 @@ func request_concubine_role(cariye_id: int, role: int) -> Dictionary:
 	if role == Concubine.Role.NONE:
 		set_concubine_role(cariye_id, role)
 		return {"ok": true, "message": ""}
-	if get_role_track_mission(cariye_id) != null:
-		return {"ok": false, "message": "Cariye zaten bir rol görevi bekliyor/görevde."}
 	if cariye.status != Concubine.Status.BOŞTA:
 		return {"ok": false, "message": "Cariye şu an boşta değil."}
 	var vm := get_node_or_null("/root/VillageManager")
@@ -5334,62 +5876,14 @@ func request_concubine_role(cariye_id: int, role: int) -> Dictionary:
 		return {"ok": false, "message": "Yetersiz kaynak: %s" % _format_cost_for_display(cost)}
 	if not vm.spend_resources(cost):
 		return {"ok": false, "message": "Ödeme yapılamadı."}
-	# NOT: Görev burada SADECE oluşturulur, otomatik atanmaz — oyuncu Görevler sekmesinden
-	# manuel "Ata" ile başlatır (bkz. ConcubineMissionPopupUI._refresh_missions filtrelemesi).
-	var mission: Mission = _build_role_training_mission(cariye_id, role, cariye.name)
-	missions[mission.id] = mission
+	# Eğitim görevi yok: bedel (yalnız altın) ödenince rol anında verilir.
+	set_concubine_role(cariye_id, role as Concubine.Role)
 	mission_list_changed.emit()
-	mission_unlocked.emit(mission.id)
-	return {"ok": true, "message": "Eğitim görevi hazır: %s" % mission.name}
+	return {"ok": true, "message": tr("cm_popup.role_changed") % cariye.get_role_name()}
 
 
-func _build_role_training_mission(cariye_id: int, role: int, cariye_name: String) -> Mission:
-	var step: Dictionary = RoleMissionCatalog.get_role_training_step(role)
-	var display_name: String = cariye_name.strip_edges()
-	if display_name.is_empty():
-		display_name = tr("cariye.unknown")
-	var m := Mission.new()
-	m.id = "role_training_%d_%d_%d" % [cariye_id, role, Time.get_unix_time_from_system()]
-	m.name = tr(String(step.get("name_key", ""))) % display_name
-	m.description = tr(String(step.get("desc_key", ""))) % display_name
-	m.mission_type = int(step.get("type", Mission.MissionType.BÜROKRASİ)) as Mission.MissionType
-	m.difficulty = Mission.Difficulty.ORTA
-	m.duration = float(step.get("duration", 120.0))
-	m.success_chance = float(step.get("success", 0.8))
-	m.required_cariye_level = 1
-	m.required_army_size = int(step.get("required_army_size", 0))
-	m.required_concubine_id = cariye_id
-	m.required_concubine_role = -1
-	m.required_resources = {}
-	m.rewards = (step.get("rewards", {}) as Dictionary).duplicate(true)
-	m.penalties = {}
-	m.target_location = tr("mission.rescue_chain.target.village")
-	m.distance = 0.1
-	m.risk_level = tr("mission.rescue_chain.risk.low")
-	m.allow_player_map_completion = false
-	m.status = Mission.Status.MEVCUT
-	m.grants_concubine_role = role
-	return m
 
 
-## Bir cariyenin rol kazanmak için ödediği/sürdürdüğü görevi döndürür — ister henüz atanmamış
-## (MEVCUT, oyuncunun "Ata" demesini bekliyor) ister aktif (AKTİF, sürüyor) olsun. Yoksa null.
-## ConcubineMissionPopupUI bunu hem Görevler listesini tek göreve daraltmak hem de Roller
-## sekmesinde kilit/eğitim durumunu göstermek için kullanır.
-func get_role_track_mission(cariye_id: int) -> Mission:
-	if active_missions.has(cariye_id):
-		var active_mid: String = String(active_missions[cariye_id])
-		var active_m = missions.get(active_mid)
-		if active_m is Mission and (active_m as Mission).grants_concubine_role >= 0:
-			return active_m as Mission
-	for mid in missions.keys():
-		var m = missions[mid]
-		if not (m is Mission):
-			continue
-		var mission := m as Mission
-		if mission.grants_concubine_role >= 0 and mission.required_concubine_id == cariye_id and mission.status == Mission.Status.MEVCUT:
-			return mission
-	return null
 
 
 func _format_cost_for_display(cost: Dictionary) -> String:
@@ -5421,16 +5915,16 @@ func _clear_concubine_role(cariye_id: int):
 	var cariye = concubines[cariye_id]
 	var old_role = cariye.role
 	cariye.role = Concubine.Role.NONE
-	print("🧹 Cariye rolü temizlendi: %s -> %s" % [cariye.name, cariye.get_role_name()])
 
 # Belirli roldeki cariyeleri al
 func get_concubines_by_role(role: Concubine.Role) -> Array[Concubine]:
 	var result: Array[Concubine] = []
 	
 	for cariye in concubines.values():
-		if cariye.role == role:
+		# Esir cariye köyde olmadığı için rolünün yeteneği de yoktur.
+		if cariye.role == role and cariye.status != Concubine.Status.ESIR:
 			result.append(cariye)
-	
+
 	return result
 
 # Komutan cariyeleri al
@@ -5459,7 +5953,6 @@ func _save_concubine_roles() -> void:
 	if f:
 		f.store_string(JSON.stringify(roles))
 		f.close()
-		print("[MissionManager] Cariye roller kaydedildi: ", path)
 	else:
 		push_error("[MissionManager] Kaydetme açılamadı: " + path)
 
@@ -5479,8 +5972,9 @@ func _load_concubine_roles() -> void:
 		var cid := int(key)
 		if concubines.has(cid):
 			var role_val := int(data[key])
+			if role_val == int(Concubine.Role.REMOVED_5):
+				role_val = int(Concubine.Role.NONE)  # kaldırılan Alım rolü
 			concubines[cid].role = Concubine.Role.values()[clamp(role_val, 0, Concubine.Role.values().size() - 1)]
-	print("[MissionManager] Cariye roller yüklendi (", data.size(), ")")
 
 # --- KÖY KAYIP ETKİLERİ ---
 func _apply_village_defeat_effects(mission: Dictionary) -> void:
@@ -5517,9 +6011,9 @@ func _apply_village_defeat_effects(mission: Dictionary) -> void:
 			# Basit bir hasar alanı varsa düşür; yoksa sadece haber at
 			if b and b.has("health"):
 				b.health = max(1, int(b.health) - 1)
-				post_news("world", tr("news.building_damaged.title"), tr("news.building_damaged.body") % b.name, Color(1, 0.7, 0.5), "warning")
+				post_news("world", tr("news.building_damaged.title"), tr("news.building_damaged.body") % b.name, Color(1, 0.7, 0.5), "warning", {"digest_keep": true})
 			else:
-				post_news("world", tr("news.building_hurt.title"), tr("news.building_hurt.body") % b.name, Color(1, 0.7, 0.5), "warning")
+				post_news("world", tr("news.building_hurt.title"), tr("news.building_hurt.body") % b.name, Color(1, 0.7, 0.5), "warning", {"digest_keep": true})
 
 	post_news("world", tr("news.defense_lost.title"), tr("news.defense_lost.body"), Color(1.0, 0.5, 0.4), "critical")
 

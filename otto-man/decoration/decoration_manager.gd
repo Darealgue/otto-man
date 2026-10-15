@@ -11,7 +11,6 @@ const EDGE_MARGIN_PX: float = 96.0
 func _ready() -> void:
 	_decoration_config = DecorationConfig.new()
 	add_to_group("decoration_manager")
-	print("[DecorationManager] Initialized")
 	
 	# Tüm decoration spawner'ları topla
 	_collect_decoration_spawners()
@@ -23,18 +22,12 @@ func _collect_decoration_spawners() -> void:
 		return
 	
 	_find_decoration_spawners_recursive(parent)
-	print("[DecorationManager] Found %d decoration spawners" % _decoration_spawners.size())
 
 func _find_decoration_spawners_recursive(node: Node) -> void:
 	for child in node.get_children():
 		if child is DecorationSpawner:
 			_decoration_spawners.append(child as DecorationSpawner)
 			child.chunk_type = _chunk_type
-			print("[DecorationManager] Added spawner: %s (Type: %s, Location: %s)" % [
-				child.name, 
-				DecorationConfig.DecorationType.keys()[child.decoration_type],
-				DecorationConfig.SpawnLocation.keys()[child.spawn_location]
-			])
 		else:
 			_find_decoration_spawners_recursive(child)
 
@@ -42,7 +35,6 @@ func initialize(chunk_type: String, level: int) -> void:
 	_chunk_type = chunk_type
 	_current_level = level
 	
-	print("[DecorationManager] Initializing with chunk type: %s, level: %d" % [chunk_type, level])
 	
 	# Tüm spawner'ları güncel ayarlarla güncelle
 	for spawner in _decoration_spawners:
@@ -59,7 +51,6 @@ func initialize(chunk_type: String, level: int) -> void:
 		else:
 			spawner.deactivate()
 	
-	print("[DecorationManager] Activated %d out of %d spawners" % [_active_spawners.size(), _decoration_spawners.size()])
 
 func _select_decoration_spawners(available_spawners: Array[DecorationSpawner], chunk_type: String, level: int) -> Array[DecorationSpawner]:
 	var selected: Array[DecorationSpawner] = []
@@ -164,7 +155,6 @@ func get_active_decorations() -> Array[Node2D]:
 func clear_all_decorations() -> void:
 	for spawner in _decoration_spawners:
 		spawner.clear_decoration()
-	print("[DecorationManager] Cleared all decorations")
 
 func set_level(level: int) -> void:
 	_current_level = level
@@ -213,13 +203,11 @@ func handle_decoration_damage(decoration: Node2D, damage: int) -> void:
 	current_hp -= damage
 	decoration.set_meta("hp", current_hp)
 	
-	print("[DecorationManager] Decoration took %d damage, HP: %d" % [damage, current_hp])
 	
 	if current_hp <= 0:
 		_break_decoration(decoration)
 
 func _break_decoration(decoration: Node2D) -> void:
-	print("[DecorationManager] Decoration broken!")
 	
 	# Altın drop et
 	var gold_drop = decoration.get_meta("gold_drop", {})
@@ -282,7 +270,6 @@ func _on_dm_dropped_gold_pickup(entering: Node2D, coin: Node2D) -> void:
 	var gold_value: int = int(coin.get_meta("gold_value", 1))
 	if GlobalPlayerData:
 		GlobalPlayerData.credit_run_loot_gold(gold_value, coin.global_position)
-	print("[DecorationManager] Dropped gold collected: %d at %s" % [gold_value, str(coin.global_position)])
 	coin.queue_free()
 
 func _apply_dungeon_gold_multiplier(base_value: int) -> int:

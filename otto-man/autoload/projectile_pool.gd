@@ -12,7 +12,7 @@ const DEFAULT_POOL_SIZE = 10
 const MAX_POOL_SIZE = 50
 
 func _ready() -> void:
-	print("[ProjectilePool] Initialized")
+	pass
 
 # Get a projectile from pool or create new one
 func get_projectile(projectile_scene: PackedScene, pool_name: String = "") -> Node:
@@ -27,11 +27,9 @@ func get_projectile(projectile_scene: PackedScene, pool_name: String = "") -> No
 	var projectile: Node = null
 	if _pools[pool_name].size() > 0:
 		projectile = _pools[pool_name].pop_back()
-		print("[ProjectilePool] Retrieved %s from pool (remaining: %d)" % [pool_name, _pools[pool_name].size()])
 	else:
 		# Pool is empty, create new projectile
 		projectile = projectile_scene.instantiate()
-		print("[ProjectilePool] Created new %s (pool empty)" % pool_name)
 	
 	# Track active projectile
 	if not _active_projectiles.has(pool_name):
@@ -64,11 +62,9 @@ func return_projectile(projectile: Node, pool_name: String = "") -> void:
 	# Return to pool if not at max capacity
 	if _pools.has(pool_name) and _pools[pool_name].size() < MAX_POOL_SIZE:
 		_pools[pool_name].append(projectile)
-		print("[ProjectilePool] Returned %s to pool (pool size: %d)" % [pool_name, _pools[pool_name].size()])
 	else:
 		# Pool is full, free the projectile
 		projectile.queue_free()
-		print("[ProjectilePool] Freed %s (pool full)" % pool_name)
 
 # Initialize pool with default size
 func _initialize_pool(projectile_scene: PackedScene, pool_name: String) -> void:
@@ -81,7 +77,6 @@ func _initialize_pool(projectile_scene: PackedScene, pool_name: String) -> void:
 		_reset_projectile(projectile)
 		_pools[pool_name].append(projectile)
 	
-	print("[ProjectilePool] Initialized pool '%s' with %d projectiles" % [pool_name, DEFAULT_POOL_SIZE])
 
 # Reset projectile to default state
 func _reset_projectile(projectile: Node) -> void:
@@ -156,4 +151,3 @@ func clear_all_pools() -> void:
 					projectile.queue_free()
 			_active_projectiles[pool_name].clear()
 	
-	print("[ProjectilePool] Cleared all pools")

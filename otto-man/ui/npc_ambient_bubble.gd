@@ -230,6 +230,16 @@ class _BubbleTracker extends Node:
 		var vp := get_viewport()
 		if vp == null:
 			return
+		# Köy sahnesi dünya haritası overlay'inin altında donuk dururken balonlar haritanın
+		# üstünde kalıyordu: overlay açıkken gizle.
+		var sm := get_node_or_null("/root/SceneManager")
+		var map_open: bool = sm != null and sm.get("_world_map_overlay_instance") != null \
+				and is_instance_valid(sm.get("_world_map_overlay_instance"))
+		if panel.visible == map_open:
+			panel.visible = not map_open
+			tail.visible = not map_open
+		if map_open:
+			return
 		var cam := vp.get_camera_2d()
 		if cam == null:
 			return

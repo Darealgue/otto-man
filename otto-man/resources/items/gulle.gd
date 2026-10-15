@@ -23,7 +23,6 @@ func _init():
 	item_name = tr("item.gulle.name")
 	description = tr("item.gulle.description")
 	flavor_text = "Düşman da gülle olur"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.HEAVY_ATTACK
 	affected_stats = ["enemy_cannonball"]
 func process(_player_node: CharacterBody2D, _delta: float) -> void:

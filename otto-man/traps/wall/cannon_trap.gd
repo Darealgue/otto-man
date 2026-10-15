@@ -61,7 +61,6 @@ func _ready() -> void:
 	warning_timer.timeout.connect(_shoot_cannonball)
 	add_child(warning_timer)
 	
-	print("[CannonTrap] Ready - interval: %.1fs, damage: %.1f, speed: %.1f" % [cannon_interval, cannonball_damage, cannonball_speed])
 
 # Override base trap initialize to add direction determination
 func initialize(level: int, spawner_position: Vector2) -> void:
@@ -82,21 +81,17 @@ func initialize(level: int, spawner_position: Vector2) -> void:
 
 func _determine_shoot_direction() -> void:
 	# Debug current property values
-	print("[CannonTrap] Direction properties: R=%s L=%s U=%s D=%s" % [shoot_right, shoot_left, shoot_up, shoot_down])
 	
 	# Cannons only shoot horizontally (LEFT or RIGHT)
 	if shoot_right:
 		shoot_direction = Vector2.RIGHT
-		print("[CannonTrap] Direction set to RIGHT →")
 	elif shoot_left:
 		shoot_direction = Vector2.LEFT
-		print("[CannonTrap] Direction set to LEFT ←")
 	elif shoot_up or shoot_down:
 		# Force horizontal direction for vertical settings
 		var screen_center_x = 1920 / 2
 		if global_position.x < screen_center_x:
 			shoot_direction = Vector2.RIGHT
-			print("[CannonTrap] Vertical direction not allowed - forced to RIGHT →")
 		else:
 			shoot_direction = Vector2.LEFT
 	else:
@@ -288,16 +283,13 @@ func _create_cannon_visual() -> void:
 		Vector2.RIGHT:
 			cannon_sprite.rotation_degrees = 0
 			cannon_sprite.scale.x = 1
-			print("[CannonTrap] Cannon oriented for RIGHT →")
 		Vector2.LEFT:
 			cannon_sprite.rotation_degrees = 0
 			cannon_sprite.scale.x = -1
-			print("[CannonTrap] Cannon oriented for LEFT ←")
 		_:
 			# Fallback for any other direction (should not happen)
 			cannon_sprite.rotation_degrees = 0
 			cannon_sprite.scale.x = 1
-			print("[CannonTrap] Unknown direction - defaulting to RIGHT →")
 	
 	add_child(cannon_sprite)
 

@@ -8,19 +8,16 @@ func _init():
 	item_name = tr("item.uzun_menzil.name")
 	description = tr("item.uzun_menzil.description")
 	flavor_text = "Uzaktan da vurur"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["light_attack_ranged"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Uzun Menzil] ✅ Light attack projectile fırlatır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Uzun Menzil] ❌ Kaldırıldı")
 
 func _on_player_light_attack_performed(direction: Vector2, position: Vector2, damage: float) -> void:
 	if not _player or not is_instance_valid(_player):

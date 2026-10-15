@@ -19,19 +19,16 @@ func _init():
 	item_name = tr("item.golge_nisanci.name")
 	description = tr("item.golge_nisanci.description")
 	flavor_text = "Düşüş de bir nişan alma şeklidir"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.FALL_ATTACK
 	affected_stats = ["fall_attack_projectile"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Gölge Nişancı] ✅ Fall attack aşağı yönlü mermi fırlatır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Gölge Nişancı] ❌ Kaldırıldı")
 
 func _on_fall_attack_impacted(position: Vector2) -> void:
 	if not _player or not is_instance_valid(_player):

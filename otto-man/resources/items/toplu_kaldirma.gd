@@ -12,14 +12,11 @@ func _init():
 	item_name = tr("item.toplu_kaldirma.name")
 	description = tr("item.toplu_kaldirma.description")
 	flavor_text = "Biri uçarsa hepsi uçar"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.HEAVY_ATTACK
 	affected_stats = ["group_launch"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Toplu Kaldırma] ✅ Fırlatma artık yakındaki tüm düşmanları da kaldırıyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Toplu Kaldırma] ❌ Kaldırıldı")

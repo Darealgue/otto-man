@@ -15,7 +15,6 @@ func _init():
 	item_name = tr("item.guc_kayasi.name")
 	description = tr("item.guc_kayasi.description")
 	flavor_text = "Kor, taşı da patlatır"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.HEAVY_ATTACK
 	affected_stats = ["heavy_burn_payoff"]
 

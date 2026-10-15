@@ -7,7 +7,6 @@ func _init():
 	item_name = tr("item.kara_barut.name")
 	description = tr("item.kara_barut.description")
 	flavor_text = "Daha çok barut, daha çok tehlike"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SPECIAL
 	affected_stats = ["explosion_radius"]
 
@@ -16,8 +15,6 @@ func _init():
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Kara Barut] ✅ Patlama yarıçapı +%30")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Kara Barut] ❌ Kaldırıldı")

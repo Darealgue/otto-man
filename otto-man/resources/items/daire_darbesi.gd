@@ -16,7 +16,6 @@ func _init():
 	item_name = tr("item.daire_darbesi.name")
 	description = tr("item.daire_darbesi.description")
 	flavor_text = "Çevren senin meydanın"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.HEAVY_ATTACK
 	affected_stats = ["heavy_attack_360"]
 
@@ -26,7 +25,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("player_attack_landed"):
 		if not player.is_connected("player_attack_landed", _on_player_attack_landed):
 			player.connect("player_attack_landed", _on_player_attack_landed)
-	print("[Daire Darbesi] ✅ Heavy attack artık 360° vuruyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -34,7 +32,6 @@ func deactivate(player: CharacterBody2D):
 		if _player.is_connected("player_attack_landed", _on_player_attack_landed):
 			_player.disconnect("player_attack_landed", _on_player_attack_landed)
 	_player = null
-	print("[Daire Darbesi] ❌ Kaldırıldı")
 
 func _on_player_attack_landed(attack_type: String, damage: float, targets: Array, _position: Vector2, effect_filter: String = "all") -> void:
 	if effect_filter == "physical_only" or attack_type != "heavy":

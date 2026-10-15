@@ -171,7 +171,6 @@ func _return_worker_to_idle(vm: Node, worker_id: int) -> void:
 	var worker_instance = worker_data.get("instance")
 	
 	if not is_instance_valid(worker_instance):
-		print("[Barracks] Worker %d instance geçersiz!" % worker_id)
 		return
 	
 	# Worker'ın sahne ağacında olduğundan emin ol
@@ -197,14 +196,10 @@ func _return_worker_to_idle(vm: Node, worker_id: int) -> void:
 	else:
 		worker_instance.move_target_x = worker_instance.global_position.x
 	
-	print("[Barracks] ✅ Worker %d idle yapıldı - Visible: %s, Pos: %s" % [
-		worker_id, worker_instance.visible, worker_instance.global_position
-	])
 
 func _update_ui() -> void:
 	"""UI'ı güncelle (kontrolcü sistemi için gerekli değil ama debug için)"""
 	# UI kullanılmıyor - sadece debug mesajı
-	print("[Barracks] Askerler: %d/%d" % [assigned_workers, max_workers])
 
 # --- Yükseltme API (MissionCenter CONSTRUCTION sayfası ile uyumlu) ---
 func get_next_upgrade_cost() -> Dictionary:
@@ -239,7 +234,7 @@ func _get_commander_force_bonus() -> Dictionary:
 	for cariye in komutanlar:
 		if cariye == null or not ("status" in cariye) or cariye.status != Concubine.Status.BOŞTA:
 			continue
-		var skill: int = cariye.get_skill_level(Concubine.Skill.SAVAŞ)
+		var skill: int = cariye.get_role_power(Concubine.Role.KOMUTAN)
 		if skill > best_skill:
 			best_skill = skill
 			best_name = String(cariye.name) if "name" in cariye else ""
@@ -353,15 +348,7 @@ func deploy_soldiers() -> void:
 					worker_instance.move_target_x = 3500.0  # Zaten sağdaysa daha da sağa
 				worker_instance._target_global_y = worker_instance.global_position.y
 				deployed_count += 1
-				print("[Barracks] Asker %d deploy edildi - Mevcut konum: (%.1f, %.1f), Hedef: (%.1f, %.1f)" % [
-					worker_id, 
-					worker_instance.global_position.x, 
-					worker_instance.global_position.y,
-					worker_instance.move_target_x,
-					worker_instance._target_global_y
-				])
 	
-	print("[Barracks] %d/%d asker deploy edildi" % [deployed_count, assigned_workers])
 
 func recall_soldiers() -> void:
 	"""Askerleri geri çağır (ekrana geri getir)"""
@@ -391,7 +378,6 @@ func recall_soldiers() -> void:
 						# Eğer bina yoksa köy merkezine git
 						worker_instance.move_target_x = worker_instance.global_position.x + 500.0
 	
-	print("[Barracks] Askerler geri çağrıldı")
 
 func remove_soldiers(count: int) -> void:
 	"""Belirli sayıda askeri kaldır (savaşta ölenler için).
@@ -401,7 +387,11 @@ func remove_soldiers(count: int) -> void:
 	if not vm:
 		print("[Barracks] VillageManager bulunamadı!")
 		return
-	
+	# Tıbbiyeci yoksa kayıplar artar, varsa puanıyla azalır (MissionManager.get_casualty_multiplier).
+	var mm_cas: Node = get_node_or_null("/root/MissionManager")
+	if count > 0 and mm_cas != null and mm_cas.has_method("get_casualty_multiplier"):
+		count = maxi(1, int(round(float(count) * float(mm_cas.call("get_casualty_multiplier")))))
+
 	var removed = 0
 	var survived = 0
 	var candidates: Array[int] = []  # Önce ID'leri topla
@@ -438,8 +428,9 @@ func remove_soldiers(count: int) -> void:
 			break
 	
 	if survived > 0:
-		print("[Barracks] %d asker silahı sayesinde hayatta kaldı!" % survived)
-	print("[Barracks] %d asker kaldırıldı (savaş kaybı)" % removed)
+		var digest: Node = get_node_or_null("/root/VillageDigest")
+		if digest != null:
+			digest.call("report", digest.tr("digest.army.survived") % survived, 1, "🗡")
 
 
 ## Savaşa katılan (hayatta kalıp kışlada kalan) donanımlı askerlerin silahları, seviyeye göre
@@ -470,7 +461,6 @@ func apply_weapon_wear_after_battle() -> int:
 				soldier_equipment[worker_id]["weapon_tier"] = 0
 				disarmed += 1
 	if broken > 0:
-		print("[Barracks] %d silah savaşta kırıldı (%d asker stok yetersizliğinden silahsız kaldı)" % [broken, disarmed])
 		if vm and vm.has_signal("village_data_changed"):
 			vm.emit_signal("village_data_changed")
 		_update_ui()

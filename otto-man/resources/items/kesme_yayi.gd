@@ -22,7 +22,6 @@ func _init():
 	item_name = tr("item.kesme_yayi.name")
 	description = tr("item.kesme_yayi.description")
 	flavor_text = "Son vuruş en genişi"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["light_attack_arc"]
 
@@ -33,7 +32,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("player_attack_landed"):
 		if not player.is_connected("player_attack_landed", _on_player_attack_landed):
 			player.connect("player_attack_landed", _on_player_attack_landed)
-	print("[Kesme Yayı] ✅ Combo'nun son vuruşu 180° kapsıyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -42,7 +40,6 @@ func deactivate(player: CharacterBody2D):
 			_player.disconnect("player_attack_landed", _on_player_attack_landed)
 	_player = null
 	_hitbox = null
-	print("[Kesme Yayı] ❌ Kaldırıldı")
 
 func process(_player_ref: CharacterBody2D, delta: float) -> void:
 	if _chain_timer > 0.0:

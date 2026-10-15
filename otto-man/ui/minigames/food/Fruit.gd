@@ -112,14 +112,12 @@ func launch_from_bush(bush_pos: Vector2, fill_value: float, rng: RandomNumberGen
 	# 1 saniye sonra collision'ı aç
 	call_deferred("_enable_collision_after_delay")
 	
-	print("[Fruit] launch_from_bush() - collision_mask=", collision_mask, " monitoring=", monitoring, " monitorable=", monitorable)
 	
 	# Area2D signal'larını bağla - body_entered kullan (CharacterBody2D için)
 	if not body_entered.is_connected(_on_body_entered):
 		body_entered.connect(_on_body_entered)
-		print("[Fruit] body_entered signal connected")
 	else:
-		print("[Fruit] body_entered signal already connected")
+		pass
 	
 	# Sprite'ları yükle ve göster
 	_load_berry_textures()
@@ -166,10 +164,8 @@ func _enable_collision_after_delay() -> void:
 	await get_tree().create_timer(_collision_delay).timeout
 	if not _hit_ground and not _is_collected:
 		monitoring = true
-		print("[Fruit] Collision enabled after delay")
 
 func _on_body_entered(body: Node2D) -> void:
-	print("[Fruit] _on_body_entered() called - body=", body.name, " class=", body.get_class())
 	
 	# Yere değdiyse artık toplanamaz
 	if _hit_ground:
@@ -181,17 +177,15 @@ func _on_body_entered(body: Node2D) -> void:
 	
 	# Oyuncu meyvenin üzerine geldi mi?
 	if body.is_in_group("player"):
-		print("[Fruit] ✅ Player detected! Calling collect()")
 		# Minigame referansının hala geçerli olduğunu kontrol et
 		if _minigame_ref != null and is_instance_valid(_minigame_ref) and _minigame_ref.has_method("_on_fruit_hit"):
-			print("[Fruit] Calling minigame._on_fruit_hit()")
 			_minigame_ref._on_fruit_hit(self)
 		else:
 			print("[Fruit] Minigame ref invalid, calling collect() directly")
 			# Fallback: direkt topla
 			collect()
 	else:
-		print("[Fruit] ❌ Not a player - body class: ", body.get_class())
+		pass
 
 func _process(delta: float) -> void:
 	if _is_collected:
@@ -310,9 +304,7 @@ func _on_ground_hit() -> void:
 		_berry_sprite.texture = BERRY_DROP_TEXTURE
 		# Rotasyonu sıfırla (yere düşünce düzgün otursun)
 		rotation = 0.0
-		print("[Fruit] Berry drop sprite set, position: ", global_position, " offset: ", _berry_sprite.offset, " size: ", BERRY_DROP_TEXTURE.get_size())
 	
-	print("[Fruit] Fruit hit ground, disabling collection")
 	
 	# Minigame'e bildir - yere düşen meyve artık aktif değil
 	if _minigame_ref != null and is_instance_valid(_minigame_ref) and _minigame_ref.has_method("_on_fruit_grounded"):

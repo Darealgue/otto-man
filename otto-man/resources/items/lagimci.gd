@@ -19,7 +19,6 @@ func _init():
 	item_name = tr("item.lagimci.name")
 	description = tr("item.lagimci.description")
 	flavor_text = "Duvarı yıkan, altından geçendir"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SLIDE
 	affected_stats = ["slide_trail_powder"]
 
@@ -27,12 +26,10 @@ func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
 	_spawn_timer = 0.0
-	print("[Lağımcı] ✅ Kayarken barut izi bırakır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Lağımcı] ❌ Kaldırıldı")
 
 func process(player: CharacterBody2D, delta: float) -> void:
 	if not is_instance_valid(player):

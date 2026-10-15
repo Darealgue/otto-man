@@ -280,6 +280,10 @@ func _roll_death_debuff() -> void:
 	if tm and "MINUTES_PER_HOUR" in tm and "HOURS_PER_DAY" in tm:
 		minutes_per_day = int(tm.MINUTES_PER_HOUR) * int(tm.HOURS_PER_DAY)
 	var duration_days: int = randi_range(DEATH_DEBUFF_DURATION_DAYS_MIN, DEATH_DEBUFF_DURATION_DAYS_MAX)
+	# Tıbbiyeci yoksa iyileşme uzar, varsa puanıyla kısalır.
+	var mm_heal: Node = get_node_or_null("/root/MissionManager")
+	if mm_heal != null and mm_heal.has_method("get_healing_time_multiplier"):
+		duration_days = maxi(1, int(ceil(float(duration_days) * float(mm_heal.call("get_healing_time_multiplier")))))
 	var picked: Dictionary = DEATH_DEBUFF_POOL[randi() % DEATH_DEBUFF_POOL.size()]
 	var picked_name: String = String(picked.get("name", "Yaralanma"))
 	var total_minutes: int = duration_days * minutes_per_day
@@ -716,7 +720,6 @@ func set_current_health(value: float, show_damage_number: bool = true) -> void:
 	# Check for death
 	if current_health <= 0.0 and old_health > 0.0:
 		player_died.emit()
-		print("[PlayerStats] 💀 Player died (health: %.1f)" % current_health)
 	
 	if show_damage_number and current_health < old_health:
 		var player = get_tree().get_first_node_in_group("player")
@@ -857,6 +860,8 @@ func add_carried_expedition_loot(loot_id: String, amount: int) -> void:
 		return
 	carried_expedition_loot[loot_id] = maxi(0, int(carried_expedition_loot[loot_id]) + amount)
 	_emit_expedition_loot_changed()
+	if amount > 0:
+		ExpeditionLootType.spawn_pickup_popup(loot_id, amount)
 
 
 func clear_carried_expedition_loot() -> void:

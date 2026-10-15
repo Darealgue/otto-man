@@ -441,11 +441,6 @@ func mark_tutorial_house_built() -> void:
 	start_village_dungeon_guide()
 
 
-func get_mission_center_locked_page() -> int:
-	# Görev Merkezi artık köy tutorialında kullanılmıyor (parsel etkileşimi).
-	return -1
-
-
 func start_rescue_mission_guide(concubine_name: String) -> void:
 	if tutorial_skipped or rescue_mission_guide_complete:
 		return
@@ -455,11 +450,11 @@ func start_rescue_mission_guide(concubine_name: String) -> void:
 		_rescue_mission_concubine_name = tr("cariye.unknown")
 	enqueue_message(
 		"rescue_chain_guide",
-		tr("tutorial.rescue_chain.message") % _rescue_mission_concubine_name,
+		tr("tutorial.rescue_chain.message2") % _rescue_mission_concubine_name,
 		"tutorial",
 		6
 	)
-	set_objective(tr("tutorial.rescue_chain.objective") % _rescue_mission_concubine_name)
+	set_objective(tr("tutorial.rescue_chain.objective2") % _rescue_mission_concubine_name)
 
 
 func mark_rescue_mission_guide_complete() -> void:
@@ -481,25 +476,6 @@ func _on_mission_started_for_guide(cariye_id: int, mission_id: String) -> void:
 	if mm.get_rescue_onboarding_concubine_id() >= 0 and cariye_id != mm.get_rescue_onboarding_concubine_id():
 		return
 	mark_rescue_mission_guide_complete()
-
-
-func can_open_mission_page(page_index: int) -> bool:
-	var locked := get_mission_center_locked_page()
-	if locked < 0:
-		return true
-	return page_index == locked
-
-
-func is_tutorial_building_allowed(building_scene_path: String) -> bool:
-	if not is_village_tutorial_active() or village_core_step != 1:
-		return true
-	return TUTORIAL_STARTER_BUILDINGS.values().has(String(building_scene_path))
-
-
-func is_tutorial_worker_assignment_allowed(building_key: String) -> bool:
-	if not is_village_tutorial_active() or village_core_step != 2:
-		return true
-	return TUTORIAL_STARTER_BUILDINGS.has(String(building_key).to_lower())
 
 
 func export_save_state() -> Dictionary:

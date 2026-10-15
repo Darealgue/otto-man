@@ -207,7 +207,6 @@ func start(final_path: String) -> void:
 	# the network and can fail ("download stopped" on the next launch). Go straight back to
 	# verifying instead; the SHA-256 check is the safety net either way.
 	if _part_file_is_complete():
-		print("[AiModelDownloader] .part is already complete; resuming at verification.")
 		_total = active_total_bytes()
 		_downloaded = _total
 		_resume_offset = _total
@@ -271,7 +270,6 @@ func _safe_resume_offset() -> int:
 		return on_disk
 	trim.resize(flushed)
 	trim.close()
-	print("[AiModelDownloader] Trimmed %d unflushed byte(s) after an unclean exit." % (on_disk - flushed))
 	return flushed
 
 

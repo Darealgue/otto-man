@@ -675,12 +675,6 @@ func _apply_run_difficulty_from_state() -> void:
 		effective_trap_level = clampi(effective_trap_level, 1, 9)
 		var dp: Node = get_node_or_null("/root/DungeonProgress")
 		dungeon_theme = String(dp.call("get_dungeon_theme")) if is_instance_valid(dp) and dp.has_method("get_dungeon_theme") else ""
-		print(
-			"[LevelGenerator] Run difficulty -> level=%d trap=%d (base_diff=%d enemy_off=%d trap_off=%d size_off=%d)" % [
-				current_level, effective_trap_level, base_diff, enemy_off, trap_off,
-				int(drs.get("dungeon_size_offset"))
-			]
-		)
 	else:
 		if current_level != 1:
 			push_warning(
@@ -694,31 +688,23 @@ func _ready() -> void:
 	if bool(get_meta("_tutorial_decor_only", false)):
 		return
 	add_to_group("level_generator")
-	print("[LevelGenerator] _ready() called")
 	is_overview_active = false  # Zindanda yakın kamera (oyuncu) ile başla; V ile uzak/overview
 
 	_apply_run_difficulty_from_state()
 	
 	# Load level config if not set
 	if not level_config:
-		print("[LevelGenerator] Loading level config...")
 		level_config = load("res://resources/dungeon_config.tres")
 		if not level_config:
 			push_error("Failed to load dungeon_config.tres!")
 			return
-		print("[LevelGenerator] Level config loaded successfully")
 	else:
-		print("[LevelGenerator] Level config already set")
+		pass
 	
-	print("[LevelGenerator] Starting level generation...")
 	generate_level()
-	print("[LevelGenerator] Setting up camera...")
 	setup_camera()
-	print("[LevelGenerator] Setting up level transitions...")
 	setup_level_transitions()
-	print("[LevelGenerator] Adding screen darkness controller...")
 	add_screen_darkness_controller()
-	print("[LevelGenerator] _ready() completed")
 
 func setup_camera() -> void:
 	overview_camera = Camera2D.new()
@@ -797,6 +783,8 @@ func toggle_camera() -> void:
 	
 	if is_overview_active:
 		if overview_camera:
+			# Duraklatma menüsü uzak kamerayı enabled=false bırakabiliyor; aksi halde make_current işe yaramaz
+			overview_camera.enabled = true
 			overview_camera.make_current()
 	elif player and player.has_node("Camera2D"):
 		var player_camera = player.get_node("Camera2D")
@@ -842,7 +830,21 @@ func clear_level() -> void:
 	if not stored_player:
 		player_camera_zoom_cache = player_camera_zoom
 
+## Başarısız deneme (ya da önceki seviye) artıklarını süpürür: dekorlar, altın/kırılabilirler,
+## sandık/olay düğümleri chunk'a değil jeneratöre bağlı olduğu için chunk'ları silmek onları
+## silmiyordu. Sonuç: yeniden denenen seviyenin üstünde, zemini olmayan hayalet dekor+altın
+## katmanı kalıyordu. Oyuncu ve uzak kamera dışındaki her şey ağaçtan hemen çıkarılır.
+func _sweep_generator_leftovers() -> void:
+	var keep_player: Node = get_node_or_null("Player")
+	for child in get_children():
+		if child == overview_camera or child == keep_player:
+			continue
+		remove_child(child)
+		child.queue_free()
+
+
 func _free_chunks_from_failed_attempt() -> void:
+	_sweep_generator_leftovers()
 	if grid.is_empty():
 		return
 	var freed := 0
@@ -865,7 +867,6 @@ func _free_chunks_from_failed_attempt() -> void:
 		print("  Freed %d chunk(s) from previous failed attempt." % freed)
 
 func generate_level() -> bool:
-	print("\nStarting level generation...")
 	var stealth_mgr: Node = get_node_or_null("/root/StealthManager")
 	if is_instance_valid(stealth_mgr) and stealth_mgr.has_method("reset_for_segment"):
 		stealth_mgr.reset_for_segment()
@@ -876,10 +877,10 @@ func generate_level() -> bool:
 		and bool(drs_start.get("guaranteed_rescue_next"))
 	)
 	if _segment_force_guaranteed_rescue:
-		print("[LevelGenerator] ♥ Challenge garanti kurtarma — bu segment için aktif")
+		pass
 	var boss_type := get_boss_event_type(current_level)
 	if boss_type != "":
-		print("  Boss schedule: level ", current_level, " -> ", boss_type)
+		pass
 	
 	# Clear previous level first (before calculating new width or initializing grid)
 	clear_level()
@@ -896,8 +897,6 @@ func generate_level() -> bool:
 	current_grid_width = level_config.get_length_for_level(map_level) + size_off * 2
 	current_grid_width = mini(current_grid_width, level_config.max_length + size_off * 2)
 	current_grid_height = BASE_GRID_HEIGHT + floor((map_level - 1) / 4) * 2
-	print("  Calculated current_grid_width:", current_grid_width)
-	print("  Calculated current_grid_height:", current_grid_height)
 	
 	# Door positions will be calculated after chunks are created
 	# ------------------------------------
@@ -907,7 +906,6 @@ func generate_level() -> bool:
 	var attempt = 0
 
 	while attempt < max_attempts:
-		print("\n--- Attempt %d --- " % (attempt + 1))
 		
 		# Free any chunks (and their spawned enemies/decorations) placed during a
 		# previous failed attempt. `grid = []` below only resets the LOGICAL grid;
@@ -924,7 +922,6 @@ func generate_level() -> bool:
 			grid.append([])
 			for y in range(current_grid_height): # Use current_grid_height
 				grid[x].append(GridCell.new())
-		print("  Grid initialized for attempt. Size: ", grid.size(), "x", (grid[0].size() if grid.size() > 0 else 0))
 
 		if generate_layout():
 			# --- NEW STEP: Finalize connections AFTER layout is done ---
@@ -940,7 +937,6 @@ func generate_level() -> bool:
 				_calculate_door_positions()
 				# Verify if there's a valid path from start to finish
 				if verify_level_path():
-					print("Level generated successfully on attempt %d!" % (attempt + 1))
 					_debug_print_generation_summary()
 					if DEBUG_ENEMY_TILES:
 						_debug_print_ascii_grid()
@@ -953,7 +949,6 @@ func generate_level() -> bool:
 						if _level_has_rescue_room():
 							if is_instance_valid(drs_start):
 								drs_start.guaranteed_rescue_next = false
-							print("[LevelGenerator] ♥ Garanti kurtarma odası yerleştirildi")
 						else:
 							push_error("[LevelGenerator] ♥ Garanti kurtarma seçildi ama odası yok — segment üretimi hatalı")
 					_segment_force_guaranteed_rescue = false
@@ -975,7 +970,6 @@ func generate_level() -> bool:
 
 
 func verify_level_path() -> bool:
-	print("Verifying path from start to finish...")
 	
 	var start_pos = Vector2i(0, current_grid_height / 2) # Use current_grid_height
 	
@@ -995,8 +989,6 @@ func verify_level_path() -> bool:
 		print("Finish/boss arena not found during verification!")
 		return false
 	
-	print("Start position:", start_pos)
-	print("Finish position:", finish_pos)
 	
 	# Do a BFS to find a path from start to finish
 	var queue = [start_pos]
@@ -1007,12 +999,12 @@ func verify_level_path() -> bool:
 	while not queue.is_empty():
 		var current = queue.pop_front()
 		if DEBUG_ENEMY_TILES:
-			print("  BFS: Processing", current, "Connections:", grid[current.x][current.y].connections)
+			pass
 		
 		# Check if we've reached the finish
 		if current == finish_pos:
 			if DEBUG_ENEMY_TILES:
-				print("  BFS: Reached Finish!")
+				pass
 			path_found = true
 			break # Exit BFS loop
 		
@@ -1023,7 +1015,7 @@ func verify_level_path() -> bool:
 			if grid[current.x][current.y].connections[dir]:
 				var next_pos = current + DIRECTION_VECTORS[dir]
 				if DEBUG_ENEMY_TILES:
-					print("    BFS: Checking neighbor", next_pos, "in direction", dir)
+					pass
 				
 				if is_valid_position(next_pos):
 					# Check if neighbor hasn't been visited yet
@@ -1033,18 +1025,18 @@ func verify_level_path() -> bool:
 						# Check if neighbor cell exists and has the reverse connection
 						if grid[next_pos.x][next_pos.y].connections[opposite_dir]:
 							if DEBUG_ENEMY_TILES:
-								print("      BFS: Valid neighbor found! Adding to queue.", "Neighbor connections:", grid[next_pos.x][next_pos.y].connections)
+								pass
 							queue.append(next_pos)
 							visited[next_pos] = true
 						else:
 							if DEBUG_ENEMY_TILES:
-								print("      BFS: Neighbor %s does not connect back (Connections: %s). Skipping." % [str(next_pos), str(grid[next_pos.x][next_pos.y].connections)])
+								pass
 					else:
 						if DEBUG_ENEMY_TILES:
-							print("      BFS: Neighbor %s already visited. Skipping." % str(next_pos))
+							pass
 				else:
 					if DEBUG_ENEMY_TILES:
-						print("    BFS: Neighbor %s is outside grid bounds. Skipping." % str(next_pos))
+						pass
 			#else: # Optional: Log if current cell had no connection in this dir
 			#	if DEBUG_ENEMY_TILES:
 			#		print("    BFS: No connection from current %s in direction %d" % [str(current), dir])
@@ -1052,15 +1044,14 @@ func verify_level_path() -> bool:
 	# After BFS loop, check the result and return
 	if path_found:
 		if DEBUG_ENEMY_TILES:
-			print("Valid path found from start to finish!")
+			pass
 		return true
 	else:
 		if DEBUG_ENEMY_TILES:
-			print("No valid path found from start to finish after BFS!")
+			pass
 		return false
 
 func generate_layout() -> bool:
-	print("\nPhase 1: Generating abstract layout...")
 	
 	# Get level-specific values
 	var num_branches = level_config.get_num_branches_for_level(current_level)
@@ -1070,7 +1061,6 @@ func generate_layout() -> bool:
 	
 	# Initialize path generator
 	var path_gen = PathGenerator.new(current_grid_width, current_grid_height) # Use current_grid_height
-	print("  Initialized PathGenerator with width:", current_grid_width)
 	
 	# Set start position
 	var start_pos = Vector2i(0, current_grid_height / 2) # Use current_grid_height
@@ -1179,7 +1169,7 @@ func generate_layout() -> bool:
 	
 	_debug_last_max_branch_depth_reached = max_depth_reached
 	if DEBUG_ENEMY_TILES:
-		print("  generate_layout: %d segment(s) carved (max depth reached: %d, cap: %d)" % [queue.size(), max_depth_reached, max_branch_depth])
+		pass
 	
 	# Add dead ends
 	for _i in range(num_dead_ends):
@@ -1352,7 +1342,6 @@ func populate_chunks() -> bool:
 	return ok
 
 func _populate_chunks_inner() -> bool:
-	print("\nPhase 2: Populating with actual chunks...")
 	# Decor and enemies wait until every chunk is placed and the tunnels are sealed, so nothing spawns inside rock that gets filled
 	_deferred_population.clear()
 	_defer_population = true
@@ -1377,18 +1366,13 @@ func _populate_chunks_inner() -> bool:
 			if fallback_finish != Vector2i.ZERO:
 				break
 		if fallback_finish != Vector2i.ZERO:
-			print("Using fallback finish position: ", fallback_finish)
 			finish_pos = fallback_finish
 		else:
-			print("Could not find any main path cell as fallback finish position.")
 			return false # Cannot proceed without a finish position
 		
 	# Boss-aware finish placement
 	var boss_tier := get_finish_boss_tier()
 	if not boss_tier.is_empty():
-		print("%s-boss level: placing boss_arena at finish position %s (tier=%s)" % [
-			boss_tier.capitalize(), str(finish_pos), boss_tier
-		])
 		grid[finish_pos.x][finish_pos.y].boss_arena_tier = boss_tier
 		if not place_chunk(finish_pos, "boss_arena"):
 			print("Failed to place boss_arena at ", finish_pos)
@@ -1403,7 +1387,7 @@ func _populate_chunks_inner() -> bool:
 	_tag_villager_and_vip_deadends()
 	if _segment_force_guaranteed_rescue and not _level_has_rescue_room():
 		if _inject_emergency_rescue_dead_end():
-			print("[LevelGenerator] ♥ Acil kurtarma dead-end enjekte edildi (populate)")
+			pass
 		else:
 			push_warning("[LevelGenerator] ♥ Garanti kurtarma: acil dead-end enjekte edilemedi")
 	_tag_stealth_chest_side_paths()
@@ -1449,16 +1433,7 @@ func _populate_chunks_inner() -> bool:
 			
 			# <<< START DEBUG LOG >>>
 			if DEBUG_ENEMY_TILES:
-				print(">>> populate_chunks: Checking cell at ", pos)
-				print("    Cell Type (Layout): ", cell.cell_type)
-				print("    Visited By: ", cell.visited_by)
-				print("    Connections: [L:%s, R:%s, U:%s, D:%s]" % [
-						str(cell.connections[Direction.LEFT]),
-						str(cell.connections[Direction.RIGHT]),
-						str(cell.connections[Direction.UP]),
-						str(cell.connections[Direction.DOWN])
-					])
-				print("    Selected Chunk Type: '%s'" % chunk_type)
+				pass
 			# <<< END DEBUG LOG >>>
 			
 			if chunk_type.is_empty():
@@ -1480,7 +1455,7 @@ func _populate_chunks_inner() -> bool:
 							str(n_cell.connections[Direction.UP]), str(n_cell.connections[Direction.DOWN])
 						])
 					else:
-						print("      Neighbor %s: Out of bounds" % str(neighbor_pos))
+						pass
 				return false # Stop generation if a required chunk cannot be selected
 				
 			# Place the selected chunk
@@ -1506,7 +1481,6 @@ func _populate_chunks_inner() -> bool:
 			set_grid_connection(finish_pos, Direction.UP, false)
 			set_grid_connection(finish_pos, Direction.DOWN, false)
 			
-			print("Re-verified connection to finish chunk from ", pre_finish_pos)
 
 	_place_exterior_wall_chunks()
 
@@ -1535,12 +1509,11 @@ func _tag_villager_and_vip_deadends() -> void:
 		for pos in deadends:
 			if _assign_rescue_room_at(pos, kind):
 				placed_forced = true
-				print("[LevelGenerator] 🧪 DEBUG garanti %s kurtarma odası @ %s" % [kind, str(pos)])
 				break
 		if not placed_forced:
 			# Uygun dead-end kalmadıysa haritaya yeni bir tane enjekte et
 			if _inject_emergency_rescue_dead_end(kind):
-				print("[LevelGenerator] 🧪 DEBUG garanti %s kurtarma odası (acil enjeksiyon)" % kind)
+				pass
 			else:
 				push_warning("[LevelGenerator] 🧪 DEBUG garanti %s kurtarma odası yerleştirilemedi!" % kind)
 
@@ -1554,7 +1527,7 @@ func _tag_villager_and_vip_deadends() -> void:
 	if is_instance_valid(stealth_mgr) and stealth_mgr.has_method("consume_stealth_rescue_bonus"):
 		rescue_chance = stealth_mgr.consume_stealth_rescue_bonus(rescue_chance)
 		if rescue_chance >= 0.27:
-			print("[LevelGenerator] Stealth rescue bonus uygulandı — rescue_chance=%.2f" % rescue_chance)
+			pass
 
 	var placed_rescue := false
 	for pos in deadends:
@@ -1567,7 +1540,6 @@ func _tag_villager_and_vip_deadends() -> void:
 		for pos in deadends:
 			if _assign_rescue_room_at(pos):
 				placed_rescue = true
-				print("[LevelGenerator] ♥ Garanti kurtarma odası @ %s" % str(pos))
 				break
 
 func _collect_horizontal_rescue_deadends() -> Array[Vector2i]:
@@ -1637,7 +1609,6 @@ func _add_one_rescue_dead_end(all_paths: Array) -> bool:
 			var open_from_dead: int = Direction.RIGHT if side_dir == Direction.LEFT else Direction.LEFT
 			set_single_open_connection(dead_pos, open_from_dead)
 			set_grid_connection(pos, side_dir, true)
-			print("[LevelGenerator] ♥ Challenge kurtarma dead-end @ %s (anchor %s)" % [str(dead_pos), str(pos)])
 			return true
 	return false
 
@@ -1664,7 +1635,6 @@ func _inject_emergency_rescue_dead_end(forced_kind: String = "") -> bool:
 				set_single_open_connection(dead_pos, open_from_dead)
 				set_grid_connection(pos, side_dir, true)
 				if _assign_rescue_room_at(dead_pos, forced_kind):
-					print("[LevelGenerator] ♥ Acil kurtarma @ %s" % str(dead_pos))
 					return true
 	return false
 
@@ -1736,7 +1706,6 @@ func _tag_stealth_chest_side_paths() -> void:
 		var cell: GridCell = grid[pos.x][pos.y] as GridCell
 		cell.spawn_stealth_chest = true
 		cell.stealth_chest_gold = randi_range(12, 25)
-	print("[LevelGenerator] Stealth sandık işaretlendi: %d yan yol hücresi" % chest_count)
 
 
 func _tag_dungeon_event_side_paths() -> void:
@@ -1784,7 +1753,7 @@ func _tag_dungeon_event_side_paths() -> void:
 			grid[curse_pos.x][curse_pos.y].spawn_dungeon_event = "curse"
 			tagged += 1
 	if tagged > 0:
-		print("[LevelGenerator] Mini-event odası işaretlendi: %d (şans=%.2f)" % [tagged, event_chance])
+		pass
 
 
 func _is_rescue_reserved_chunk(reserved: String) -> bool:
@@ -1867,7 +1836,6 @@ func _spawn_stealth_chest_for_chunk(chunk_node: Node2D) -> void:
 	chest.setup(gold_total)
 	chunk_node.add_child(chest)
 	chest.global_position = spawn_pos + Vector2(0.0, 5.0)
-	print("[LevelGenerator] Stealth sandık spawn @ %s chunk=%s gold=%d" % [str(spawn_pos), chunk_node.name, gold_total])
 
 
 func _spawn_dungeon_event_for_chunk(chunk_node: Node2D) -> void:
@@ -1898,7 +1866,6 @@ func _spawn_dungeon_event_for_chunk(chunk_node: Node2D) -> void:
 	event_node.setup(event_type, current_level)
 	chunk_node.add_child(event_node)
 	event_node.global_position = spawn_pos + Vector2(0.0, 5.0)
-	print("[LevelGenerator] Mini-event spawn @ %s type=%s chunk=%s" % [str(spawn_pos), event_type, chunk_node.name])
 
 func select_appropriate_chunk(pos: Vector2i, cell: GridCell) -> String:
 	# Special case for start position - always return "start"
@@ -1919,7 +1886,6 @@ func select_appropriate_chunk(pos: Vector2i, cell: GridCell) -> String:
 			if cell.connections[dir]:
 				required_connections[dir] = true
 		
-		print("Right-of-start required connections: ", required_connections)
 		
 		# Count how many connections are required
 		var connection_count = 0
@@ -1967,7 +1933,7 @@ func select_appropriate_chunk(pos: Vector2i, cell: GridCell) -> String:
 				cell.connections[dir] = false
 	
 	if DEBUG_ENEMY_TILES:
-		print("Required connections: ", required_connections)
+		pass
 	
 	# Count total required connections
 	var connection_count = 0
@@ -2073,7 +2039,6 @@ func select_appropriate_chunk(pos: Vector2i, cell: GridCell) -> String:
 		if is_perfect_match:
 			valid_chunks.append(chunk_type)
 	
-	print("Perfectly valid chunks: ", valid_chunks)
 	
 	# If no valid chunks found, return empty string
 	if valid_chunks.is_empty():
@@ -2110,7 +2075,7 @@ func is_valid_tile_coord(x: int, y: int) -> bool:
 
 func place_chunk(pos: Vector2i, chunk_type: String) -> bool:
 	if DEBUG_ENEMY_TILES:
-		print("\nAttempting to place chunk: " + chunk_type + " at position: " + str(pos)) # Improved logging
+		pass
 
 	# Check if position is valid first
 	if not is_valid_position(pos):
@@ -2179,7 +2144,7 @@ func place_chunk(pos: Vector2i, chunk_type: String) -> bool:
 	# NOTE: Trap population moved to after unify_terrain() — see _populate_traps_on_unified_terrain()
 	
 	if DEBUG_ENEMY_TILES:
-		print("Successfully placed " + chunk_type + " at " + str(pos)) # Improved logging
+		pass
 	return true
 
 ## Decor, legacy spawner cleanup and tile based enemies for one placed chunk. Called right after placement, or
@@ -2251,7 +2216,7 @@ func _populate_decorations_from_tilemap(chunk_node: Node2D) -> void:
 	var tile_map = chunk_node.find_child("TileMapLayer", true, false)
 	if not tile_map:
 		if DEBUG_DECOR_TILES:
-			print("[DecorPopulate] SKIPPING: Chunk '%s' does not have a child node named 'TileMapLayer'." % chunk_node.name)
+			pass
 		return
 	_populate_decorations_from_tilemap_impl(tile_map, chunk_node, self, false, {
 		"tutorial": false,
@@ -2287,7 +2252,7 @@ func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D,
 			break
 	if decor_layer_index == -1:
 		if DEBUG_DECOR_TILES:
-			print("[DecorPopulate] SKIPPING: TileSet in chunk '%s' does not have a custom data layer named '%s'." % [chunk_node.name, decor_layer_name])
+			pass
 		return
 
 	var decor_used_rect: Rect2i = tile_map.get_used_rect()
@@ -2397,17 +2362,17 @@ func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D,
 			if valid_decors.is_empty():
 				if "gate1" in rule.decoration_names:
 					if DEBUG_DECOR_TILES:
-						print("[GateDebug] valid_decors EMPTY at tile=", cell, " rule_names=", rule.decoration_names)
+						pass
 				if tag == "ceiling_surface" or tag == "wall_surface":
 					if DEBUG_DECOR_TILES:
-						print("[WebDebug] Tile ", cell, " tag=", tag, " → valid_decors EMPTY (pool=", decoration_pool, ")")
+						pass
 				continue
 			var selected_decor_name = valid_decors.pick_random()
 			if selected_decor_name == "gate1" and DEBUG_DECOR_TILES:
 				if DEBUG_DECOR_TILES:
-					print("[GateDebug] SELECT tile=", cell, " names=", valid_decors)
+					pass
 			if (tag == "ceiling_surface" or tag == "wall_surface") and DEBUG_DECOR_TILES:
-				print("[WebDebug] Tile ", cell, " tag=", tag, " pool=", decoration_pool, " valid=", valid_decors, " selected=", selected_decor_name)
+				pass
 			var spawn_loc: int = _derive_spawn_location_from_tile_data(tag, rule)
 			if is_tutorial and skip_ceiling and spawn_loc == DecorationConfig.SpawnLocation.CEILING:
 				continue
@@ -2445,13 +2410,13 @@ func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D,
 							w_tiles = vis_tiles_nc
 					if selected_decor_name == "gate1":
 						if DEBUG_DECOR_TILES:
-							print("[GateDebug] CLEARANCE footprint=", w_tiles, "x", h_tiles, " grow_dir=", grow_dir)
+							pass
 					var anchor: Vector2i = cell
 					var dbg: bool = (selected_decor_name == "gate1" or selected_decor_name == "box2")
 					if not _has_clearance_tiles(tile_map, anchor, w_tiles, h_tiles, grow_dir, spawn_loc, dbg, selected_decor_name):
 						if selected_decor_name == "gate1":
 							if DEBUG_DECOR_TILES:
-								print("[GateDebug] FAIL clearance at tile=", cell)
+								pass
 						decoration_instance.queue_free()
 						spawner.queue_free()
 						continue
@@ -2468,7 +2433,7 @@ func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D,
 						if _footprint_overlaps_wall(tile_map, anchor, w_tiles, h_tiles, grow_dir, spawn_loc):
 							if selected_decor_name == "gate1":
 								if DEBUG_DECOR_TILES:
-									print("[GateDebug] FAIL border overlap at tile=", cell)
+									pass
 							decoration_instance.queue_free()
 							spawner.queue_free()
 							continue
@@ -2476,14 +2441,14 @@ func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D,
 			if (not is_tutorial or not skip_tutorial_chunk_edge) and _is_near_open_chunk_edge(tile_map, cell, chunk_node, spawn_loc, rule):
 				if tag == "ceiling_surface" or tag == "wall_surface":
 					if DEBUG_DECOR_TILES:
-						print("[WebDebug] SKIP near edge tile=", cell, " name=", selected_decor_name, " spawn_loc=", spawn_loc)
+						pass
 				decoration_instance.queue_free()
 				spawner.queue_free()
 				continue
 			# Avoid outside L-shaped dead zones
 			if _is_outside_L_deadzone(tile_map, cell, spawn_loc):
 				if (tag == "ceiling_surface" or tag == "wall_surface") and DEBUG_DECOR_TILES:
-					print("[WebDebug] SKIP outside L deadzone tile=", cell, " name=", selected_decor_name, " spawn_loc=", spawn_loc)
+					pass
 				decoration_instance.queue_free()
 				spawner.queue_free()
 				continue
@@ -2521,7 +2486,7 @@ func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D,
 				spawn_pos.x = (left_center.x + right_center.x) * 0.5
 				if selected_decor_name == "gate1" or selected_decor_name == "box2":
 					if DEBUG_DECOR_TILES:
-						print("[GateDebug] ALIGN cells=", left_cell, "..", right_cell, " left_center=", left_center.x, " right_center=", right_center.x, " beforeX=", before, " afterX=", spawn_pos.x)
+						pass
 			# For clearance-based floor decors (box2, gate1), remove previous upward lift
 			var floor_based := (spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CENTER or spawn_loc == DecorationConfig.SpawnLocation.FLOOR_CORNER)
 			# No extra vertical offset; sprite bottom alignment will sit on floor
@@ -2545,7 +2510,7 @@ func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D,
 						var adj: Dictionary = _find_supported_position(spawn_pos, half_w, 12.0, 3.0)
 						if selected_decor_name == "gate1" or selected_decor_name == "box2":
 							if DEBUG_DECOR_TILES:
-								print("[GateDebug] SUPPORT half_w=", half_w, " spawn_pos=", spawn_pos, " adj=", adj)
+								pass
 						if adj.has("ok") and bool(adj.ok):
 							spawn_pos = adj.pos
 			# Global fine-tune: only a slight vertical settle for small decors; no extra X nudge
@@ -2559,7 +2524,7 @@ func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D,
 			# Prevent overlapping large decors: gates/pipes/banners/sculptures
 			if not is_tutorial and (selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "pipe1" or selected_decor_name == "pipe2" or selected_decor_name == "banner1" or selected_decor_name == "sculpture1" or selected_decor_name == "sculpture2") and (_is_near_gate_pos_list(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0) or _is_near_existing_gate(final_pos, float(tile_map.tile_set.tile_size.x) * 5.0)):
 				if DEBUG_DECOR_TILES:
-					print("[GateDebug] SKIP overlap near existing gate at pos=", final_pos)
+					pass
 				decoration_instance.queue_free()
 				spawner.queue_free()
 				# do not mark placed; allow next rules to try
@@ -2570,7 +2535,7 @@ func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D,
 				continue
 			if selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "box2":
 				if DEBUG_DECOR_TILES:
-					print("[GateDebug] FINAL_POS ", selected_decor_name, " at ", final_pos)
+					pass
 				# Compute visual vs tile-span extents for precise debug
 				var vis_sz: Vector2 = _get_visual_size_from_instance(decoration_instance)
 				var tile_size_dbg: Vector2 = Vector2(tile_map.tile_set.tile_size)
@@ -2586,9 +2551,7 @@ func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D,
 				var diff_left := sprite_left_x - span_left_x
 				var diff_right := span_right_x - sprite_right_x
 				if DEBUG_DECOR_TILES:
-					print("[GateDebug] EXTENTS ", selected_decor_name, " sprite_left=", sprite_left_x, " sprite_right=", sprite_right_x,
-					" span_left=", span_left_x, " span_right=", span_right_x,
-					" diff_left=", diff_left, " diff_right=", diff_right)
+					pass
 				# Y taban hizası: zemin çizgisi vs sprite altı
 				var floor_center_dbg: Vector2 = (left_center_dbg + right_center_dbg) * 0.5
 				var floor_line_y: float = floor_center_dbg.y + tile_size_dbg.y * 0.5
@@ -2596,10 +2559,7 @@ func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D,
 				var sprite_bottom_y: float = final_pos.y + vis_sz.y * 0.5
 				var diff_bottom_y: float = expected_bottom_y - sprite_bottom_y
 				if DEBUG_DECOR_TILES:
-					print("[GateDebug] EXTENTS_Y ", selected_decor_name,
-					" sprite_bottom=", sprite_bottom_y,
-					" expected_bottom=", expected_bottom_y,
-					" diff_bottom=", diff_bottom_y)
+					pass
 			# Track placed large decor positions to avoid same-pass overlaps
 			if selected_decor_name == "gate1" or selected_decor_name == "gate2" or selected_decor_name == "pipe1" or selected_decor_name == "pipe2" or selected_decor_name == "banner1" or selected_decor_name == "sculpture1" or selected_decor_name == "sculpture2":
 				placed_gate_positions.append(final_pos)
@@ -2607,11 +2567,11 @@ func _populate_decorations_from_tilemap_impl(tile_map: Node, chunk_node: Node2D,
 				chunk_placed_lighting_world.append(final_pos)
 			if selected_decor_name == "gate1":
 				if DEBUG_DECOR_TILES:
-					print("[GateDebug] SPAWNED at ", decoration_instance.global_position, " floor_based=", floor_based)
+					pass
 			if (tag == "ceiling_surface" or tag == "wall_surface") and DEBUG_DECOR_TILES:
-				print("[WebDebug] SPAWNED ", selected_decor_name, " at ", decoration_instance.global_position)
+				pass
 			if DEBUG_DECOR_TILES:
-				print("[DecorPopulate] SUCCESS: Spawned decoration '%s' at tile %s (world pos: %s)" % [selected_decor_name, cell, decoration_instance.global_position])
+				pass
 			did_spawn = true
 			if is_tutorial:
 				tutorial_placed += 1
@@ -2743,7 +2703,7 @@ func _has_clearance_tiles(tile_map, anchor: Vector2i, w_tiles: int, h_tiles: int
 		if _get_cell_source_id_any(tile_map, c) != -1:
 			if dbg:
 				if DEBUG_DECOR_TILES:
-					print("[GateDebug] OCCUPIED at ", c, " for ", name)
+					pass
 			return false
 	# Additional side clearance on the right to avoid hugging walls for wide floor decors
 	if grow_dir == "up" and (name == "box2" or name == "gate1" or name == "box1"):
@@ -2755,7 +2715,7 @@ func _has_clearance_tiles(tile_map, anchor: Vector2i, w_tiles: int, h_tiles: int
 			if tile_map.get_cell_source_id(right_nei) != -1:
 				if dbg:
 					if DEBUG_DECOR_TILES:
-						print("[GateDebug] SIDE_RIGHT_OCCUPIED at ", right_nei, " for ", name)
+						pass
 				return false
 	# For floor-based growth, ensure all supporting floor tiles directly below footprint are solid
 	if grow_dir == "up":
@@ -2765,7 +2725,7 @@ func _has_clearance_tiles(tile_map, anchor: Vector2i, w_tiles: int, h_tiles: int
 			if tile_map.get_cell_source_id(base) == -1:
 				if dbg:
 					if DEBUG_DECOR_TILES:
-						print("[GateDebug] BASE_GAP at ", base, " for ", name)
+						pass
 				return false
 		# Require at least 1 extra floor tile padding on both left and right of the footprint
 		var left_pad := anchor + Vector2i(-half_w_left - 1, 0)
@@ -2773,14 +2733,14 @@ func _has_clearance_tiles(tile_map, anchor: Vector2i, w_tiles: int, h_tiles: int
 		if tile_map.get_cell_source_id(left_pad) == -1 or tile_map.get_cell_source_id(right_pad) == -1:
 			if dbg:
 				if DEBUG_DECOR_TILES:
-					print("[GateDebug] EDGE_TOO_CLOSE left_pad=", left_pad, " right_pad=", right_pad, " for ", name)
+					pass
 			return false
 		for dx in range(-half_w_left, half_w_right + 1):
 			var below := anchor + Vector2i(dx, 1)
 			if _get_cell_source_id_any(tile_map, below) == -1:
 				if dbg:
 					if DEBUG_DECOR_TILES:
-						print("[GateDebug] NO SUPPORT below ", below, " for ", name)
+						pass
 				return false
 	return true
 
@@ -2804,7 +2764,7 @@ func _has_background_support(bg_map, anchor: Vector2i, w_tiles: int, h_tiles: in
 		var c := anchor + off
 		if _get_cell_source_id_any(bg_map, c) == -1:
 			if dbg:
-				print("[BgCheck] NO_BG at ", c, " for ", name)
+				pass
 			return false
 	return true
 
@@ -3163,7 +3123,6 @@ func spawn_player() -> void:
 
 		# Player pozisyonu artık setup_level_transitions() tarafından ayarlanıyor
 		# Burada sadece kamera ayarlarını yapıyoruz
-		print("Player spawn completed, position will be set by door system")
 		
 		# Set up player camera
 		if player.has_node("Camera2D"):
@@ -3176,9 +3135,7 @@ func spawn_player() -> void:
 				overview_camera.make_current()
 			
 			# Notify ScreenEffects that camera is now available
-			print("[LevelGenerator] Notifying ScreenEffects about camera availability")
 			if ScreenEffects:
-				print("[LevelGenerator] ScreenEffects found, calling _find_camera()")
 				ScreenEffects._find_camera()
 			else:
 				print("[LevelGenerator] ERROR: ScreenEffects not found!")
@@ -3228,7 +3185,6 @@ func find_finish_position() -> Vector2i:
 	return Vector2i.MAX # Return an indicator that it wasn't found
 
 func setup_level_transitions() -> void:
-	print("\nSetting up level transitions...") # This prints!
 
 	var start_pos = Vector2i(0, current_grid_height / 2) # Use current_grid_height
 	var finish_pos = Vector2i.ZERO
@@ -3265,8 +3221,6 @@ func setup_level_transitions() -> void:
 		finish_pos = Vector2i(current_grid_width - 2, current_grid_height / 2) # Use current_grid_height
 		print("WARNING: Finish chunk not found, using fallback position:", finish_pos)
 
-	print("Start position:", start_pos)
-	print("Finish position:", finish_pos)
 
 	# Handle start door - use pre-placed door in start chunk
 	# <<< DEBUG: Check start_pos bounds >>>
@@ -3275,7 +3229,6 @@ func setup_level_transitions() -> void:
 		return # Cannot continue if start_pos is invalid
 
 	if grid[start_pos.x][start_pos.y].chunk:
-		print("Found start chunk, connecting to pre-placed start door")
 		var start_chunk = grid[start_pos.x][start_pos.y].chunk
 		var start_door = start_chunk.get_node_or_null("StartDoor")
 		
@@ -3283,7 +3236,6 @@ func setup_level_transitions() -> void:
 			# Connect the pre-placed door to our signal handler
 			if not start_door.door_opened.is_connected(_on_door_opened):
 				start_door.door_opened.connect(_on_door_opened)
-			print("Connected to pre-placed start door")
 
 			# Start kapısı _ready()'de deferred _initialize_door() ile ANINDA açılıyor; bu
 			# connect'ten önce zaten olmuş olabilir ve sinyal kaçırılmış olabilir (level_started,
@@ -3300,8 +3252,6 @@ func setup_level_transitions() -> void:
 			if player:
 				# StartDoor'un gerçek global pozisyonunu kullan
 				player.global_position = start_door.global_position + Vector2(0, -64)  # Kapının hemen üstünde
-				print("[LevelGenerator] Player spawned at StartDoor position: ", player.global_position)
-				print("[LevelGenerator] StartDoor actual position: ", start_door.global_position)
 			else:
 				print("WARNING: No Player found in scene")
 		else:
@@ -3316,7 +3266,6 @@ func setup_level_transitions() -> void:
 		return # Cannot continue if finish_pos is invalid
 
 	if grid[finish_pos.x][finish_pos.y].chunk:
-		print("Found finish/boss chunk, connecting to pre-placed finish door")
 		var finish_chunk = grid[finish_pos.x][finish_pos.y].chunk
 		var finish_door = finish_chunk.get_node_or_null("FinishDoor")
 		
@@ -3332,11 +3281,9 @@ func setup_level_transitions() -> void:
 			
 			# If the finish cell is a boss arena, lock the door until boss dies
 			if _segment_finish_is_boss:
-				print("Boss arena detected at finish. Locking FinishDoor until boss is defeated.")
 				finish_door.lock_door()
 				finish_door.door_type = "Boss"  # Change type to Boss for different appearance
 			
-			print("Connected to pre-placed finish door")
 		else:
 			print("WARNING: No FinishDoor found in finish/boss chunk")
 	else:
@@ -3355,7 +3302,6 @@ func lock_finish_door_for_alarm() -> void:
 	if "SEGMENT_EXIT_KEY_ID" in drs:
 		key_id = String(drs.get("SEGMENT_EXIT_KEY_ID"))
 	if drs.has_method("has_dungeon_key") and bool(drs.call("has_dungeon_key", key_id)):
-		print("[LevelGenerator] Alarm — oyuncuda anahtar var, çıkış kapısı kilitlenmedi")
 		return
 	if _segment_finish_door.has_method("set_alarm_locked"):
 		_segment_finish_door.call("set_alarm_locked", true, key_id)
@@ -3363,7 +3309,6 @@ func lock_finish_door_for_alarm() -> void:
 		_segment_finish_door.lock_door()
 		if _segment_finish_door.has_method("set_requires_key"):
 			_segment_finish_door.set_requires_key(true, key_id)
-	print("[LevelGenerator] Alarm — çıkış kapısı kilitlendi, anahtar gerekli")
 	call_deferred("_assign_segment_key_holder_deferred")
 	call_deferred("_reveal_segment_key_holder_marker")
 
@@ -3427,7 +3372,6 @@ func _assign_segment_key_holder_async(attempt: int) -> void:
 	if drs.has_method("assign_segment_key_holder"):
 		drs.call("assign_segment_key_holder", picked)
 	var type_name: String = picked.get_script().resource_path.get_file().get_basename() if picked.get_script() else picked.name
-	print("[LevelGenerator] Segment çıkış anahtarı taşıyıcı: %s @ %s" % [type_name, picked.global_position])
 	if bool(drs.get("segment_exit_requires_key")):
 		_reveal_segment_key_holder_marker()
 
@@ -3552,7 +3496,6 @@ func _spawn_emergency_key_drop(drs: Node) -> void:
 		spawn_pos = _segment_finish_door.global_position + Vector2(-220, -32)
 	const Spawner = preload("res://interactables/dungeon/DungeonLootDropSpawner.gd")
 	Spawner.spawn_dungeon_key(spawn_pos, key_id)
-	print("[LevelGenerator] Acil anahtar yere bırakıldı @ %s" % spawn_pos)
 
 
 func _mark_segment_key_holder(enemy: Node) -> void:
@@ -3617,9 +3560,7 @@ func _on_door_opened(door_type: String) -> void:
 	if is_transitioning:
 		return
 		
-	print("Door opened: ", door_type)  # Debug print
 	if door_type == "Start":
-		print("Emitting level_started signal")  # Debug print
 		level_started.emit()
 		_maybe_show_tutorial_stealth_intro()
 	elif door_type == "Finish" or door_type == "Boss":
@@ -3660,7 +3601,6 @@ func _on_door_opened(door_type: String) -> void:
 			if drs.is_run_complete():
 				var max_seg: int = int(drs.run_max_segments) if "run_max_segments" in drs else int(drs.MAX_SEGMENTS)
 				var done_seg: int = int(drs.run_segments_completed) if "run_segments_completed" in drs else int(drs.run_segment_count)
-				print("[LevelGenerator] Run complete (%d/%d segments) -> final camp (boss or exit)" % [done_seg, max_seg])
 				if sm and sm.has_method("change_to_camp"):
 					payload["final_camp"] = true
 					sm.change_to_camp(payload)
@@ -3671,7 +3611,6 @@ func _on_door_opened(door_type: String) -> void:
 				return
 
 			if sm and sm.has_method("change_to_camp"):
-				print("[LevelGenerator] Finish/Boss -> Camp (mid-run), player state preserved via PlayerStats")
 				sm.change_to_camp(payload)
 			else:
 				is_transitioning = false
@@ -3679,7 +3618,6 @@ func _on_door_opened(door_type: String) -> void:
 				_finish_door_fallback_next_level()
 			return
 		# Eski akış: run yoksa veya kamp yoksa yeni seviye üret
-		print("Emitting level_completed signal")  # Debug print
 		is_transitioning = true
 		_clear_all_enemies_from_previous_level()
 		level_completed.emit()
@@ -3713,14 +3651,14 @@ func _calculate_door_positions() -> void:
 	# Gerçek door pozisyonlarını dinamik olarak al
 	var doors = get_tree().get_nodes_in_group("doors")
 	if DEBUG_DECOR_TILES:
-		print("[DoorPositions] Found doors in group: ", doors.size())
+		pass
 	
 	for door in doors:
 		if door and is_instance_valid(door):
 			var door_pos = door.global_position
 			door_positions.append(door_pos)
 			if DEBUG_DECOR_TILES:
-				print("[DoorPositions] Added door at: ", door_pos)
+				pass
 	
 	# Fallback: Eğer door bulunamazsa hata ver
 	if door_positions.is_empty():
@@ -3729,7 +3667,7 @@ func _calculate_door_positions() -> void:
 		push_error("No doors found in scene - door proximity check will fail!")
 	
 	if DEBUG_DECOR_TILES:
-		print("[DoorPositions] Final door positions: ", door_positions)
+		pass
 
 func get_door_positions() -> Array[Vector2]:
 	# Decoration spawner'lar için kapı pozisyonlarını döndür
@@ -3741,7 +3679,6 @@ func _spawn_miniboss_in_arena(chunk: Node2D, tier: String = "mini") -> void:
 	if mini_scene == null:
 		push_error("[BossArena] Failed to load miniboss scene at path: " + mini_scene_path)
 		return
-	print("[BossArena] Instantiating miniboss (%s) from %s" % [tier, mini_scene_path])
 	var mini = mini_scene.instantiate()
 	mini.name = "MiniBoss_ShieldCaptain"
 	if tier == "major":
@@ -3764,9 +3701,8 @@ func _on_miniboss_defeated(boss_chunk: Node2D) -> void:
 	if finish_door:
 		if finish_door.has_method("unlock_door"):
 			finish_door.unlock_door()
-		print("[LevelGenerator] MiniBoss defeated. FinishDoor unlocked.")
 	else:
-		print("[LevelGenerator] MiniBoss defeated but no FinishDoor found in boss chunk.")
+		pass
 
 func _attach_boss_bar(mini: Node) -> void:
 	if not is_instance_valid(mini):
@@ -3843,7 +3779,6 @@ func _attach_boss_bar(mini: Node) -> void:
 						boss_bar.conceal()
 		)
 func unify_terrain() -> void:
-	print("\nPhase 3: Unifying terrain...")
 	
 	# Create new unified terrain
 	unified_terrain = UnifiedTerrain.new()
@@ -3881,7 +3816,7 @@ func unify_terrain() -> void:
 			
 			# <<< FINAL CHECK BEFORE ACCESS >>>
 			if DEBUG_ENEMY_TILES:
-				print("  unify_terrain: Accessing grid[%d][%d]. Current grid.size() = %d" % [x, y, grid.size()])
+				pass
 			# <<< END FINAL CHECK >>>
 			
 			if grid[x][y].chunk: # Access that might fail
@@ -3898,9 +3833,8 @@ func unify_terrain() -> void:
 			if not chunk_contains_dark_tiles(chunk_map):
 				chunk_map.visible = false
 			else:
-				print("Keeping chunk visible due to dark tiles: ", chunk.name)
+				pass
 	
-	print("Terrain unification complete!")
 
 # Check if a chunk contains dark tiles that should remain visible
 func chunk_contains_dark_tiles(chunk_map: TileMap) -> bool:
@@ -3920,7 +3854,6 @@ func chunk_contains_dark_tiles(chunk_map: TileMap) -> bool:
 	# Check if any of the used cells are at dark tile coordinates
 	for cell in used_cells:
 		if cell in dark_tile_coordinates:
-			print("Found dark tile at local coordinates: ", cell, " in chunk")
 			return true
 	
 	return false
@@ -4115,7 +4048,6 @@ func is_valid_connection(from_pos: Vector2i, to_pos: Vector2i, dir: Direction) -
 	return true
 
 func finalize_connections() -> void:
-	print("Finalizing grid connections...")
 	# Pass 1: wire up each drawn path/branch's OWN internal cells (same path_id).
 	# This is the only thing that used to rely on the old "any adjacent non-empty
 	# cell auto-connects" rule; every cross-segment connection (branch attachment,
@@ -4124,7 +4056,6 @@ func finalize_connections() -> void:
 	# Pass 2: decide, per level config, whether unrelated segments that ended up
 	# adjacent should merge into a real junction or stay walled-off from each other.
 	resolve_junctions()
-	print("Grid connections finalized.")
 
 # Pass 1 helper: connects adjacent cells that belong to the same path_id
 # (i.e. were carved by the same generate_main_path/generate_branch call).
@@ -4181,7 +4112,7 @@ func resolve_junctions() -> void:
 					junctions_formed += 1
 	_debug_last_junctions_formed = junctions_formed
 	if DEBUG_ENEMY_TILES:
-		print("  resolve_junctions: %d junction(s) formed (chance=%.2f)" % [junctions_formed, junction_chance])
+		pass
 
 # Always-on, one-line summary so branching/crossing behaviour can be sanity
 # checked from the console without turning on the noisier DEBUG_ENEMY_TILES flag.
@@ -4198,9 +4129,6 @@ func _debug_print_generation_summary() -> void:
 					branch_count += 1
 				CellType.DEAD_END:
 					dead_end_count += 1
-	print("[LevelGenerator] Layout summary: main=%d branch=%d dead_end=%d junctions_formed=%d max_branch_depth_reached=%d" % [
-		main_count, branch_count, dead_end_count, _debug_last_junctions_formed, _debug_last_max_branch_depth_reached
-	])
 
 # Verbose ASCII dump of the whole grid (cell type per cell), gated behind
 # DEBUG_ENEMY_TILES. Handy for eyeballing "do paths actually cross/branch as
@@ -4228,7 +4156,6 @@ func _debug_print_ascii_grid() -> void:
 					CellType.WALL: ch = "#"
 					CellType.EMPTY: ch = "."
 			row += ch
-		print("  " + row)
 
 # --- NEW FUNCTION --- 
 func _is_playable_layout_cell(cell_type: CellType) -> bool:
@@ -4373,10 +4300,9 @@ func _place_exterior_wall_chunks() -> void:
 		_exterior_wall_chunks.append(chunk)
 		chunks_placed += 1
 	if DEBUG_ENEMY_TILES:
-		print("  Placed %d exterior wall chunk(s) outside grid bounds." % _exterior_wall_positions.size())
+		pass
 
 func fill_surrounding_walls() -> void:
-	print("Filling surrounding walls...")
 	var total_marked := 0
 	
 	# Halka 1: oynanabilir hücrelere (yol/dal/çıkmaz) bitişik boşluklar.
@@ -4402,14 +4328,10 @@ func fill_surrounding_walls() -> void:
 	# Son adım: bounding box tabanlı sabit dış zarf (üst kenar boşlukları dahil).
 	total_marked += _fill_bounding_box_wall_padding()
 	
-	print("Surrounding walls marked. Count: %d (rings=%d, exterior=%d)" % [
-		total_marked, SURROUNDING_WALL_RINGS, _exterior_wall_positions.size()
-	])
 # --- END NEW FUNCTION ---
 
 # Screen darkness controller'ı ekle
 func add_screen_darkness_controller() -> void:
-	print("[LevelGenerator] Adding screen darkness controller...")
 	
 	# Deferred olarak ekle ki scene tree tamamen hazır olsun
 	call_deferred("_add_screen_darkness_controller_deferred")
@@ -4419,7 +4341,6 @@ func _add_screen_darkness_controller_deferred() -> void:
 	# karartır, meşale/mum/oyuncu PointLight2D'leri aydınlatır (bkz. _setup_theme_lighting).
 	if not DungeonThemeStyle.get_lighting(dungeon_theme).is_empty():
 		return
-	print("[LevelGenerator] Adding screen darkness controller (deferred)...")
 	
 	# Screen darkness controller'ı oluştur - ColorRect kullanarak
 	var screen_darkness = ColorRect.new()
@@ -4447,7 +4368,6 @@ func _add_screen_darkness_controller_deferred() -> void:
 			shader_material.set_shader_parameter("ambient_light", 0.2)
 		shader_material.set_shader_parameter("player_screen_position", Vector2(960, 540))  # Başlangıç pozisyonu
 		
-		print("[LevelGenerator] Shader applied to ColorRect successfully")
 	else:
 		print("[LevelGenerator] ERROR: Could not load screen_darkness.gdshader")
 	
@@ -4520,17 +4440,17 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 	
 	if "villager_dead_end" in scene_path or "vip_dead_end" in scene_path:
 		if DEBUG_ENEMY_TILES:
-			print("[EnemyPopulate] SKIPPING: Rescue chunk - no enemies spawn here")
+			pass
 		return
 	
 	if "start" in chunk_name or "start_chunk" in scene_path:
 		if DEBUG_ENEMY_TILES:
-			print("[EnemyPopulate] SKIPPING: Start chunk - no enemies spawn here")
+			pass
 		return
 	
 	if "finish" in chunk_name or "finish_chunk" in scene_path:
 		if DEBUG_ENEMY_TILES:
-			print("[EnemyPopulate] SKIPPING: Finish chunk - no enemies spawn here")
+			pass
 		return
 	
 	# Tile-based enemy spawn system - similar to decoration system
@@ -4538,7 +4458,7 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 	
 	if not tile_map:
 		if DEBUG_ENEMY_TILES:
-			print("[EnemyPopulate] SKIPPING: Chunk '%s' does not have a child node named 'TileMapLayer'." % chunk_node.name)
+			pass
 		return
 	
 	var tile_set = tile_map.tile_set
@@ -4556,7 +4476,7 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 	
 	if enemy_layer_index == -1:
 		if DEBUG_ENEMY_TILES:
-			print("[EnemyPopulate] SKIPPING: TileSet in chunk '%s' does not have a custom data layer named '%s'." % [chunk_node.name, enemy_layer_name])
+			pass
 		return
 	
 	var used_cells = tile_map.get_used_cells()
@@ -4580,23 +4500,16 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 				max_spawns = maxi(1, max_spawns / 2)
 		spawn_chance_value = 1.0
 		if DEBUG_ENEMY_TILES:
-			print("[EnemyPopulate] Dungeon chunk detected - max_spawns: %d, spawn_chance: %.1f" % [max_spawns, spawn_chance_value])
-			print("[EnemyPopulate] Chunk name: %s, detected type: %s" % [chunk_node.name, chunk_type_str])
+			pass
 	else:
 		max_spawns = 2  # Regular chunks get fewer enemies
 		spawn_chance_value = 0.6  # 60% chance for regular chunks
 		if DEBUG_ENEMY_TILES:
-			print("[EnemyPopulate] Regular chunk detected - max_spawns: %d, spawn_chance: %.1f" % [max_spawns, spawn_chance_value])
-			print("[EnemyPopulate] Chunk name: %s, detected type: %s" % [chunk_node.name, chunk_type_str])
+			pass
 	
 	if DEBUG_ENEMY_TILES:
-		print("[EnemyPopulate] Processing %d cells in chunk '%s' (type: %s)" % [used_cells.size(), chunk_node.name, chunk_type_str])
+		pass
 		# CHUNK DEBUG
-		print("[EnemyPopulate] === CHUNK DEBUG ===")
-		print("[EnemyPopulate] Chunk: %s" % chunk_node.name)
-		print("[EnemyPopulate] Chunk Global Pos: %s" % chunk_node.global_position)
-		print("[EnemyPopulate] TileMap Global Pos: %s" % tile_map.global_position)
-		print("[EnemyPopulate] ===================")
 	
 	# Process each cell to find 3-tile patterns
 	for cell in used_cells:
@@ -4612,13 +4525,13 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 		if custom_data == "floor" or custom_data == "floor_surface":
 			# DEBUG: Check what tiles we're looking at
 			if DEBUG_ENEMY_TILES:
-				print("[EnemyPopulate] Checking floor tile at: %s" % cell)
+				pass
 		# Check for 3-tile area pattern (like decorations)
 		if _check_three_by_three_area(tile_map, cell, enemy_layer_name):
 			# Spawn enemies up to the limit for this chunk type
 			if enemy_spawn_count < max_spawns:
 				if DEBUG_ENEMY_TILES:
-					print("[EnemyPopulate] Found 3-tile area at cell: %s (spawn count: %d)" % [cell, enemy_spawn_count])
+					pass
 					# Spawn enemy at center of 3x3 area
 				var center_cell = cell  # Center of 3x3 area
 				var tile_size_v2: Vector2 = Vector2(tile_map.tile_set.tile_size)
@@ -4637,7 +4550,7 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 				
 				if spawn_local.x < 0 or spawn_local.x > chunk_size.x or spawn_local.y < 0 or spawn_local.y > chunk_size.y:
 					if DEBUG_ENEMY_TILES:
-						print("[EnemyPopulate] SKIP: Spawn position %s is outside chunk bounds" % spawn_position)
+						pass
 					continue
 				
 				# Check minimum distance from other spawned enemies (prevent clustering)
@@ -4651,12 +4564,12 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 				
 				if too_close:
 					if DEBUG_ENEMY_TILES:
-						print("[EnemyPopulate] SKIP: Spawn position %s too close to existing enemy" % spawn_position)
+						pass
 					continue
 				
 				# DETAILED DEBUG (Normal level)
 				if DEBUG_ENEMY_TILES:
-					print("[EnemyPopulate] Spawning enemy at: %s" % spawn_position)
+					pass
 				
 				# Create enemy spawner
 				# In Godot 4, we can't use .new() on a script directly
@@ -4674,7 +4587,7 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 				
 				# DETAILED SPAWNER DEBUG (Reduced)
 				if DEBUG_ENEMY_TILES:
-					print("[EnemyPopulate] Spawner created at: %s" % enemy_spawner.global_position)
+					pass
 				
 				# Add to chunk
 				chunk_node.add_child(enemy_spawner)
@@ -4684,7 +4597,7 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 				
 				# DETAILED SPAWNER DEBUG AFTER ADD (Reduced)
 				if DEBUG_ENEMY_TILES:
-					print("[EnemyPopulate] Spawner added to: %s" % enemy_spawner.get_parent().name)
+					pass
 				
 				# Activate spawner - use call_deferred to ensure script is fully loaded
 				# Script needs to be fully initialized before calling methods
@@ -4692,17 +4605,16 @@ func _populate_enemies_from_tilemap(chunk_node: Node2D) -> void:
 				
 				# Add visual marker for debug - show which tile was selected for spawning
 				if DEBUG_ENEMY_TILES:
-					print("[EnemyPopulate] Adding marker for tile: %s" % center_cell)
 					_add_spawn_tile_marker(tile_map, center_cell, chunk_node)
 				
 				# Track this spawn position
 				spawned_positions.append(spawn_position)
 				enemy_spawn_count += 1
 				if DEBUG_ENEMY_TILES:
-					print("[EnemyPopulate] Spawned enemy at 3-tile area: %s" % center_cell)
+					pass
 	
 	if DEBUG_ENEMY_TILES:
-		print("[EnemyPopulate] Spawned %d enemies in chunk '%s'" % [enemy_spawn_count, chunk_node.name])
+		pass
 
 # Add visual marker to show which tile was selected for enemy spawning
 func _add_spawn_tile_marker(tile_map: TileMapLayer, cell: Vector2i, chunk_node: Node2D) -> void:
@@ -4712,7 +4624,7 @@ func _add_spawn_tile_marker(tile_map: TileMapLayer, cell: Vector2i, chunk_node: 
 	
 	# Console'da spawn pozisyonunu göster
 	if DEBUG_ENEMY_TILES:
-		print("🎯 SPAWN TILE: Cell(%s) -> World(%s) in chunk '%s'" % [cell, world_pos, chunk_node.name])
+		pass
 	
 	# Label kullan - en basit çözüm (DISABLED)
 	# var label = Label.new()
@@ -4783,7 +4695,7 @@ func _check_spawn_height_clearance(tile_map: TileMapLayer, center_cell: Vector2i
 	var min_height = 4
 	
 	if DEBUG_ENEMY_TILES:
-		print("🔍 HEIGHT CHECK: Checking clearance above %s" % center_cell)
+		pass
 	
 	# Spawn alanının üstündeki tile'ları kontrol et
 	for i in range(1, min_height + 1):
@@ -4791,30 +4703,30 @@ func _check_spawn_height_clearance(tile_map: TileMapLayer, center_cell: Vector2i
 		var tile_data = tile_map.get_cell_tile_data(check_cell)
 		
 		if DEBUG_ENEMY_TILES:
-			print("  📍 Checking cell %s (height: %d)" % [check_cell, i])
+			pass
 		
 		# Eğer üstte HERHANGİ BİR tile varsa, yeterli yükseklik yok
 		if tile_data:
 			var custom_data = tile_data.get_custom_data(layer_name)
 			if DEBUG_ENEMY_TILES:
-				print("    ❌ Found tile with data: '%s'" % custom_data)
+				pass
 			
 			# Solid tile'lar: wall, ceiling, platform vb.
 			if custom_data in ["wall", "ceiling", "platform", "solid", "block", "terrain"]:
 				if DEBUG_ENEMY_TILES:
-					print("❌ HEIGHT CHECK FAILED: Solid tile at %s (height: %d, data: %s)" % [check_cell, i, custom_data])
+					pass
 				return false
 			else:
 				# Eğer tile var ama solid değilse, yine de yükseklik yok
 				if DEBUG_ENEMY_TILES:
-					print("❌ HEIGHT CHECK FAILED: Any tile at %s (height: %d, data: %s)" % [check_cell, i, custom_data])
+					pass
 				return false
 		else:
 			if DEBUG_ENEMY_TILES:
-				print("    ✅ No tile found - clear space")
+				pass
 	
 	if DEBUG_ENEMY_TILES:
-		print("✅ HEIGHT CHECK PASSED: Clear space above %s (height: %d+)" % [center_cell, min_height])
+		pass
 	return true
 
 func _get_chunk_type_for_node(chunk_node: Node2D) -> String:
@@ -4823,38 +4735,37 @@ func _get_chunk_type_for_node(chunk_node: Node2D) -> String:
 	var scene_path = chunk_node.scene_file_path.to_lower() if chunk_node.scene_file_path else ""
 	
 	if DEBUG_ENEMY_TILES:
-		print("[LevelGenerator] Checking chunk type for: %s (path: %s)" % [chunk_node.name, scene_path])
+		pass
 	
 	# Check chunk name first
 	if "combat" in chunk_name:
 		if DEBUG_ENEMY_TILES:
-			print("[LevelGenerator] Detected as combat chunk (by name)")
+			pass
 		return "combat"
 	elif "dungeon" in chunk_name or "zindan" in chunk_name or "boss" in chunk_name:
 		if DEBUG_ENEMY_TILES:
-			print("[LevelGenerator] Detected as dungeon chunk (by name)")
+			pass
 		return "dungeon"
 	
 	# Check scene path - if it contains "dungeon", it's a dungeon chunk
 	if scene_path != "":
 		if "dungeon" in scene_path:
 			if DEBUG_ENEMY_TILES:
-				print("[LevelGenerator] Detected as dungeon chunk (by scene path)")
+				pass
 			return "dungeon"
 		elif "combat" in scene_path:
 			if DEBUG_ENEMY_TILES:
-				print("[LevelGenerator] Detected as combat chunk (by scene path)")
+				pass
 			return "combat"
 	
 	# If chunk is in chunks/dungeon/ directory, it's a dungeon chunk
 	# All chunks in this game are dungeon chunks unless explicitly marked otherwise
 	# Default to dungeon for all chunks since we're in dungeon levels
 	if DEBUG_ENEMY_TILES:
-		print("[LevelGenerator] Defaulting to dungeon chunk (all chunks are dungeon chunks)")
+		pass
 	return "dungeon"
 
 func _clear_all_enemies_from_previous_level() -> void:
-	print("[LevelGenerator] Clearing all enemies from previous level...")
 	
 	# Clear enemies from all chunks
 	for x in range(current_grid_width):
@@ -4884,7 +4795,6 @@ func _clear_all_enemies_from_previous_level() -> void:
 		if is_instance_valid(pool):
 			pool.queue_free()
 
-	print("[LevelGenerator] Enemy & trap cleanup completed")
 
 func _clear_enemies_from_chunk(chunk_node: Node2D) -> void:
 	if not chunk_node:
@@ -4919,13 +4829,11 @@ func _remove_legacy_enemy_spawners(chunk_node: Node2D) -> void:
 	# Remove old EnemySpawner nodes from chunk (legacy system)
 	var enemy_spawners = chunk_node.find_children("*", "EnemySpawner", true, false)
 	for spawner in enemy_spawners:
-		print("[LevelGenerator] Removing legacy EnemySpawner: %s" % spawner.name)
 		spawner.queue_free()
 	
 	# Remove SpawnManager nodes as well
 	var spawn_managers = chunk_node.find_children("*", "SpawnManager", true, false)
 	for manager in spawn_managers:
-		print("[LevelGenerator] Removing legacy SpawnManager: %s" % manager.name)
 		manager.queue_free()
 
 # ==============================================================================
@@ -5022,7 +4930,6 @@ func _populate_traps_on_unified_terrain() -> void:
 				surface_layer_name = "decor_anchor"
 				break
 	if surface_layer_name == "":
-		print("[TrapPopulate] No trap-eligible custom data layer in unified_terrain")
 		return
 
 	# Build exclusion rects for start / finish / boss / rescue chunks (no traps there)
@@ -5058,7 +4965,6 @@ func _populate_traps_on_unified_terrain() -> void:
 		surface_cells[stype].append(cell)
 
 	if surface_cells.is_empty():
-		print("[TrapPopulate] No trap-eligible tiles in unified_terrain")
 		return
 
 	# 2. Build contiguous runs per surface type (fixed order: left wall before right so both get rounds)
@@ -5198,14 +5104,12 @@ func _populate_enemies_on_unified_terrain() -> void:
 			has_enemy_layer = true
 			break
 	if not has_enemy_layer:
-		print("[EnemyPopulate] No '%s' custom data layer on unified_terrain" % enemy_layer_name)
 		return
 
 	var exclude_rects: Array[Rect2] = _build_excluded_chunk_rects()
 
 	var used_cells := unified_terrain.get_used_cells(0)
 	if used_cells.is_empty():
-		print("[EnemyPopulate] No used cells on unified_terrain")
 		return
 
 	# Basitleştirilmiş sistem: SpawnConfig'e bağlı kalmadan,
@@ -5234,7 +5138,6 @@ func _populate_enemies_on_unified_terrain() -> void:
 		floor_cells.append(cell)
 
 	if floor_cells.is_empty():
-		print("[EnemyPopulate] No floor anchors on unified_terrain")
 		return
 
 	floor_cells.shuffle()
@@ -5250,9 +5153,6 @@ func _populate_enemies_on_unified_terrain() -> void:
 	var tile_size_v2: Vector2 = Vector2(ts.tile_size)
 	var half_tile := tile_size_v2 * 0.5
 
-	print("[EnemyPopulate] floor_cells=%d, will spawn up to %d enemies (level=%d)" % [
-		floor_cells.size(), max_spawns, current_level
-	])
 
 	for i in range(max_spawns):
 		var cell: Vector2i = floor_cells[i]
@@ -5283,7 +5183,6 @@ func _populate_enemies_on_unified_terrain() -> void:
 
 		spawned_positions.append(spawn_position)
 
-	print("[EnemyPopulate] Spawned %d enemies on unified terrain" % spawned_positions.size())
 
 func _build_excluded_chunk_rects() -> Array[Rect2]:
 	var rects: Array[Rect2] = []
@@ -5400,10 +5299,9 @@ func _populate_traps_from_tilemap(chunk_node: Node2D) -> void:
 
 	# DEBUG: show what we found
 	for tag in surface_cells:
-		print("[TrapPopulate] Found %d cells with tag '%s' in chunk '%s' (layer: %s)" % [surface_cells[tag].size(), tag, chunk_node.name, surface_layer_name])
+		pass
 
 	if surface_cells.is_empty():
-		print("[TrapPopulate] No trap-eligible tiles in chunk '%s'" % chunk_node.name)
 		return
 
 	# 2. Build a list of (surface, shuffled_runs) per surface type
@@ -5518,15 +5416,8 @@ func _populate_traps_from_tilemap(chunk_node: Node2D) -> void:
 
 		spawned_trap_positions.append(first_world_pos)
 		trap_spawn_count += 1
-		print("[TrapPopulate] Spawned group of %d %s at %s (surface: %s)" % [
-			group_size,
-			TrapConfigV2.TrapType.keys()[trap_type],
-			first_world_pos,
-			stype_str
-		])
 		queue_idx += 1
 
-	print("[TrapPopulate] Total trap groups in chunk '%s': %d" % [chunk_node.name, trap_spawn_count])
 
 func _find_contiguous_runs(cells: Array, surface: TrapConfigV2.SurfaceType) -> Array:
 	## Find groups of adjacent cells along the appropriate axis.

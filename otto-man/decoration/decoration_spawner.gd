@@ -44,10 +44,7 @@ func _ready() -> void:
 		spawn_marker.visible = false
 	
 	if DEBUG_DECOR:
-		print("[DecorationSpawner] Initialized - Type: %s, Location: %s" % [
-		DecorationConfig.DecorationType.keys()[decoration_type], 
-		DecorationConfig.SpawnLocation.keys()[spawn_location]
-	])
+		pass
 
 func activate() -> bool:
 	_is_active = true
@@ -55,7 +52,7 @@ func activate() -> bool:
 		if randf() <= spawn_chance:
 			_spawn_decoration()
 			if DEBUG_DECOR:
-				print("[DecorationSpawner] Activated and spawned")
+				pass
 			return true
 		else:
 			if DEBUG_DECOR:
@@ -63,14 +60,14 @@ func activate() -> bool:
 			_is_active = false
 			return false
 	if DEBUG_DECOR:
-		print("[DecorationSpawner] Activated")
+		pass
 	return true
 
 func deactivate() -> void:
 	_is_active = false
 	clear_decoration()
 	if DEBUG_DECOR:
-		print("[DecorationSpawner] Deactivated")
+		pass
 
 func _spawn_decoration() -> bool:
 	# Bu lokasyon için uygun dekorasyonları al
@@ -78,10 +75,7 @@ func _spawn_decoration() -> bool:
 	
 	if available_decorations.is_empty():
 		if DEBUG_DECOR:
-			print("[DecorationSpawner] No decorations available for type: %s, location: %s" % [
-			DecorationConfig.DecorationType.keys()[decoration_type], 
-			DecorationConfig.SpawnLocation.keys()[spawn_location]
-		])
+			pass
 		return false
 	
 	# Dekorasyon türünü seç
@@ -141,7 +135,7 @@ func _spawn_decoration() -> bool:
 	_is_active = true
 	
 	if DEBUG_DECOR:
-		print("[DecorationSpawner] Spawned %s at position %s" % [decoration_name, spawn_pos])
+		pass
 	return true
 
 func _should_keep_camp_decoration(node: Node2D) -> bool:
@@ -170,7 +164,7 @@ func _should_keep_camp_decoration(node: Node2D) -> bool:
 
 func create_decoration_instance(decoration_name: String, decoration_type: DecorationConfig.DecorationType) -> Node2D:
 	if DEBUG_DECOR:
-		print("DECOR SPAWN DENEMESİ: " + decoration_name + " - " + str(decoration_type))
+		pass
 	if not _decoration_config:
 		_decoration_config = DecorationConfig.new()
 	var decoration_data = _decoration_config.get_decorations_for_type(decoration_type)[decoration_name]
@@ -469,7 +463,7 @@ func _setup_gold_decoration(node: Node2D, data: Dictionary) -> void:
 		sprite.z_index = 0
 	# Pickup alanı zaten merkezde; pooled loot ile aynı
 	if DEBUG_DECOR:
-		print("[DecorationSpawner] GOLD ready at ", node.global_position, " value=", gold_value)
+		pass
 
 # Platform ve kırılabilir için dikdörtgen şekil oluşturucu
 func _create_rect_shape(size: Vector2) -> RectangleShape2D:
@@ -544,7 +538,7 @@ func _setup_breakable_decoration(node: Node2D, data: Dictionary) -> void:
 		node.z_index = _decoration_config.get_z_index_for_decoration(node.name)
 		sprite.z_index = 0
 	if DEBUG_DOOR_CHECK:
-		print("[DecorationSpawner] BREAKABLE ready HP=", node.get_meta("hp", 0), " at ", node.global_position)
+		pass
 
 	# Pot animasyonlarını hazırla (varsa); pot2/pot3 gibi varyantlar kendi sheet'ini kullanır
 	_setup_pot_animation(node, data)
@@ -638,7 +632,6 @@ func _on_breakable_body_entered(body: Node2D, node: Node2D) -> void:
 	if body.has_method("is_enabled") and not body.is_enabled():
 		return
 	var damage: int = int(body.get_damage())
-	print("[DecorationSpawner] BREAKABLE body hit by ", body.name, " damage=", damage)
 	_apply_breakable_damage(node, damage)
 
 
@@ -729,7 +722,7 @@ func _break_breakable(node: Node2D) -> void:
 	total = _apply_dungeon_gold_multiplier(total)
 	var parts: Array[int] = cfg.compose_items_for_total(total)
 	if DEBUG_DECOR:
-		print("[DecorationSpawner] Breaking breakable, scaled total gold: ", total, " parts: ", parts)
+		pass
 	_spawn_physical_loot_parts(node.global_position, parts, node.z_index + 2, cfg)
 	# Pot sahnede kalsın; kırık halde görünmeye devam etsin
 
@@ -815,9 +808,7 @@ func _spawn_physical_loot_parts(origin: Vector2, parts: Array[int], z_index_base
 				(collect as CollisionObject2D).collision_layer = CollisionLayers.NONE
 				(collect as CollisionObject2D).collision_mask = CollisionLayers.ALL
 			if DEBUG_LOOT:
-				print("[LootDebug] Collect area ready monitoring=", collect.monitoring,
-					" layer=", (collect as CollisionObject2D).collision_layer,
-					" mask=", (collect as CollisionObject2D).collision_mask)
+				pass
 		else:
 			if DEBUG_DECOR:
 				print("[DecorationSpawner] WARNING: Loot body missing Area2D child")
@@ -851,7 +842,7 @@ func _spawn_physical_loot_parts(origin: Vector2, parts: Array[int], z_index_base
 			launch = Vector2(cos(ang), sin(ang)) * mag
 		elif enemy_burst:
 			# Yukarı doğru konsantre fırlatma; hafif sağ/sol (~±32°), poşet biraz daha kısa.
-			var spread: float = randf_range(-0.55, 0.55)
+			var spread: float = randf_range(-1.15, 1.15)  # geniş yelpaze: paralar etrafa saçılsın
 			var base_up: float = -PI * 0.5
 			var ang: float = base_up + spread
 			var mag: float
@@ -862,7 +853,7 @@ func _spawn_physical_loot_parts(origin: Vector2, parts: Array[int], z_index_base
 				mag = randf_range(200.0, 340.0)
 				body.angular_damp = 3.0
 			launch = Vector2(cos(ang), sin(ang)) * mag
-			launch.x += randf_range(-22.0, 22.0)
+			launch.x += randf_range(-90.0, 90.0)
 		elif v < 5:
 			launch = Vector2(randf_range(-180.0, 180.0), randf_range(-280.0, -160.0))
 			body.angular_damp = 0.8
@@ -905,9 +896,6 @@ func _spawn_physical_loot_parts(origin: Vector2, parts: Array[int], z_index_base
 					var acnt := (area.get_overlapping_areas().size() if area else -1)
 					var player := get_tree().get_first_node_in_group("player")
 					var dist := (dbg_body.global_position.distance_to(player.global_position) if player else -1.0)
-					print("[LootDebug] +0.25s ", dbg_body.name, " pos=", dbg_body.global_position, " lv=", dbg_body.linear_velocity,
-						" freeze=", dbg_body.freeze, " sleeping=", dbg_body.sleeping,
-						" overlaps bodies=", bcnt, " areas=", acnt, " dist_to_player=", dist)
 				)
 				dbg.start()
 
@@ -1385,12 +1373,12 @@ func _is_near_door(spawn_position: Vector2) -> bool:
 	var spawner_tile_y = int(spawn_position.y / 32)
 	
 	if DEBUG_DOOR_CHECK:
-		print("[DoorCheck] Spawner tile position: (", spawner_tile_x, ", ", spawner_tile_y, ")")
+		pass
 	
 	# Sahnedeki tüm kapıları bul
 	var doors = get_tree().get_nodes_in_group("doors")
 	if DEBUG_DOOR_CHECK:
-		print("[DoorCheck] Found doors in group: ", doors.size())
+		pass
 	
 	for door in doors:
 		if door and is_instance_valid(door):
@@ -1398,19 +1386,19 @@ func _is_near_door(spawn_position: Vector2) -> bool:
 			var door_tile_y = int(door.global_position.y / 32)
 			
 			if DEBUG_DOOR_CHECK:
-				print("[DoorCheck] Door tile position: (", door_tile_x, ", ", door_tile_y, ")")
+				pass
 			
 			# 10 tile mesafe kontrolü (320 pixel)
 			var tile_distance_x = abs(spawner_tile_x - door_tile_x)
 			var tile_distance_y = abs(spawner_tile_y - door_tile_y)
 			
 			if DEBUG_DOOR_CHECK:
-				print("[DoorCheck] Tile distance: (", tile_distance_x, ", ", tile_distance_y, ")")
+				pass
 			
 			# Kapının tam önünde mi kontrol et (X mesafesi çok küçük)
 			if tile_distance_x <= 1 and tile_distance_y <= 5:
 				if DEBUG_DOOR_CHECK:
-					print("[DoorCheck] TOO CLOSE! Directly in front of door!")
+					pass
 				return true
 			
 			# Banner1 için daha gevşek kontrol (3 tile), diğerleri için 5 tile
@@ -1423,11 +1411,11 @@ func _is_near_door(spawn_position: Vector2) -> bool:
 			# Genel mesafe kontrolü
 			if tile_distance_x <= max_distance or tile_distance_y <= max_distance:
 				if DEBUG_DOOR_CHECK:
-					print("[DoorCheck] TOO CLOSE! Within ", max_distance, " tiles of door!")
+					pass
 				return true
 	
 	if DEBUG_DOOR_CHECK:
-		print("[DoorCheck] Safe distance from all doors")
+		pass
 	return false
 
 func _is_near_door_banner(spawn_position: Vector2) -> bool:
@@ -1436,12 +1424,12 @@ func _is_near_door_banner(spawn_position: Vector2) -> bool:
 	var spawner_tile_y = int(spawn_position.y / 32)
 	
 	if DEBUG_DOOR_CHECK:
-		print("[BannerDoorCheck] Spawner tile position: (", spawner_tile_x, ", ", spawner_tile_y, ")")
+		pass
 	
 	# Sahnedeki tüm kapıları bul
 	var doors = get_tree().get_nodes_in_group("doors")
 	if DEBUG_DOOR_CHECK:
-		print("[BannerDoorCheck] Found doors in group: ", doors.size())
+		pass
 	
 	for door in doors:
 		if door and is_instance_valid(door):
@@ -1449,28 +1437,28 @@ func _is_near_door_banner(spawn_position: Vector2) -> bool:
 			var door_tile_y = int(door.global_position.y / 32)
 			
 			if DEBUG_DOOR_CHECK:
-				print("[BannerDoorCheck] Door tile position: (", door_tile_x, ", ", door_tile_y, ")")
+				pass
 			
 			var tile_distance_x = abs(spawner_tile_x - door_tile_x)
 			var tile_distance_y = abs(spawner_tile_y - door_tile_y)
 			
 			if DEBUG_DOOR_CHECK:
-				print("[BannerDoorCheck] Tile distance: (", tile_distance_x, ", ", tile_distance_y, ")")
+				pass
 			
 			# Banner1 için sadece kapının tam önünde olmasını engelle (1 tile)
 			if tile_distance_x <= 1 and tile_distance_y <= 2:
 				if DEBUG_DOOR_CHECK:
-					print("[BannerDoorCheck] TOO CLOSE! Directly in front of door!")
+					pass
 				return true
 			
 			# Banner1 için çok gevşek kontrol (sadece 2 tile)
 			if tile_distance_x <= 2 or tile_distance_y <= 2:
 				if DEBUG_DOOR_CHECK:
-					print("[BannerDoorCheck] TOO CLOSE! Within 2 tiles of door!")
+					pass
 				return true
 	
 	if DEBUG_DOOR_CHECK:
-		print("[BannerDoorCheck] Safe distance from all doors")
+		pass
 	return false
 
 func _find_doors_in_scene() -> Array:

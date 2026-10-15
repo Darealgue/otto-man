@@ -10,16 +10,13 @@ func _init():
 	item_name = tr("item.havada_kal.name")
 	description = tr("item.havada_kal.description")
 	flavor_text = "Havada süzülme"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.JUMP
 	affected_stats = ["glide"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Havada Kal] ✅ Süzülme aktif")
 
 func deactivate(_p: CharacterBody2D):
 	super.deactivate(_p)
 	_player = null
-	print("[Havada Kal] ❌ Kaldırıldı")

@@ -124,6 +124,7 @@ var assigned_job_type: String = "" # "wood", "stone", etc. or "" for idle
 var assigned_building_node: Node2D = null # Atandığı binanın node'u
 var housing_node: Node2D = null # Kaldığı yer (CampFire veya House)
 var is_deployed: bool = false # Askerler için: savaş için deploy edildi mi?
+var is_on_mission_trip: bool = false # Cariye görevine eşlik ediyor: koşmaz, normal yürür
 var is_sick: bool = false # Hasta mı? (evden çıkmaz, çalışamaz)
 var sick_since_day: int = -1 # Hangi günden beri hasta (iyileşme kontrolü için)
 var previous_job_type: String = "" # Hastalanmadan önceki iş (iyileşince dönmek için)
@@ -738,15 +739,10 @@ func _ready() -> void:
 	
 	# Debug: Print initialization state
 	if NPC_Info.is_empty():
-		print("Worker %d _ready: NPC_Info is EMPTY" % worker_id)
+		pass
 	else:
-		print("Worker %d _ready: NPC_Info has %d keys. Info present: %s" % [
-			worker_id, 
-			NPC_Info.size(), 
-			NPC_Info.has("Info")
-		])
 		if NPC_Info.has("Info"):
-			print("Worker %d _ready: Info keys: %s" % [worker_id, NPC_Info["Info"].keys()])
+			pass
 	
 	# <<< YENİ: Timer Oluşturma >>>
 	fetching_timer = Timer.new()
@@ -1042,9 +1038,7 @@ func Update_Villager_Name():
 		_nameplate_container.visible = false
 	
 func Initialize_Existing_Villager(NPCInfo):
-		print("Worker %d Initialize_Existing_Villager called with data size: %d" % [worker_id, NPCInfo.size()])
 		if NPCInfo.is_empty() == true:
-			print("Worker %d: Initialize_Existing_Villager received EMPTY data. Falling back to new villager." % worker_id)
 			Initialize_New_Villager()
 		else:
 			NPC_Info=NPCInfo
@@ -1062,7 +1056,6 @@ func Initialize_Existing_Villager(NPCInfo):
 				update_visuals()
 			
 func Initialize_New_Villager():
-	print("Worker %d Initialize_New_Villager called" % worker_id)
 	NPC_Info = VillagerAiInitializer.get_villager_info()
 	if NPC_Info.is_empty():
 		printerr("Worker %d: VillagerAiInitializer returned EMPTY info!" % worker_id)
@@ -1079,6 +1072,7 @@ func _physics_process(delta: float) -> void:
 	if is_dungeon_prisoner:
 		_physics_process_dungeon_prisoner(delta)
 		return
+	_refresh_soldier_look(delta)
 	if is_guest_villager or is_instance_valid(_guest_hourglass_label):
 		_guest_hourglass_tick += delta
 		if _guest_hourglass_tick >= GUEST_HOURGLASS_UPDATE_INTERVAL:
@@ -1262,6 +1256,9 @@ func _physics_process(delta: float) -> void:
 		if current_state == State.GOING_HOME_SICK:
 			# Hasta işçiler normal hızın %75'i ile yürür
 			actual_move_speed = move_speed * 0.75
+		elif _soldier_look_on and is_deployed and not is_on_mission_trip:
+			# Savaşa giden asker koşar
+			actual_move_speed = move_speed * SOLDIER_RUN_SPEED_MULT
 		global_position = global_position.move_toward(target_pos, actual_move_speed * delta)
 	# <<< YENİ SONU >>>
 	
@@ -1906,7 +1903,6 @@ func _sleep_debug_log(message: String, force: bool = false) -> void:
 	var mm: int = TimeManager.get_minute() if TimeManager and TimeManager.has_method("get_minute") else -1
 	var housing_name: String = housing_node.name if is_instance_valid(housing_node) else "none"
 	var housing_type: String = housing_node.get_class() if is_instance_valid(housing_node) else "none"
-	print("[SleepDBG][W%s][%02d:%02d][%s/%s] %s" % [str(worker_id), hh, mm, housing_name, housing_type, message])
 
 # Ayak pozisyonunu hesapla (sprite offset'i ve yüksekliğini hesaba katarak)
 func get_foot_y_position() -> float:
@@ -2208,8 +2204,193 @@ func apply_gender_change_appearance(new_gender: String) -> void:
 	var preserved_hair_tint: Color = appearance.hair_tint if appearance else Color.WHITE
 	appearance = AppearanceDB.regenerate_appearance_for_gender(new_gender, preserved_body_tint, preserved_hair_tint)
 
+# ----------------------------------------------------------------------------- ASKER GÖRÜNÜMÜ
+## Asker olarak atanan köylü "basic enemy" sprite'ına dönüşür (kıyafet/saç katmanları gizlenir). İdle çeşitliliği:
+## ayakta idle, kılıç antrenmanı (attack), üç ayrı oturuş. Savaşa giderken koşar (chase animasyonu, daha hızlı).
+## İsim plakası ve diğer arayüz Worker'ın kendi düğümlerinden olduğu için aynen çalışmaya devam eder.
+const SOLDIER_ENEMY_SCENE_PATH := "res://enemy/basic/basic_enemy.tscn"
+## Kare 150x120 ve karakter karenin ALT kenarına oturuyor: ayaklar köylüyle aynı yerde (y=0) dursun diye sprite'ın
+## merkezi ölçekli yarım yüksekliğin kadar yukarıda. Ayaklar y=0'dan aşağıda kalırsa z-index sıralaması
+## (ayak y'sine göre) komşu köylülerle yanlış çıkıyordu.
+const SOLDIER_SPRITE_SCALE := 1.0
+const SOLDIER_SPRITE_OFFSET := Vector2(0.0, -60.0 * SOLDIER_SPRITE_SCALE)
+## Asker renkleri: basic düşman sayfalarının yeniden boyanmış kopyaları (assets/NPC/soldier/soldier_*.png):
+## kavuk beyaz, kuşak kırmızı, kıyafet kahverengi. Kavuk ile kuşak aynı gri renkleri paylaştığı için shader ile
+## ayrılamıyordu (kavuğun yarısı kırmızı çıkıyordu); kareler önceden bağlı bileşenlerine göre boyandı.
+const SOLDIER_SHEET_SRC_PREFIX := "res://enemy/basic/sprite/basic_"
+const SOLDIER_SHEET_DST_PREFIX := "res://assets/NPC/soldier/soldier_"
+const SOLDIER_RUN_SPEED_MULT := 1.7
+const SOLDIER_VARIETY_MIN := 4.0
+const SOLDIER_VARIETY_MAX := 9.0
+static var _soldier_frames_cache: SpriteFrames = null
+var _soldier_sprite: AnimatedSprite2D = null
+var _soldier_look_on: bool = false
+var _soldier_variety_timer: float = 0.0
+var _soldier_anim: String = ""
+
+
+static func _get_soldier_frames() -> SpriteFrames:
+	if _soldier_frames_cache != null:
+		return _soldier_frames_cache
+	var packed := load(SOLDIER_ENEMY_SCENE_PATH) as PackedScene
+	if packed == null:
+		return null
+	# Sahneyi örneklemeden (düşman scripti çalışmasın) SpriteFrames'i durumundan çek
+	var state := packed.get_state()
+	for i in range(state.get_node_count()):
+		if state.get_node_type(i) != &"AnimatedSprite2D":
+			continue
+		for p in range(state.get_node_property_count(i)):
+			if state.get_node_property_name(i, p) == &"sprite_frames":
+				var original := state.get_node_property_value(i, p) as SpriteFrames
+				if original == null:
+					return null
+				# Kopya üzerinde atlas dokuları yeniden boyanmış asker sayfalarıyla değiştirilir (orijinale dokunulmaz)
+				# duplicate(true) kare AtlasTexture'larını paylaşıyordu (düşmanlar da boyanıyordu): sıfırdan kur
+				var copy := SpriteFrames.new()
+				for anim in original.get_animation_names():
+					if anim != &"default":
+						copy.add_animation(anim)
+					copy.set_animation_loop(anim, original.get_animation_loop(anim))
+					copy.set_animation_speed(anim, original.get_animation_speed(anim))
+					for fi in range(original.get_frame_count(anim)):
+						var tex: Texture2D = original.get_frame_texture(anim, fi)
+						var dur: float = original.get_frame_duration(anim, fi)
+						var at := tex as AtlasTexture
+						if at != null and at.atlas != null:
+							var src_path: String = at.atlas.resource_path
+							if src_path.begins_with(SOLDIER_SHEET_SRC_PREFIX):
+								var dst_path: String = SOLDIER_SHEET_DST_PREFIX + src_path.trim_prefix(SOLDIER_SHEET_SRC_PREFIX)
+								if ResourceLoader.exists(dst_path):
+									var recolored := load(dst_path) as Texture2D
+									if recolored != null:
+										var nat := AtlasTexture.new()
+										nat.atlas = recolored
+										nat.region = at.region
+										nat.margin = at.margin
+										nat.filter_clip = at.filter_clip
+										tex = nat
+						copy.add_frame(anim, tex, dur)
+				_soldier_frames_cache = copy
+				return _soldier_frames_cache
+	return null
+
+
+func _soldier_parts() -> Array:
+	return [body_sprite, pants_sprite, clothing_sprite, mouth_sprite, eyes_sprite, beard_sprite, hair_sprite, hat_sprite, held_item_sprite, carried_item_icon]
+
+
+func _refresh_soldier_look(delta: float) -> void:
+	var want: bool = assigned_job_type == "soldier" and not is_dungeon_prisoner
+	if want != _soldier_look_on:
+		_set_soldier_look(want)
+	if not _soldier_look_on:
+		return
+	# Başka kodlar parçaları geri görünür yapabilir (görünüm yenileme, şapka vb.): her karede gizli tut
+	for part in _soldier_parts():
+		if is_instance_valid(part) and part.visible:
+			part.visible = false
+	# İdle çeşitliliği: ayakta bekleyen asker ara sıra antrenman yapar ya da oturur
+	if _soldier_anim == "idle" or _soldier_anim.begins_with("sit"):
+		_soldier_variety_timer -= delta
+		if _soldier_variety_timer <= 0.0:
+			_soldier_variety_timer = randf_range(SOLDIER_VARIETY_MIN, SOLDIER_VARIETY_MAX)
+			_play_soldier_clip(_pick_soldier_idle_clip())
+
+
+func _set_soldier_look(on: bool) -> void:
+	_soldier_look_on = on
+	if on:
+		var frames := _get_soldier_frames()
+		if frames == null:
+			_soldier_look_on = false
+			return
+		if _soldier_sprite == null:
+			_soldier_sprite = AnimatedSprite2D.new()
+			_soldier_sprite.name = "SoldierSprite"
+			_soldier_sprite.sprite_frames = frames
+			_soldier_sprite.position = SOLDIER_SPRITE_OFFSET
+			_soldier_sprite.scale = Vector2(SOLDIER_SPRITE_SCALE, SOLDIER_SPRITE_SCALE)
+			_soldier_sprite.animation_finished.connect(_on_soldier_anim_finished)
+			add_child(_soldier_sprite)
+		_soldier_sprite.visible = true
+		if is_instance_valid(animation_player):
+			animation_player.stop()
+		_soldier_variety_timer = randf_range(SOLDIER_VARIETY_MIN, SOLDIER_VARIETY_MAX)
+		# Mevcut hedef animasyon bir sonraki karede play_animation ile yeniden istenecek
+		_current_animation_name = ""
+		_play_soldier_clip("idle")
+	else:
+		if is_instance_valid(_soldier_sprite):
+			_soldier_sprite.visible = false
+			_soldier_sprite.stop()
+		_soldier_anim = ""
+		# Eski görünümü geri getir: bir sonraki play_animation katmanların görünürlüğünü yeniden kurar
+		_current_animation_name = ""
+
+
+func _pick_soldier_idle_clip() -> String:
+	# ağırlıklar: ayakta idle sık, antrenman ve üç oturuş ara sıra
+	var roll: float = randf()
+	if roll < 0.40:
+		return "idle"
+	if roll < 0.60:
+		return "attack"
+	if roll < 0.73:
+		return "sit"
+	if roll < 0.87:
+		return "sit2"
+	return "sit3"
+
+
+func _play_soldier_clip(clip: String) -> void:
+	if not is_instance_valid(_soldier_sprite) or _soldier_sprite.sprite_frames == null:
+		return
+	if not _soldier_sprite.sprite_frames.has_animation(clip):
+		clip = "idle"
+	_soldier_anim = clip
+	_soldier_sprite.play(clip)
+
+
+func _on_soldier_anim_finished() -> void:
+	# Tek seferlik klipler (antrenman) bitince idle'a dön
+	if _soldier_anim == "attack":
+		_play_soldier_clip("idle")
+
+
+## Worker'ın kendi animasyon adlarını (idle/walk/sit/lie/drink/walk_tool/walk_carry) asker kliplerine çevirir.
+func _play_soldier_animation(anim_name: String) -> void:
+	_current_animation_name = anim_name
+	match anim_name:
+		"":
+			return
+		"idle":
+			_play_soldier_clip("idle")
+		"walk", "walk_tool", "walk_carry":
+			# Savaşa giden (deploy edilmiş) asker koşar
+			if (is_deployed or current_state == State.WORKING_OFFSCREEN) and not is_on_mission_trip:
+				_play_soldier_clip("chase")
+			else:
+				_play_soldier_clip("walk")
+		"sit":
+			_play_soldier_clip(["sit", "sit2", "sit3"][randi() % 3])
+		"lie":
+			# Kamp ateşinde yatan asker: yere uzanmış kare; gündüz "lie" aktivitesinde dinlenir gibi otursun
+			if current_state == State.SLEEPING:
+				_play_soldier_clip("hurt_ground")
+			else:
+				_play_soldier_clip("sit2")
+		"drink":
+			_play_soldier_clip("idle")
+		_:
+			_play_soldier_clip("idle")
+
+
 # <<< YENİ: Animasyon Oynatma Fonksiyonu (Genişletilmiş) >>>
 func play_animation(anim_name: String):
+	if _soldier_look_on:
+		_play_soldier_animation(anim_name)
+		return
 	if !is_instance_valid(animation_player):
 		#printerr("Worker %d: AnimationPlayer bulunamadı!" % worker_id)
 		return
@@ -2610,8 +2791,60 @@ func _is_gather_worker_away_on_expedition() -> bool:
 	return not _is_pending_gather_deposit()
 
 
+## GECE NÖBETİ: askerlerin yaklaşık 5te 2'si gece uyumaz, kasabada dolaşır. Nöbetçiler gece başına bir
+## kayar (day + sıra), böylece aynı asker her gece nöbet tutmaz. Hesap saniyede en çok bir kez yapılır.
+const NIGHT_WATCH_RATIO := 0.4
+const NIGHT_WATCH_WANDER_RANGE := 520.0
+var _night_watch_cached: bool = false
+var _night_watch_checked_msec: int = -100000
+
+
+func _is_night_hour_now() -> bool:
+	var tm := get_node_or_null("/root/TimeManager")
+	if tm == null:
+		return false
+	var h: int = int(tm.get_hour())
+	return h >= int(tm.get("SLEEP_HOUR")) or h < int(tm.get("WAKE_UP_HOUR"))
+
+
+func _is_on_night_watch() -> bool:
+	if assigned_job_type != "soldier" or is_deployed or is_sick or is_guest_villager or is_dungeon_prisoner:
+		return false
+	if not _is_night_hour_now():
+		return false
+	var now_msec: int = Time.get_ticks_msec()
+	if now_msec - _night_watch_checked_msec < 1000:
+		return _night_watch_cached
+	_night_watch_checked_msec = now_msec
+	var ids: Array[int] = []
+	for n in get_tree().get_nodes_in_group("Villagers"):
+		if not is_instance_valid(n):
+			continue
+		if String(n.get("assigned_job_type")) != "soldier":
+			continue
+		if bool(n.get("is_deployed")) or bool(n.get("is_sick")) or bool(n.get("is_guest_villager")):
+			continue
+		ids.append(int(n.get("worker_id")))
+	ids.sort()
+	var count: int = ids.size()
+	var guards: int = int(round(float(count) * NIGHT_WATCH_RATIO))
+	_night_watch_cached = false
+	if guards > 0 and ids.has(worker_id):
+		var tm := get_node_or_null("/root/TimeManager")
+		var day: int = int(tm.get_day()) if tm != null else 0
+		# Gece yarısından sonra hâlâ aynı gecenin nöbeti: sabah saatlerinde bir önceki günün gecesi sayılır
+		if int(tm.get_hour()) < int(tm.get("WAKE_UP_HOUR")):
+			day -= 1
+		var rank: int = posmod(ids.find(worker_id) + day, count)
+		_night_watch_cached = rank < guards
+	return _night_watch_cached
+
+
 func _should_interrupt_for_sleep(hour: int, minute: int) -> bool:
 	if is_guest_villager or is_sick or _sleep_attempt_failed:
+		return false
+	# Nöbetçi asker uyumaya gitmez
+	if _is_on_night_watch():
 		return false
 	if _is_pending_gather_deposit() or _is_gather_worker_away_on_expedition():
 		return false
@@ -2781,6 +3014,10 @@ func apply_time_skip_presence(hour: int, minute: int) -> void:
 		_target_global_y = global_position.y
 		return
 	var should_sleep: bool = hour >= TimeManager.SLEEP_HOUR or hour < TimeManager.WAKE_UP_HOUR
+	# Gece nöbetindeki asker uyumaz, kasabada uyanık durur
+	_night_watch_checked_msec = -100000
+	if should_sleep and _is_on_night_watch():
+		should_sleep = false
 	if should_sleep:
 		if not is_instance_valid(housing_node):
 			current_state = State.SOCIALIZING
@@ -2808,8 +3045,9 @@ func apply_time_skip_presence(hour: int, minute: int) -> void:
 	current_state = State.AWAKE_IDLE
 	visible = true
 	if is_instance_valid(housing_node):
+		var spread: float = randf_range(-NIGHT_WATCH_WANDER_RANGE, NIGHT_WATCH_WANDER_RANGE) if _is_on_night_watch() else 0.0
 		global_position = Vector2(
-			housing_node.global_position.x,
+			housing_node.global_position.x + spread,
 			randf_range(VERTICAL_RANGE_MIN, VERTICAL_RANGE_MAX)
 		)
 		var wander_range := 150.0
@@ -2967,6 +3205,9 @@ func _start_next_idle_step():
 		# Yeni bir gezinme hedefi belirle
 		# <<< DÜZENLEME: Gezinme Mesafesi Artırıldı >>>
 		var wander_range = 300.0 # Ne kadar uzağa gidebilir - Önceki: 150.0
+		if _is_on_night_watch():
+			# Nöbetçi kasabaya dağılır
+			wander_range = NIGHT_WATCH_WANDER_RANGE
 		# Hedef X: Mevcut X +/- wander_range
 		move_target_x = global_position.x + randf_range(-wander_range, wander_range)
 		# Hedef Y: VERTICAL_RANGE_MIN ile VERTICAL_RANGE_MAX arasında rastgele
@@ -3003,6 +3244,9 @@ func _choose_next_idle_activity():
 		"lie": 0.15,  # %15 uzanma
 		"drink": 0.15 # %15 içme
 	}
+	if _is_on_night_watch():
+		# Nöbetçi çoğunlukla dolaşır/ayakta bekler, uzanıp yatmaz
+		activity_weights = {"wandering": 0.7, "sit": 0.2, "drink": 0.1}
 	
 	# Toplam ağırlığı hesapla (normallik kontrolü için, isteğe bağlı)
 	var total_weight = 0.0

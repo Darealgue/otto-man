@@ -14,7 +14,6 @@ func _init():
 	item_name = tr("item.zehirli_yem.name")
 	description = tr("item.zehirli_yem.description")
 	flavor_text = "Yem yutuldu"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.DODGE
 	affected_stats = ["hit_poison_cloud"]
 

@@ -11,7 +11,6 @@ func _init():
 	item_name = tr("item.patlama_zinciri.name")
 	description = tr("item.patlama_zinciri.description")
 	flavor_text = "Zincir patlama"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SPECIAL
 	affected_stats = ["on_kill_explosion"]
 

@@ -15,19 +15,16 @@ func _init():
 	item_name = tr("item.cevher_dili.name")
 	description = tr("item.cevher_dili.description")
 	flavor_text = "Güç, nefesin bedelidir"
-	rarity = ItemRarity.LEGENDARY
 	category = ItemCategory.STAMINA
 	affected_stats = ["stamina_powered_attack"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Cevher Dili] ✅ Hafif saldırılar stamina ile güçleniyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Cevher Dili] ❌ Kaldırıldı")
 
 func _on_player_attack_landed(attack_type: String, damage: float, _targets: Array, position: Vector2, effect_filter: String = "all") -> void:
 	if (attack_type != "normal" and attack_type != "ranged") or effect_filter == "physical_only":

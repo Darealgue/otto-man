@@ -9,14 +9,11 @@ func _init():
 	item_name = tr("item.kum_saati.name")
 	description = tr("item.kum_saati.description")
 	flavor_text = "Kum akıyor..."
-	rarity = ItemRarity.RARE
 	category = ItemCategory.PARRY
 	affected_stats = ["parry_time_slow"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Kum Saati] ✅ Zaman yavaşlatma güçlendi (Zaman Durdurucu ile)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Kum Saati] ❌ Kaldırıldı")

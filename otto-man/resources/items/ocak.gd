@@ -12,7 +12,6 @@ func _init():
 	item_name = tr("item.ocak.name")
 	description = tr("item.ocak.description")
 	flavor_text = "Sönmeyen ocak, sıcak tutar"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	tags = ["elemental_fire"]
 	affected_stats = ["on_kill_ember"]

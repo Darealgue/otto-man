@@ -16,8 +16,8 @@ signal main_menu_requested()
 @onready var load_button: Button = $Panel/VBoxContainer/LoadButton
 @onready var settings_button: Button = $Panel/VBoxContainer/SettingsButton
 @onready var main_menu_button: Button = $Panel/VBoxContainer/MainMenuButton
-@onready var load_game_menu: Control = $LoadGameMenu
-@onready var save_game_menu: Control = $SaveGameMenu
+@onready var load_game_menu: Control = get_node_or_null("LoadGameMenu") as Control  # yoksa ilk açılışta yüklenir
+@onready var save_game_menu: Control = get_node_or_null("SaveGameMenu") as Control
 @onready var settings_menu: Control = $SettingsMenu
 @onready var confirm_dialog: Control = $ConfirmDialog
 
@@ -294,21 +294,17 @@ func _open_menu() -> void:
 	if resume_button:
 		call_deferred("_set_initial_focus")
 	
-	print("[PauseMenu] Menu opened, game paused")
 
 func _set_initial_focus() -> void:
 	# Pause menu açıldığında ilk button'a focus ver
 	if resume_button and resume_button.visible and resume_button.focus_mode != Control.FOCUS_NONE:
 		resume_button.grab_focus()
-		print("[PauseMenu] Focus set to resume_button")
 
 func _center_player_camera() -> void:
-	print("[PauseMenu] 🔍 DEBUG: Starting camera setup...")
 	
 	# Dünya haritası overlay aktifse kamera manipülasyonu yapma
 	var sm := get_node_or_null("/root/SceneManager")
 	if sm and sm.get("_world_map_overlay_instance") != null and is_instance_valid(sm._world_map_overlay_instance):
-		print("[PauseMenu] ℹ️ World map overlay aktif — kamera manipülasyonu atlanıyor")
 		return
 	
 	# Find player in the scene
@@ -316,51 +312,39 @@ func _center_player_camera() -> void:
 	if not player:
 		print("[PauseMenu] ⚠️ DEBUG: Player not found!")
 		return
-	print("[PauseMenu] ✅ DEBUG: Player found at: %s" % player.global_position)
 	
 	# Disable ANY other cameras in the scene (including overview cameras and scene-level cameras)
 	var scene_root = get_tree().current_scene
 	if scene_root:
-		print("[PauseMenu] 🔍 DEBUG: Scene root: %s" % scene_root.name)
 		
 		# CRITICAL: Disable scene-level Camera2D (VillageScene has one that might be enabled)
 		var scene_camera = scene_root.get_node_or_null("Camera2D")
 		if scene_camera and scene_camera is Camera2D:
-			print("[PauseMenu] ⚠️ DEBUG: Found scene-level Camera2D, disabling it")
 			(scene_camera as Camera2D).enabled = false
-			print("[PauseMenu] ✅ DEBUG: Scene Camera2D disabled")
 		
 		# Check for LevelGenerator (dungeon)
 		var level_gen = scene_root.get_node_or_null("LevelGenerator")
 		if level_gen:
-			print("[PauseMenu] 🔍 DEBUG: Found LevelGenerator")
 			if "is_overview_active" in level_gen:
 				var was_overview = level_gen.get("is_overview_active")
-				print("[PauseMenu] 🔍 DEBUG: Overview was active: %s" % was_overview)
 				level_gen.set("is_overview_active", false)
 				# Disable overview camera
 				if "overview_camera" in level_gen:
 					var overview_cam = level_gen.get("overview_camera")
 					if overview_cam is Camera2D:
-						print("[PauseMenu] 🔍 DEBUG: Overview camera found at: %s" % (overview_cam as Camera2D).global_position)
 						(overview_cam as Camera2D).enabled = false
-						print("[PauseMenu] ✅ DEBUG: Overview camera disabled")
 		
 		# Check for ForestLevelGenerator
 		var forest_gen = scene_root.get_node_or_null("ForestLevelGenerator")
 		if forest_gen:
-			print("[PauseMenu] 🔍 DEBUG: Found ForestLevelGenerator")
 			if "is_overview_active" in forest_gen:
 				var was_overview = forest_gen.get("is_overview_active")
-				print("[PauseMenu] 🔍 DEBUG: Forest overview was active: %s" % was_overview)
 				forest_gen.set("is_overview_active", false)
 				# Disable overview camera
 				if "overview_camera" in forest_gen:
 					var overview_cam = forest_gen.get("overview_camera")
 					if overview_cam is Camera2D:
-						print("[PauseMenu] 🔍 DEBUG: Forest overview camera found at: %s" % (overview_cam as Camera2D).global_position)
 						(overview_cam as Camera2D).enabled = false
-						print("[PauseMenu] ✅ DEBUG: Forest overview camera disabled")
 	
 	# Find ALL cameras in the scene and disable any that aren't the player's camera
 	# (Do this after we find player's camera so we can exclude it)
@@ -372,14 +356,9 @@ func _center_player_camera() -> void:
 	var camera: Camera2D = null
 	if player.has_node("Camera2D"):
 		camera = player.get_node("Camera2D") as Camera2D
-		print("[PauseMenu] 🔍 DEBUG: Player has Camera2D node")
 	
 	if camera:
 		var cam_pos_before = camera.global_position
-		print("[PauseMenu] 🔍 DEBUG: Player camera position BEFORE: %s" % cam_pos_before)
-		print("[PauseMenu] 🔍 DEBUG: Player camera enabled BEFORE: %s" % camera.enabled)
-		print("[PauseMenu] 🔍 DEBUG: Player camera is_current BEFORE: %s" % camera.is_current())
-		print("[PauseMenu] 🔍 DEBUG: Camera smoothing enabled BEFORE: %s" % camera.position_smoothing_enabled)
 		
 		# FREEZE camera position - save it and prevent any changes
 		_camera_frozen_pos = cam_pos_before
@@ -387,7 +366,6 @@ func _center_player_camera() -> void:
 		# CRITICAL: Disable position smoothing - this is what causes camera movement!
 		_camera_smoothing_was_enabled = camera.position_smoothing_enabled
 		camera.position_smoothing_enabled = false
-		print("[PauseMenu] ✅ DEBUG: Camera smoothing DISABLED (was: %s)" % _camera_smoothing_was_enabled)
 		
 		camera.process_mode = Node.PROCESS_MODE_DISABLED  # Stop camera from processing
 		
@@ -404,15 +382,10 @@ func _center_player_camera() -> void:
 		
 		# Check after setting
 		var cam_pos_after = camera.global_position
-		print("[PauseMenu] 🔍 DEBUG: Player camera position AFTER: %s" % cam_pos_after)
-		print("[PauseMenu] 🔍 DEBUG: Player camera enabled AFTER: %s" % camera.enabled)
-		print("[PauseMenu] 🔍 DEBUG: Player camera is_current AFTER: %s" % camera.is_current())
-		print("[PauseMenu] ✅ DEBUG: Camera frozen at position: %s" % _camera_frozen_pos)
 		
 		# Now disable all other cameras (after we've set player's camera)
 		for cam in all_cameras:
 			if cam != camera:  # Don't disable player's camera
-				print("[PauseMenu] ⚠️ DEBUG: Found other camera: %s at %s, disabling" % [cam.name, cam.global_position])
 				cam.enabled = false
 	else:
 		print("[PauseMenu] ⚠️ DEBUG: Player camera not found, trying fallback...")
@@ -422,15 +395,12 @@ func _center_player_camera() -> void:
 		if viewport:
 			active_camera = viewport.get_camera_2d()
 			if active_camera:
-				print("[PauseMenu] 🔍 DEBUG: Found active camera: %s at %s" % [active_camera.name, active_camera.global_position])
 				# Just make sure it stays current, don't move
 				active_camera.make_current()
-				print("[PauseMenu] ✅ DEBUG: Active camera kept current")
 		
 		# Disable all other cameras if player camera not found
 		for cam in all_cameras:
 			if cam != active_camera:
-				print("[PauseMenu] ⚠️ DEBUG: Found other camera: %s at %s, disabling" % [cam.name, cam.global_position])
 				cam.enabled = false
 	
 	# Check what camera is actually active now
@@ -438,9 +408,9 @@ func _center_player_camera() -> void:
 	if viewport:
 		var final_camera = viewport.get_camera_2d()
 		if final_camera:
-			print("[PauseMenu] ✅ DEBUG: Final active camera: %s at %s" % [final_camera.name, final_camera.global_position])
+			pass
 		else:
-			print("[PauseMenu] ⚠️ DEBUG: No active camera found!")
+			pass
 
 func _find_all_cameras(node: Node) -> Array[Camera2D]:
 	"""Recursively find all Camera2D nodes in the scene tree"""
@@ -482,7 +452,6 @@ func _close_menu() -> void:
 			if camera:
 				camera.process_mode = Node.PROCESS_MODE_INHERIT
 				camera.position_smoothing_enabled = _camera_smoothing_was_enabled
-				print("[PauseMenu] ✅ DEBUG: Camera unfrozen, process mode and smoothing restored (smoothing: %s)" % _camera_smoothing_was_enabled)
 	
 	is_paused = false
 	visible = false
@@ -511,7 +480,6 @@ func _close_menu() -> void:
 	# Ensure pause menu buttons have focus enabled when menu is closed
 	_enable_pause_menu_focus()
 	
-	print("[PauseMenu] Menu closed, game resumed")
 
 func _freeze_camera_position() -> void:
 	if not is_paused:
@@ -532,18 +500,15 @@ func _freeze_camera_position() -> void:
 			# This prevents any system from moving it
 			if camera.global_position.distance_to(_camera_frozen_pos) > 0.01:
 				# Camera moved! Force it back
-				print("[PauseMenu] ⚠️ DEBUG: Camera moved to %s, forcing back to %s (distance: %.2f)" % [camera.global_position, _camera_frozen_pos, camera.global_position.distance_to(_camera_frozen_pos)])
 				camera.global_position = _camera_frozen_pos
 			
 			# Extra safety: Disable camera processing if not already disabled
 			if camera.process_mode != Node.PROCESS_MODE_DISABLED:
 				camera.process_mode = Node.PROCESS_MODE_DISABLED
-				print("[PauseMenu] 🔒 DEBUG: Camera process_mode disabled (was not disabled)")
 			
 			# Ensure camera is current
 			if not camera.is_current():
 				camera.make_current()
-				print("[PauseMenu] ✅ DEBUG: Camera made current again")
 
 func _on_resume_pressed() -> void:
 	_play_click()
@@ -573,7 +538,6 @@ func _on_main_menu_pressed() -> void:
 	var current_focus = get_viewport().gui_get_focus_owner()
 	if current_focus:
 		current_focus.release_focus()
-		print("[PauseMenu] Released focus from: %s" % current_focus.name)
 	# Show confirmation dialog
 	_pending_main_menu_action = true
 	if confirm_dialog and confirm_dialog.has_method("show_dialog"):
@@ -645,7 +609,6 @@ func _on_settings_applied(_settings: Dictionary) -> void:
 	_refresh_locale()
 
 func _on_load_game_slot_selected(slot_id: int) -> void:
-	print("[PauseMenu] Loading game from slot %d..." % slot_id)
 	if is_instance_valid(SaveManager):
 		# Connect to error signals if not already connected
 		if SaveManager.has_signal("error_occurred"):
@@ -663,7 +626,7 @@ func _on_load_game_slot_selected(slot_id: int) -> void:
 		else:
 			loaded_ok = SaveManager.load_game(slot_id)
 		if loaded_ok:
-			print("[PauseMenu] ✅ Game loaded successfully")
+			pass
 			# Menu will be closed when scene changes
 		else:
 			push_error("[PauseMenu] Failed to load game from slot %d" % slot_id)
@@ -683,7 +646,6 @@ func _on_load_game_back() -> void:
 	call_deferred("_restore_pause_menu_focus")
 
 func _on_save_game_slot_selected(slot_id: int) -> void:
-	print("[PauseMenu] Saving game to slot %d..." % slot_id)
 	if is_instance_valid(SaveManager):
 		# Connect to error signals if not already connected
 		if SaveManager.has_signal("error_occurred"):
@@ -694,7 +656,6 @@ func _on_save_game_slot_selected(slot_id: int) -> void:
 				SaveManager.save_completed.connect(_on_save_completed)
 		
 		if SaveManager.save_game(slot_id):
-			print("[PauseMenu] ✅ Game saved successfully to slot %d" % slot_id)
 			# Hide save menu after successful save
 			if save_game_menu and save_game_menu.has_method("hide_menu"):
 				save_game_menu.hide_menu()
@@ -704,7 +665,6 @@ func _on_save_game_slot_selected(slot_id: int) -> void:
 			var current_focus = get_viewport().gui_get_focus_owner()
 			if current_focus:
 				current_focus.release_focus()
-				print("[PauseMenu] Released focus from: %s" % current_focus.name)
 			# Show success message
 			if confirm_dialog and confirm_dialog.has_method("show_dialog"):
 				confirm_dialog.show_dialog(tr("pause.save_success_title"), tr("pause.save_success_message") % slot_id, false)
@@ -741,7 +701,6 @@ func _restore_pause_menu_focus() -> void:
 	if main_panel and main_panel.visible:
 		if resume_button and resume_button.visible and resume_button.focus_mode != Control.FOCUS_NONE:
 			resume_button.grab_focus()
-			print("[PauseMenu] ✅ Focus restored to resume_button")
 
 func _restore_focus_after_dialog() -> void:
 	# Confirm dialog kapandıktan sonra focus'u pause menu'ye geri ver

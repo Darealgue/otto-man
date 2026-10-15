@@ -17,7 +17,6 @@ func _init():
 	item_name = tr("item.kalkan_ustasi.name")
 	description = tr("item.kalkan_ustasi.description")
 	flavor_text = "Usta eli, boşa güç harcamaz"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.BLOCK
 	affected_stats = ["block_stamina_save_chance"]
 
@@ -26,11 +25,9 @@ func activate(player: CharacterBody2D):
 	var block_state = player.get_node_or_null("StateMachine/Block")
 	if block_state:
 		block_state.set_meta("stamina_save_chance", STAMINA_SAVE_CHANCE)
-		print("[Kalkan Ustası] ✅ %25 şansla block stamina tüketmez")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	var block_state = player.get_node_or_null("StateMachine/Block")
 	if block_state and block_state.has_meta("stamina_save_chance"):
 		block_state.remove_meta("stamina_save_chance")
-		print("[Kalkan Ustası] ❌ Kaldırıldı")

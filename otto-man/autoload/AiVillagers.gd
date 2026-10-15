@@ -112,7 +112,6 @@ func request_download() -> void:
 	var testing := bool(_DOWNLOADER_SCRIPT.TEST_MODE)
 
 	if is_editor() and not testing:
-		print("[AiVillagers] Editor build — download request ignored by design.")
 		return
 	if is_model_present() and not testing:
 		return
@@ -124,7 +123,6 @@ func request_download() -> void:
 		target = ProjectSettings.globalize_path("user://").path_join(
 			str(_DOWNLOADER_SCRIPT.TEST_FILE_NAME)
 		)
-		print("[AiVillagers] TEST MODE: downloading a small sample file to %s" % target)
 	else:
 		target = get_model_file_path()
 	if target == "":
@@ -201,7 +199,6 @@ func _on_download_progress(downloaded_bytes: int, total_bytes: int) -> void:
 func _on_download_finished(success: bool, reason: String) -> void:
 	set_process(false)
 	if success:
-		print("[AiVillagers] Model download complete (%s). Loading model..." % reason)
 		_set_chip_mode("loading")
 		_begin_model_load()
 	else:
@@ -216,7 +213,6 @@ func _on_download_finished(success: bool, reason: String) -> void:
 func _begin_model_load() -> void:
 	if bool(_DOWNLOADER_SCRIPT.TEST_MODE):
 		# The test file is not a model; loading it would fail noisily and prove nothing.
-		print("[AiVillagers] TEST MODE: download verified. Skipping model load.")
 		_set_chip_mode("ready")
 		return
 	var service := _llama()
@@ -231,7 +227,6 @@ func _begin_model_load() -> void:
 
 func _on_model_load_complete(success: bool) -> void:
 	if success:
-		print("[AiVillagers] Model loaded. Villagers can speak.")
 		_set_chip_mode("ready")
 		villagers_awakened.emit()
 	else:
@@ -345,7 +340,7 @@ func delete_model() -> void:
 		if err != OK:
 			push_error("[AiVillagers] Could not delete %s (error %d)" % [path, err])
 		else:
-			print("[AiVillagers] Deleted model file.")
+			pass
 	set_player_choice(false)
 
 
@@ -426,7 +421,6 @@ func set_player_choice(enabled: bool) -> void:
 	# Editor preview must never write anything: storing enabled=false here would switch villager
 	# dialogue off for every later editor session, which looks exactly like a bug.
 	if is_editor_preview():
-		print("[AiVillagers] Editor preview: choice NOT saved (would have been enabled=%s)." % enabled)
 		return
 	var config := ConfigFile.new()
 	config.load(SETTINGS_PATH)  # Missing file is fine; we are about to create it.

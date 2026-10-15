@@ -45,6 +45,7 @@ static func run(tree: SceneTree, data: Dictionary) -> void:
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_WHEN_PAUSED
 	layer = 250
+	UiFontFloor.attach(self)
 
 
 func _present(data: Dictionary) -> void:

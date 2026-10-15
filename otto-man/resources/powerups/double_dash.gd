@@ -34,7 +34,6 @@ func activate(player: CharacterBody2D) -> void:
 	if player.has_method("update_dash_charges"):
 		player.update_dash_charges()
 	
-	print("[Double Dash] Activated - +1 dash charge")
 
 func deactivate(player: CharacterBody2D) -> void:
 	# Remove bonus dash charges
@@ -44,7 +43,6 @@ func deactivate(player: CharacterBody2D) -> void:
 	if player.has_method("update_dash_charges"):
 		player.update_dash_charges()
 	
-	print("[Double Dash] Deactivated")
 	super.deactivate(player)
 
 # Synergize with other mobility powerups

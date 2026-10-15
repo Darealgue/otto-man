@@ -25,19 +25,16 @@ func _init():
 	item_name = tr("item.sonen_golge.name")
 	description = tr("item.sonen_golge.description")
 	flavor_text = "Işık sönerken en parlak gölge düşer"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["shadow_burst"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Sönen Gölge] ✅ Gölgeler sönerken element taşıyan patlama")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Sönen Gölge] ❌ Kaldırıldı")
 
 # player_decoy.gd -> ItemManager.notify_item_event
 func _on_decoy_expired(pos: Vector2, _lifetime: float) -> void:

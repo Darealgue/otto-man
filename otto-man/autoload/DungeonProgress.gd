@@ -87,7 +87,6 @@ func record_warmup_complete(dungeon_id: String = "") -> void:
 		return
 	var next: int = get_warmup_completions(key) + 1
 	_warmup_completions_by_id[key] = next
-	print("[DungeonProgress] Alıştırma run tamamlandı: %s (%d/%d)" % [key, next, WARMUP_RUNS_REQUIRED])
 	_queue_item_unlock_offer(key, "kesif", 1)
 
 
@@ -96,7 +95,6 @@ func reset_warmup_progress(dungeon_id: String = "") -> void:
 	if key.is_empty():
 		return
 	_warmup_completions_by_id.erase(key)
-	print("[DungeonProgress] Alıştırma sıfırlandı: %s" % key)
 
 
 func record_clear(dungeon_id: String = "") -> void:
@@ -140,7 +138,6 @@ func record_stealth_skip(dungeon_id: String = "") -> void:
 		return
 	var pending: int = int(_stealth_skip_penalty_by_id.get(key, 0))
 	_stealth_skip_penalty_by_id[key] = pending + STEALTH_SKIP_ENEMY_PENALTY
-	print("[DungeonProgress] Stealth skip cezası kaydedildi: %s -> +%d düşman (sonraki run)" % [key, STEALTH_SKIP_ENEMY_PENALTY])
 
 
 func consume_stealth_skip_penalty(dungeon_id: String = "") -> int:
@@ -191,7 +188,6 @@ func apply_run_start_bonuses(drs: Node) -> void:
 		"iron_will":
 			if "enemy_count_offset" in drs:
 				drs.enemy_count_offset = int(drs.enemy_count_offset) - 1
-	print("[DungeonProgress] Mastery relic aktif: %s" % get_relic_display_name(relic_id))
 
 
 func _try_unlock_relics_for_dungeon(dungeon_id: String) -> void:
@@ -210,7 +206,6 @@ func _unlock_relic(relic_id: String, dungeon_id: String) -> void:
 	_unlocked_relics.append(relic_id)
 	var relic_name: String = get_relic_display_name(relic_id)
 	var desc: String = String(RELICS.get(relic_id, {}).get("desc", ""))
-	print("[DungeonProgress] Mastery relic açıldı: %s (zindan %s)" % [relic_name, dungeon_id])
 	var mm: Node = get_node_or_null("/root/MissionManager")
 	if mm and mm.has_method("post_news"):
 		mm.call(

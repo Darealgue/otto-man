@@ -11,7 +11,6 @@ func _init():
 	item_name = tr("item.cenk_meydani.name")
 	description = tr("item.cenk_meydani.description")
 	flavor_text = "Meydan senin"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.HEAVY_ATTACK
 	affected_stats = ["heavy_attack_targets"]
 
@@ -22,7 +21,6 @@ func activate(player: CharacterBody2D):
 		_hitbox = hitbox
 		_hitbox.max_targets_heavy = MAX_TARGETS
 		_hitbox.heavy_shape_scale_x = SHAPE_SCALE_X
-		print("[Cenk Meydanı] ✅ Ağır saldırı 3 düşmana, %40 geniş")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -33,4 +31,3 @@ func deactivate(player: CharacterBody2D):
 		if cs:
 			cs.scale.x = 1.0
 	_hitbox = null
-	print("[Cenk Meydanı] ❌ Ağır saldırı normale döndü")

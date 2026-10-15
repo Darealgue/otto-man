@@ -14,14 +14,11 @@ func _init():
 	item_name = tr("item.tek_sanat.name")
 	description = tr("item.tek_sanat.description")
 	flavor_text = "Tek bir yolda ustalaşan, o yolda yenilmez"
-	rarity = ItemRarity.LEGENDARY
 	category = ItemCategory.SYNERGY
 	affected_stats = ["pipeline_specialist_bonus"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Tek Sanat] ✅ Tek bir boru hattına odaklanmak o hattı 1.5x güçlendiriyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Tek Sanat] ❌ Kaldırıldı")

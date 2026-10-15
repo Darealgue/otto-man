@@ -33,13 +33,10 @@ func _ready() -> void:
 		total += pts[i].distance_to(pts[i+1])
 	var karo := path.size() - 1
 	var nokta := int(total / map.PATH_DOT_SPACING)
-	print("[Rota] karo sayisi=%d  yol uzunlugu=%.1fpx  nokta~%d  karo basina=%.2f" % [
-		karo, total, nokta, float(nokta) / float(max(1, karo))])
 
 	map._camera.zoom = Vector2(1.6, 1.6)
 	map._camera.global_position = pts[0]
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png("user://shot_path.png")
-	print("[Rota] kaydedildi")
 	get_tree().quit()

@@ -1635,7 +1635,6 @@ func get_villager_info():
 		if name_pool.size() > 0:
 			var random_name = name_pool[randi() % name_pool.size()]
 			ChosenInfo["Info"]["Name"] = random_name
-			print("[VillagerAIInitializer] %s villager için Osmanlı dönemi ismi seçildi: %s" % [gender, random_name])
 		var occupation := str(ChosenInfo["Info"].get("Occupation", ""))
 		if GENDERED_OCCUPATION_PAIRS.has(occupation):
 			ChosenInfo["Info"]["Occupation"] = GENDERED_OCCUPATION_PAIRS[occupation][gender]
@@ -1659,7 +1658,6 @@ func save_array_to_json(array: Array, file_name: String) -> void:
 		var json_string = JSON.stringify(array)
 		file.store_string(json_string)
 		file.close()
-		print("Successfully saved data to: %s" % full_path)
 	else:
 		push_error("Failed to open file for writing: %s" % full_path)
 func Load_existing_villagers():
@@ -1690,7 +1688,6 @@ func load_array_from_json(file_name: String) -> Array:
 
 	# Check if the file exists before trying to open it
 	if not FileAccess.file_exists(full_path):
-		print("Save file does not exist: %s" % full_path)
 		return [] # Return empty array if file doesn't exist
 
 	var file = FileAccess.open(full_path, FileAccess.READ)
@@ -1713,7 +1710,6 @@ func load_array_from_json(file_name: String) -> Array:
 				else:
 					push_warning("Invalid item in loaded JSON (missing Info): %s" % item)
 			
-			print("Successfully loaded data from: %s. Valid entries: %d/%d" % [full_path, valid_count, result.size()])
 			emit_signal("LoadComplete")
 			return result
 		else:
@@ -1730,7 +1726,7 @@ func create_save_directory() -> void:
 			if error != OK:
 				push_error("Failed to create save directory: user://otto-man-save/")
 			else:
-				print("Created save directory: user://otto-man-save/")
+				pass
 		for p: int in range(1, 4):
 			var rel: String = "otto-man-save/profile_%d" % p
 			if not dir.dir_exists(rel):

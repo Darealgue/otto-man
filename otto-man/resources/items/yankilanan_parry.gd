@@ -16,19 +16,16 @@ func _init():
 	item_name = tr("item.yankilanan_parry.name")
 	description = tr("item.yankilanan_parry.description")
 	flavor_text = "Tek darbe, her yöne yankılanır"
-	rarity = ItemRarity.LEGENDARY
 	category = ItemCategory.PARRY
 	affected_stats = ["parry_echo"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Yankılanan Parry] ✅ Parry çevreye yankılanır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Yankılanan Parry] ❌ Kaldırıldı")
 
 func _on_perfect_parry() -> void:
 	if not is_instance_valid(_player) or not _player.is_inside_tree():

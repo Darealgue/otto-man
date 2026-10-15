@@ -18,19 +18,16 @@ func _init():
 	item_name = tr("item.donus_darbesi.name")
 	description = tr("item.donus_darbesi.description")
 	flavor_text = "Dönerken geride bir yara bırakır"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.DODGE
 	affected_stats = ["return_strike"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Dönüş Darbesi] ✅ Gölge dönüşü yol boyunca hasar verir")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Dönüş Darbesi] ❌ Kaldırıldı")
 
 # golge_donusu.gd -> ItemManager.notify_item_event
 func _on_shadow_return(from_pos: Vector2, to_pos: Vector2) -> void:

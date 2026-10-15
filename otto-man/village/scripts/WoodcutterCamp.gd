@@ -32,10 +32,8 @@ var upgrade_time_seconds: float = 10.0 # Yükseltme süresi (örnek)
 # @onready var worker_label: Label = %WorkerLabel # Gerekirse eklenecek
 
 func _ready() -> void:
-	print("WoodcutterCamp hazır - Seviye: ", level)
 	if level <= 0:
 		level = 1
-		print("WoodcutterCamp: Level 1'e ayarlandı")
 	if not scene_file_path.is_empty():
 		max_level = BuildingUpgradeConfig.get_max_level(scene_file_path)
 	_store_collision_original_positions()
@@ -47,7 +45,6 @@ func _ready() -> void:
 # --- Worker Management (YENİ) ---
 func add_worker() -> bool:
 	if assigned_workers >= max_workers:
-		print("WoodcutterCamp: Zaten maksimum işçi sayısına ulaşıldı.")
 		return false
 
 	# 1. Boşta İşçi Bul ve Kaydet
@@ -73,16 +70,12 @@ func add_worker() -> bool:
 		# Mesai saatleri dışında ya da bugün vardiyaya zaten başladıysa, beklemeli
 		worker_instance.current_state = worker_instance.State.AWAKE_IDLE
 
-	print("WoodcutterCamp: İşçi (ID: %d) atandı (%d/%d)." % [
-		worker_instance.worker_id, assigned_workers, max_workers
-	])
 	_update_ui()
 	VillageManager.notify_building_state_changed(self) # Sinyal ekle
 	return true
 
 func remove_worker() -> bool:
 	if assigned_workers <= 0 or assigned_worker_ids.is_empty():
-		print("WoodcutterCamp: Çıkarılacak işçi yok.")
 		return false
 
 	var worker_id_to_remove = assigned_worker_ids.pop_back()
@@ -163,7 +156,6 @@ func start_upgrade() -> bool:
 func finish_upgrade() -> void:
 	if not is_upgrading: return # Zaten bitmişse veya hiç başlamamışsa bir şey yapma
 
-	print("Oduncu Kampı: Yükseltme tamamlandı (Seviye %d -> %d)" % [level, level + 1])
 	is_upgrading = false
 	level += 1
 	max_workers = level #<<< YENİ: Maksimum işçi sayısını seviyeye eşitle
@@ -197,22 +189,18 @@ func finish_upgrade() -> void:
 	
 	_update_texture()
 	_update_collision()
-	print("Oduncu Kampı: Yeni seviye: %d, Maks İşçi: %d" % [level, max_workers])
 
 # --- Texture Update ---
 func _update_texture() -> void:
-	print("WoodcutterCamp: _update_texture() çağrıldı - Seviye: ", level)
 	
 	var sprite = get_node_or_null("Sprite2D")
 	if not sprite:
 		print("WoodcutterCamp: Sprite2D bulunamadı!")
 		return
 	
-	print("WoodcutterCamp: Sprite2D bulundu, texture güncelleniyor...")
 	
 	var texture_path := BuildingUpgradeConfig.gather_sprite_path("wood", level)
 	
-	print("WoodcutterCamp: Texture yolu: ", texture_path)
 	
 	# Texture'ı yükle ve uygula
 	if ResourceLoader.exists(texture_path):
@@ -223,9 +211,8 @@ func _update_texture() -> void:
 			sprite.scale = Vector2(1.0, 1.0)
 			# Texture'ı doğru pozisyona ayarla (alt kenara hizala)
 			sprite.offset = Vector2(0, -texture.get_height() / 2)
-			print("WoodcutterCamp: ✅ Texture başarıyla güncellendi - Seviye ", level, " (", texture_path, ")")
 		else:
-			print("WoodcutterCamp: ❌ Texture yüklenemedi: ", texture_path)
+			pass
 	else:
 		print("WoodcutterCamp: ❌ Texture dosyası bulunamadı: ", texture_path)
 

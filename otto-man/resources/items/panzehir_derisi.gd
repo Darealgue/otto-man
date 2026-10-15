@@ -6,7 +6,6 @@ func _init():
 	item_name = tr("item.panzehir_derisi.name")
 	description = tr("item.panzehir_derisi.description")
 	flavor_text = "Zehir artık sana su gibi gelir"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["poison_immunity"]
 
@@ -15,8 +14,6 @@ func _init():
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Panzehir Derisi] ✅ Zehire bağışıklık")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Panzehir Derisi] ❌ Kaldırıldı")

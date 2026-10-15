@@ -7,7 +7,6 @@ func _init():
 	item_name = tr("item.kan_bedeli.name")
 	description = tr("item.kan_bedeli.description")
 	flavor_text = "Nefesin bitse de kanın akar"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.STAMINA
 	affected_stats = ["stamina_health_fallback"]
 
@@ -15,8 +14,6 @@ func _init():
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Kan Bedeli] ✅ Stamina bitince bedel candan kesilir")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Kan Bedeli] ❌ Kaldırıldı")

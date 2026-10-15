@@ -13,7 +13,6 @@ func _init():
 	item_name = tr("item.patlama_topuzu.name")
 	description = tr("item.patlama_topuzu.description")
 	flavor_text = "Patlayıcı güç"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.HEAVY_ATTACK
 	affected_stats = ["heavy_explosion"]
 
@@ -25,7 +24,6 @@ func activate(player: CharacterBody2D):
 		if not heavy_attack_state.has_meta("original_animation_speed_patlama_topuzu"):
 			heavy_attack_state.set_meta("original_animation_speed_patlama_topuzu", heavy_attack_state.ANIMATION_SPEED)
 		heavy_attack_state.ANIMATION_SPEED = heavy_attack_state.ANIMATION_SPEED * (1.0 / (1.0 + CHARGE_SLOW_FACTOR))
-		print("[Patlama Topuzu] ✅ Heavy attack patlama (charge +%30)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -34,7 +32,6 @@ func deactivate(player: CharacterBody2D):
 		heavy_attack_state.ANIMATION_SPEED = heavy_attack_state.get_meta("original_animation_speed_patlama_topuzu")
 		heavy_attack_state.remove_meta("original_animation_speed_patlama_topuzu")
 	_player = null
-	print("[Patlama Topuzu] ❌ Kaldırıldı")
 
 func _on_heavy_attack_impact(_attack_name: String = "") -> void:
 	if not _player or not is_instance_valid(_player):

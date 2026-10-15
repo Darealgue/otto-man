@@ -3,7 +3,6 @@ extends Control
 ## LoadGameMenu - Save slot seçim ekranı
 
 signal slot_selected(slot_id: int)
-signal delete_requested(slot_id: int)
 signal back_requested()
 
 @onready var slots_container: VBoxContainer = $Panel/Margin/VBoxContainer/SlotsContainer
@@ -206,7 +205,7 @@ func _on_slot_load_pressed(slot_id: int) -> void:
 	slot_selected.emit(slot_id)
 
 
-func _on_load_completed(slot_id: int, success: bool) -> void:
+func _on_load_completed(_slot_id: int, success: bool) -> void:
 	if not success:
 		_set_status(tr("load.status_failed"), false)
 		_show_error(tr("error.load_failed_title"), tr("error.load_failed_corrupt"))

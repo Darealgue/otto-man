@@ -31,7 +31,6 @@ signal player_damaged(player: Node, damage: float)
 
 func _ready() -> void:
 	add_to_group("traps")
-	print("[BaseTrap] Initialized: ", name)
 	
 	# Setup detection area
 	if detection_area:
@@ -67,40 +66,33 @@ func initialize(level: int, spawner_position: Vector2) -> void:
 	var scaled_damage = base_damage * (1.0 + (level - 1) * 0.3)  # 30% increase per level
 	base_damage = scaled_damage
 	
-	print("[BaseTrap] Initialized at level %d with damage %.1f" % [level, base_damage])
 
 # Detection area events
 func _on_detection_area_entered(body: Node2D) -> void:
 	if not is_active or is_on_cooldown:
-		print("[BaseTrap] Player detected but trap not active or on cooldown")
 		return
 		
 	if body.is_in_group("player"):
 		players_in_range.append(body)
-		print("[BaseTrap] Player entered detection range - Player name: %s" % body.name)
 		
 		# Start activation timer
 		if activation_timer and players_in_range.size() == 1:  # First player
-			print("[BaseTrap] Starting activation timer - delay: %.1f seconds" % activation_delay)
 			activation_timer.start()
 
 func _on_detection_area_exited(body: Node2D) -> void:
 	if body.is_in_group("player") and body in players_in_range:
 		players_in_range.erase(body)
-		print("[BaseTrap] Player left detection range - Player name: %s" % body.name)
 		
 		# Stop activation if no players left
 		if players_in_range.is_empty() and activation_timer:
-			print("[BaseTrap] No players in range, stopping activation timer")
 			activation_timer.stop()
 
 # Activation timer timeout
 func _on_activation_timer_timeout() -> void:
 	if not players_in_range.is_empty():
-		print("[BaseTrap] Activation timer finished, triggering trap")
 		trigger_trap()
 	else:
-		print("[BaseTrap] Activation timer finished but no players in range")
+		pass
 
 # Main trap activation
 func trigger_trap() -> void:
@@ -108,13 +100,11 @@ func trigger_trap() -> void:
 		print("[BaseTrap] Cannot trigger - active: %s, on_cooldown: %s" % [is_active, is_on_cooldown])
 		return
 	
-	print("[BaseTrap] Trap triggered!")
 	trap_triggered.emit(self)
 	
 	# Enable damage area temporarily
 	if damage_area:
 		damage_area.monitoring = true
-		print("[BaseTrap] Damage area enabled")
 	
 	# Start cooldown
 	start_cooldown()
@@ -126,7 +116,6 @@ func trigger_trap() -> void:
 	await get_tree().create_timer(0.2).timeout
 	if damage_area:
 		damage_area.monitoring = false
-		print("[BaseTrap] Damage area disabled")
 
 # Override this in specific trap classes
 func _execute_trap_behavior() -> void:
@@ -140,7 +129,6 @@ func _execute_trap_behavior() -> void:
 # Damage area events
 func _on_damage_area_entered(body: Node2D) -> void:
 	if body.is_in_group("player"):
-		print("[BaseTrap] Player entered damage area - dealing damage")
 		deal_damage_to_player(body)
 		
 # Deal damage to player
@@ -148,25 +136,21 @@ func deal_damage_to_player(player: Node) -> void:
 	if player.has_method("take_damage"):
 		player.take_damage(base_damage)
 		player_damaged.emit(player, base_damage)
-		print("[BaseTrap] Dealt %.1f damage to player %s" % [base_damage, player.name])
 	else:
-		print("[BaseTrap] Player %s has no take_damage method!" % player.name)
+		pass
 
 # Cooldown management
 func start_cooldown() -> void:
 	is_on_cooldown = true
-	print("[BaseTrap] Started cooldown - duration: %.1f seconds" % cooldown_time)
 	if cooldown_timer:
 		cooldown_timer.start()
 
 func _on_cooldown_timer_timeout() -> void:
 	is_on_cooldown = false
-	print("[BaseTrap] Cooldown finished, trap ready")
 
 # Public methods
 func activate() -> void:
 	is_active = true
-	print("[BaseTrap] Trap activated")
 
 func deactivate() -> void:
 	is_active = false
@@ -174,7 +158,6 @@ func deactivate() -> void:
 		activation_timer.stop()
 	if damage_area:
 		damage_area.monitoring = false
-	print("[BaseTrap] Trap deactivated")
 
 func set_level(level: int) -> void:
 	current_level = level

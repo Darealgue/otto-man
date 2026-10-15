@@ -9,7 +9,6 @@ func _init():
 	item_name = tr("item.kartal_bakisi.name")
 	description = tr("item.kartal_bakisi.description")
 	flavor_text = "Uzağı gören, doğru vurur"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["projectile_range"]
 
@@ -19,4 +18,3 @@ func activate(player: CharacterBody2D):
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Kartal Bakışı] ❌ Kaldırıldı")

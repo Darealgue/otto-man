@@ -53,12 +53,10 @@ func _ready():
 	if hitbox_area:
 		hitbox_area.monitoring = true
 		hitbox_area.body_entered.connect(_on_pendulum_damage_area_entered)
-		print("[PendulumAxe] Connected hitbox area signal")
 	
 	# Disable BaseTrap's default damage area
 	if damage_area:
 		damage_area.monitoring = false
-		print("[PendulumAxe] Disabled BaseTrap damage area, using manual hitbox")
 	
 	# Disable proximity detection since we swing continuously
 	if detection_area:
@@ -66,7 +64,6 @@ func _ready():
 	
 	# Set the pivot point high above the trap origin
 	pivot_point.position = Vector2(0, -150)
-	print("[PendulumAxe] Set pivot position to %s" % pivot_point.position)
 
 	# Start swinging immediately when ready
 	_start_swinging()
@@ -82,14 +79,12 @@ func _setup_nodes():
 		pivot_point = Node2D.new()
 		pivot_point.name = "pivot_point"
 		add_child(pivot_point)
-		print("[PendulumAxe] Created pivot_point")
 	
 	if not axe_sprite:
 		axe_sprite = AnimatedSprite2D.new()
 		axe_sprite.name = "axe_sprite"
 		axe_sprite.centered = true
 		add_child(axe_sprite)
-		print("[PendulumAxe] Created axe_sprite")
 	
 	if not hitbox_area:
 		hitbox_area = Area2D.new()
@@ -106,7 +101,6 @@ func _setup_nodes():
 		hitbox_area.collision_mask = CollisionLayers.PLAYER | CollisionLayers.PLAYER_HURTBOX  # Player body + hurtbox
 		
 		add_child(hitbox_area)
-		print("[PendulumAxe] Created hitbox_area")
 	
 	# Ensure collision layers/mask detect player regardless of existing or new hitbox
 	if hitbox_area:
@@ -120,7 +114,6 @@ func _setup_nodes():
 	hitbox_area.position = Vector2.ZERO
 	hitbox_area.rotation = 0
 	
-	print("[PendulumAxe] Nodes created and transforms reset.")
 
 # Override initialize to position trap correctly
 func initialize(level: int, spawner_position: Vector2) -> void:
@@ -131,8 +124,6 @@ func initialize(level: int, spawner_position: Vector2) -> void:
 	if pivot_point:
 		var offset_to_pivot = pivot_point.position
 		global_position = spawner_position - offset_to_pivot
-		print("[PendulumAxe] Adjusted trap position so pivot aligns with spawner")
-		print("[PendulumAxe] Spawner: %s, Pivot offset: %s, Final trap pos: %s" % [spawner_position, offset_to_pivot, global_position])
 
 func _load_axe_texture() -> void:
 	# Try to load the new axe sprite with multiple possible paths
@@ -147,8 +138,6 @@ func _load_axe_texture() -> void:
 	for path in possible_paths:
 		if ResourceLoader.exists(path):
 			axe_trap_texture = load(path)
-			print("[PendulumAxe] ✅ Loaded axe_trap texture from: " + path)
-			print("[PendulumAxe] Axe texture loaded successfully: " + str(axe_trap_texture.get_size()))
 			break
 	
 	if not axe_trap_texture:
@@ -163,8 +152,6 @@ func _setup_axe_animation() -> void:
 	var frame_width = axe_trap_texture.get_width() / frame_count
 	var frame_height = axe_trap_texture.get_height()
 	
-	print("[PendulumAxe] Setting up animation with " + str(frame_count) + " frames")
-	print("[PendulumAxe] Individual frame size: " + str(frame_width) + "x" + str(frame_height))
 	
 	# Add all frames to the swing animation
 	for i in range(frame_count):
@@ -177,7 +164,6 @@ func _setup_axe_animation() -> void:
 	axe_sprite.sprite_frames.set_animation_speed("swing", 8.0)  # 8 FPS for smooth swing
 	axe_sprite.sprite_frames.set_animation_loop("swing", true)  # Loop the animation
 	
-	print("[PendulumAxe] Axe animation setup complete")
 
 func _setup_fallback_axe_animation() -> void:
 	# Create simple fallback animation
@@ -191,7 +177,6 @@ func _setup_fallback_axe_animation() -> void:
 	axe_sprite.sprite_frames.set_animation_speed("swing", 1.0)
 	axe_sprite.sprite_frames.set_animation_loop("swing", true)
 	
-	print("[PendulumAxe] Fallback axe animation setup complete")
 
 func _create_simple_axe_texture() -> ImageTexture:
 	var texture = ImageTexture.new()
@@ -252,7 +237,6 @@ func _physics_process(delta):
 		# Only use signal-based damage detection to prevent double damage
 
 func _start_swinging():
-	print("PendulumAxe starting continuous swing at position: ", global_position)
 	pendulum_state = PendulumState.SWINGING
 	
 	# Start from random phase in the sine wave
@@ -260,7 +244,7 @@ func _start_swinging():
 
 func _execute_trap_behavior():
 	# Override BaseTrap's behavior - but pendulum is already swinging
-	print("PendulumAxe behavior executed (already swinging)")
+	pass
 	# No need to do anything, it's already swinging continuously
 
 func deactivate():
@@ -294,23 +278,19 @@ func _stop_pendulum_permanently():
 		damage_area.monitoring = false
 
 func _on_pendulum_damage_area_entered(body: Node2D) -> void:
-	print("[PendulumAxe] Body entered damage area: ", body.name, " - Groups: ", body.get_groups())
 	if body.is_in_group("player"):
 		var player_id = body.get_instance_id()
 		# Check if player is on damage cooldown
 		if player_id in damaged_players:
-			print("[PendulumAxe] Player on damage cooldown (%.2f seconds remaining), skipping damage" % damaged_players[player_id])
 			return
 		
-		print("[PendulumAxe] Player detected in damage area, dealing damage: ", base_damage)
 		deal_damage_to_player(body)
 		# Apply stronger knockback using the existing system
 		_apply_player_knockback(body)
 		# Add player to damage cooldown (1.0 second cooldown)
 		damaged_players[player_id] = 1.0
-		print("[PendulumAxe] Player added to damage cooldown for 1.0 seconds")
 	else:
-		print("[PendulumAxe] Non-player body detected: ", body.name)
+		pass
 
 func get_trap_info() -> String:
 	return "Pendulum Axe - Swings back and forth dealing %d damage" % int(base_damage) 
@@ -320,7 +300,6 @@ func get_trap_info() -> String:
 func _apply_player_knockback(player: Node):
 	# Verify we're actually dealing with the player
 	if not player.is_in_group("player"):
-		print("[PendulumAxe] Attempted to apply knockback to non-player object: " + str(player.name))
 		return
 
 	# Ensure required fields exist
@@ -347,8 +326,6 @@ func _apply_player_knockback(player: Node):
 	var state_machine = player.get_node_or_null("StateMachine")
 	if state_machine and state_machine.has_method("transition_to"):
 		state_machine.transition_to("Hurt")
-		print("[PendulumAxe] Forced player into Hurt state for knockback")
 
-	print("[PendulumAxe] Applied knockback to player: force=" + str(knockback_data.force) + ", up_force=" + str(knockback_data.up_force))
  
  

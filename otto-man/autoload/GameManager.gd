@@ -66,17 +66,14 @@ func transfer_carried_resources_to_village() -> Dictionary:
 		return {}
 	
 	var carried = player_stats.get_carried_resources()
-	print("[GameManager] 📦 Carried resources: %s" % carried)
 	
 	if carried.is_empty():
-		print("[GameManager] ℹ️ No carried resources to transfer")
 		return {}
 	
 	var transferred := {}
 	for type in carried.keys():
 		var amount: int = int(carried[type])
 		if amount > 0:
-			print("[GameManager] ➕ Adding %d %s to village resources" % [amount, type])
 			add_resource(type, amount)
 			transferred[type] = amount
 			
@@ -85,12 +82,9 @@ func transfer_carried_resources_to_village() -> Dictionary:
 			if village_manager:
 				var current = village_manager.resource_levels.get(type, 0)
 				village_manager.resource_levels[type] = current + amount
-				print("[GameManager] ➕ Also added %d %s to VillageManager.resource_levels (total: %d)" % [amount, type, village_manager.resource_levels[type]])
 		else:
-			print("[GameManager] ⏭️ Skipping %s (amount: %d)" % [type, amount])
+			pass
 	
-	print("[GameManager] 🧹 Clearing carried resources from PlayerStats")
 	player_stats.clear_carried_resources()
 	
-	print("[GameManager] ✅ Transfer complete. Transferred: %s" % transferred)
 	return transferred

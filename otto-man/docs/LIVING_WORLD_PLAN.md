@@ -77,9 +77,8 @@ TUCCAR (ticaret)
   ├─ food_drift_bonus                (gunluk erzak driftine)
   └─ alliance_tribute_bonus          (tribute miktari)
 
-ALIM (bilgi / duzen)
-  ├─ harvest_failure_severity_mult   (kitlik olayi siddeti)
-  └─ plague_scare_severity_mult      (salgın söylentisi; Tibbiyeci ile carpilir)
+ALIM — KALDIRILDI (2026-10-14, v0.31.5). Rol slotu Concubine.Role.REMOVED_5 olarak duruyor;
+  yuklemede NONE'a cevrilir. Kitlik/salgin pasif etkileri de kalkti (yalniz Tibbiyeci kaldi).
 
 TIBBIYECI (saglik)
   ├─ plague_scare_severity_mult      (salgın söylentisi siddeti)

@@ -14,14 +14,11 @@ func _init():
 	item_name = tr("item.element_izi.name")
 	description = tr("item.element_izi.description")
 	flavor_text = "Yürüdüğün yol seni hatırlar"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.DODGE
 	affected_stats = ["movement_element_trail"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Element İzi] ✅ Hareket ederken aktif elementinin izini bırakır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Element İzi] ❌ Kaldırıldı")

@@ -154,7 +154,7 @@ func _do_save_slot(slot_id: int) -> void:
 	slot_selected.emit(slot_id)
 
 
-func _on_save_completed(slot_id: int, success: bool) -> void:
+func _on_save_completed(_slot_id: int, success: bool) -> void:
 	if not success:
 		_set_status(tr("save.status_failed"), false)
 		_show_error(tr("save.error_title"), tr("save.error_message"))

@@ -6,7 +6,6 @@ func _init():
 	item_name = tr("item.duvar_ustasi.name")
 	description = tr("item.duvar_ustasi.description")
 	flavor_text = "Taş da senin yolunu tutamaz"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.WALL_SLIDE
 	affected_stats = ["wall_run"]
 
@@ -14,8 +13,6 @@ func _init():
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Duvar Ustası] ✅ Duvarda yerçekimi askıya alınıyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Duvar Ustası] ❌ Kaldırıldı")

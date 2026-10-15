@@ -7,18 +7,14 @@ const HunterGathererHutScene = preload("res://village/buildings/HunterGathererHu
 const WellScene = preload("res://village/buildings/Well.tscn")
 const BakeryScene = preload("res://village/buildings/Bakery.tscn")
 const SHOW_WORLD_MAP_PANEL_IN_VILLAGE := false
-# Sahnedeki UI ve Diğer Referanslar (Eski inşa butonları kaldırıldı)
-@onready var worker_assignment_ui = $WorkerAssignmentUI
-@onready var cariye_management_ui = $CariyeManagementUI # YENİ PANEL
-@onready var open_worker_ui_button = $OpenWorkerUIButton
-@onready var open_cariye_ui_button = $OpenCariyeUIButton # YENİ BUTON
-@onready var open_build_ui_button = $OpenBuildUIButton
+## true: yokluk özeti ve inşaat bildirimi köy özeti satırlarıyla (VillageDigestTicker) gösterilir, eski orta kutu kapalı.
+const USE_DIGEST_TICKER := true
+# Sahnedeki UI ve Diğer Referanslar (inşa/işçi/cariye yan panelleri kaldırıldı: parsel popup'ları kullanılıyor)
 @onready var add_villager_button = $AddVillagerButton
 @onready var placed_buildings_node = $PlacedBuildings
 @onready var plot_markers_node = $PlotMarkers
 @onready var time_manager: TimeManager = get_node("/root/TimeManager") # Veya doğru yolu kullanın
 @onready var time_skip_notification = $TimeSkipNotification
-@onready var build_menu_ui = $BuildMenuLayer/BuildMenuUI
 var world_map_panel: PanelContainer = null
 var world_map_label: Label = null
 var _world_map_move_cooldown: float = 0.0
@@ -40,32 +36,17 @@ func _ready() -> void:
 	VillagerAiInitializer.LoadComplete.connect(VillagersLoaded)
 
 	# Sinyalleri bağla (Eski inşa buton bağlantıları kaldırıldı)
-	open_worker_ui_button.pressed.connect(_on_open_worker_ui_button_pressed)
-	open_cariye_ui_button.pressed.connect(_on_open_cariye_ui_button_pressed)
-	open_build_ui_button.pressed.connect(_on_open_build_ui_button_pressed)
 	add_villager_button.pressed.connect(VillageManager.add_villager)
-	# Bu 4 buton şu an kalıcı olarak gizli (bkz. aşağıdaki .hide() çağrıları) ama yine de
-	# metinlerini locale'e göre ayarlıyoruz — ileride tekrar gösterilirse hazır olsunlar.
-	open_worker_ui_button.text = tr("village.button.open_worker_ui")
-	open_cariye_ui_button.text = tr("village.button.open_cariye_ui")
-	open_build_ui_button.text = tr("village.button.open_build_ui")
 	add_villager_button.text = tr("village.button.add_villager")
-	# UI görünürlük sinyallerini bağla
-	worker_assignment_ui.visibility_changed.connect(_on_worker_ui_visibility_changed)
-	cariye_management_ui.visibility_changed.connect(_on_cariye_ui_visibility_changed) # Yeni panel bağlandı
-	if build_menu_ui:
-		build_menu_ui.visibility_changed.connect(_on_build_menu_visibility_changed)
-		if build_menu_ui.has_signal("build_requested"):
-			build_menu_ui.build_requested.connect(_on_build_menu_build_requested)
-		if build_menu_ui.has_signal("close_requested"):
-			build_menu_ui.close_requested.connect(_on_build_menu_close_requested)
+	# Geliştirici düğmesi ("Köylü lütfen"): yalnız editörde görünür, dışa aktarılan oyunda gizli
+	if not OS.has_feature("editor"):
+		add_villager_button.hide()
 
 	# Connect time skip notification signal
 	if not VillageManager.time_skip_completed.is_connected(_on_time_skip_completed):
 		VillageManager.time_skip_completed.connect(_on_time_skip_completed)
-		print("[VillageScene] ✅ Connected time_skip_completed signal")
 	else:
-		print("[VillageScene] Signal already connected")
+		pass
 	if not VillageManager.construction_completed.is_connected(_on_construction_completed_toast):
 		VillageManager.construction_completed.connect(_on_construction_completed_toast)
 	if not VillageManager.morale_game_over.is_connected(_on_morale_game_over):
@@ -77,6 +58,20 @@ func _ready() -> void:
 		if not mm.active_traders_updated.is_connected(_tutorial_on_first_trader):
 			mm.active_traders_updated.connect(_tutorial_on_first_trader)
 
+	# Bina yükseltmeleri: her bina kendi upgrade_finished sinyalini verir; köy özetine "X yükseltildi" düşer.
+	if placed_buildings_node:
+		for existing_building in placed_buildings_node.get_children():
+			_hook_building_upgrade_signal(existing_building)
+		if not placed_buildings_node.child_entered_tree.is_connected(_hook_building_upgrade_signal):
+			placed_buildings_node.child_entered_tree.connect(_hook_building_upgrade_signal)
+
+	# Köy özeti: yokluğunda olanlar (savunma, görev, üretim, inşaat, olaylar) üstten aşağı kısa renkli satırlar olarak akar.
+	# Ortadaki "X saat geçti" kutusunun ve inşaat toast'ının yerini alır (bkz. autoload/VillageDigest.gd).
+	if get_node_or_null("VillageDigestTicker") == null:
+		var digest_ticker := VillageDigestTicker.new()
+		digest_ticker.name = "VillageDigestTicker"
+		add_child(digest_ticker)
+
 	# Moral 0 = oyun kaybı (köye girerken veya köyde düşerse)
 	if VillageManager.get_morale() <= 0.0:
 		_on_morale_game_over()
@@ -84,21 +79,12 @@ func _ready() -> void:
 
 	# Debug: Check notification node
 	if time_skip_notification:
-		print("[VillageScene] ✅ TimeSkipNotification node found: ", time_skip_notification)
+		pass
 	else:
 		print("[VillageScene] ⚠️ TimeSkipNotification node NOT found!")
 
-	# Başlangıçta UI'ları gizle
-	worker_assignment_ui.hide()
-	cariye_management_ui.hide()
-	if build_menu_ui:
-		build_menu_ui.hide()
-	# Açma butonlarını göster (parsel sistemi inşa/işçi butonlarını gizler)
 	# Kamera sınırlarını ayarla
 	_setup_camera_limits()
-	open_worker_ui_button.hide()
-	open_cariye_ui_button.hide()
-	open_build_ui_button.hide()
 	if SHOW_WORLD_MAP_PANEL_IN_VILLAGE:
 		_setup_world_map_panel()
 		_connect_world_map_signals()
@@ -128,7 +114,6 @@ func _ready() -> void:
 	
 	# Tutorial 2: köy tutorialı başlat
 	call_deferred("_check_village_tutorial_start")
-	call_deferred("_sync_tutorial_village_ui_gates")
 	call_deferred("_maybe_enqueue_death_mentor_brief")
 	call_deferred("_ensure_plot_system_ready")
 	_prime_hud_intro_state()
@@ -299,8 +284,6 @@ func _setup_plot_system() -> void:
 	_plot_system.name = "VillagePlotSystem"
 	add_child(_plot_system)
 	_plot_system.setup(self)
-	# Eski yan panel butonları — parsel / dünya etkileşimi kullanılıyor
-	_hide_legacy_side_panel_buttons()
 
 
 func _setup_world_popups() -> void:
@@ -316,68 +299,45 @@ func _refresh_npc_schedule() -> void:
 	if is_instance_valid(VillageManager):
 		VillageManager.apply_current_time_schedule()
 
-func _hide_legacy_side_panel_buttons() -> void:
-	if open_build_ui_button:
-		open_build_ui_button.hide()
-	if open_worker_ui_button:
-		open_worker_ui_button.hide()
-	if open_cariye_ui_button:
-		open_cariye_ui_button.hide()
+func _hook_building_upgrade_signal(building: Node) -> void:
+	if building == null or not building.has_signal("upgrade_finished"):
+		return
+	var cb := Callable(self, "_on_building_upgrade_finished").bind(building)
+	if not building.is_connected("upgrade_finished", cb):
+		building.connect("upgrade_finished", cb)
 
 
-func _on_open_worker_ui_button_pressed() -> void:
-	# Legacy panel — parsel etkileşimi kullanılıyor
-	return
+func _on_building_upgrade_finished(building: Node) -> void:
+	if not is_instance_valid(building):
+		return
+	var digest: Node = get_node_or_null("/root/VillageDigest")
+	if digest == null:
+		return
+	var disp: String = String(building.name)
+	var path: String = String(building.scene_file_path)
+	if not path.is_empty():
+		disp = LocaleManager.get_building_name(path)
+	var lvl: int = int(building.get("level")) if building.get("level") != null else 0
+	digest.call("report_building_upgraded", disp, lvl)
 
-
-func _on_open_cariye_ui_button_pressed() -> void:
-	# Legacy panel — cariyeye yaklaşarak etkileş
-	return
-
-
-func _on_open_build_ui_button_pressed() -> void:
-	# Legacy panel — boş parsele yaklaşarak etkileş
-	return
-
-func _on_worker_ui_visibility_changed() -> void:
-	_hide_legacy_side_panel_buttons()
-
-
-func _on_cariye_ui_visibility_changed() -> void:
-	_hide_legacy_side_panel_buttons()
-
-
-func _on_build_menu_visibility_changed() -> void:
-	_hide_legacy_side_panel_buttons()
-
-func _on_build_menu_build_requested(building_scene_path: String) -> void:
-	if VillageManager.request_build_building(building_scene_path):
-		if build_menu_ui:
-			build_menu_ui.hide()
-
-func _on_build_menu_close_requested() -> void:
-	if build_menu_ui:
-		build_menu_ui.hide()
 
 func _on_time_skip_completed(total_hours: float, produced_resources: Dictionary, construction_footnote: String = "") -> void:
-	print("[VillageScene] _on_time_skip_completed called: %.1f hours, resources: %s" % [total_hours, produced_resources])
 	# Use call_deferred to ensure scene is fully loaded
 	call_deferred("_show_notification_deferred", total_hours, produced_resources, construction_footnote)
 
 func _show_notification_deferred(total_hours: float, produced_resources: Dictionary, construction_footnote: String = "") -> void:
+	# Eski ortadaki özet kutusu kapalı: aynı bilgi köy özeti satırlarında (VillageDigest) gösteriliyor.
+	if USE_DIGEST_TICKER:
+		return
 	if not time_skip_notification:
 		print("[VillageScene] ⚠️ time_skip_notification node not found!")
 		# Try to find it manually
 		time_skip_notification = get_node_or_null("TimeSkipNotification")
 		if not time_skip_notification:
-			print("[VillageScene] ⚠️ Could not find TimeSkipNotification node manually either!")
 			return
-		print("[VillageScene] ✅ Found TimeSkipNotification manually")
 	
 	if not time_skip_notification.has_method("show_time_skip_notification"):
-		print("[VillageScene] ⚠️ time_skip_notification doesn't have show_time_skip_notification method!")
 		return
-	print("[VillageScene] ✅ Showing notification...")
 	time_skip_notification.show_time_skip_notification(total_hours, produced_resources, construction_footnote)
 
 func _on_construction_completed_toast(scene_path: String) -> void:
@@ -387,6 +347,8 @@ func _on_construction_completed_toast(scene_path: String) -> void:
 	_tutorial_on_building_built(key)
 
 func _show_build_complete_toast_deferred(building_display_name: String) -> void:
+	if USE_DIGEST_TICKER:
+		return
 	if not time_skip_notification:
 		time_skip_notification = get_node_or_null("TimeSkipNotification")
 	if not time_skip_notification or not time_skip_notification.has_method("show_simple_toast"):
@@ -435,10 +397,8 @@ func _check_and_transfer_forest_resources() -> void:
 			has_carried = true
 			break
 	
-	print("[VillageScene] 🔍 Carried resources check (source='%s'): %s" % [source, carried])
 	
 	if not has_carried:
-		print("[VillageScene] ℹ️ No carried resources to merge into village stockpile")
 		var tm_early := get_node_or_null("/root/TutorialManager")
 		if tm_early and tm_early.is_village_tutorial_active() and tm_early.village_core_step == 3:
 			var delivered_early: Dictionary = payload.get("forest_resources_delivered", {})
@@ -448,11 +408,10 @@ func _check_and_transfer_forest_resources() -> void:
 				_tutorial_on_forest_return({})
 		return
 	
-	print("[VillageScene] 🌲 Transferring carried resources to village (source='%s')..." % source)
 	var transferred: Dictionary = game_manager.transfer_carried_resources_to_village()
 	
 	if transferred.is_empty():
-		print("[VillageScene] ⚠️ Transfer returned empty (types may not match village stock keys)")
+		pass
 	else:
 		var log_parts: Array[String] = []
 		for type in transferred.keys():
@@ -460,9 +419,9 @@ func _check_and_transfer_forest_resources() -> void:
 			if amount > 0:
 				log_parts.append("%d %s" % [amount, type])
 		if log_parts.size() > 0:
-			print("[VillageScene] ✅ Merged into village: %s" % ", ".join(log_parts))
+			pass
 		else:
-			print("[VillageScene] ⚠️ Unexpected transfer dict: %s" % transferred)
+			pass
 	_tutorial_on_forest_return(transferred)
 
 func _on_basic_gather_deposited(_worker_id: int, resource_type: String, amount: int, world_position: Vector2) -> void:
@@ -508,6 +467,14 @@ func _show_delivery_summary_from_payload() -> void:
 	
 	if lines.is_empty():
 		return
+	if USE_DIGEST_TICKER:
+		# Teslim edilenler (altın, kaynak, kurtarılanlar) köy özeti satırlarında görünür
+		var digest: Node = get_node_or_null("/root/VillageDigest")
+		if digest != null:
+			for line in lines:
+				digest.call("report", String(line), 1, "📥")
+		_mentor_digest_on_return(payload, lines)
+		return
 	if not time_skip_notification:
 		time_skip_notification = get_node_or_null("TimeSkipNotification")
 	if not time_skip_notification or not time_skip_notification.has_method("show_simple_toast"):
@@ -549,7 +516,6 @@ func _maybe_enqueue_death_mentor_brief() -> void:
 func _apply_dungeon_rescued() -> void:
 	"""Zindandan sağ çıkışta kurtarılan köylü ve cariyeleri köye ekler."""
 	if _dungeon_rescue_applied:
-		print("[VillageScene] ⚠️ Dungeon rescued already applied once, skipping.")
 		return
 	var scene_manager = get_node_or_null("/root/SceneManager")
 	if not scene_manager:
@@ -561,14 +527,12 @@ func _apply_dungeon_rescued() -> void:
 	if payload.get("source", "") != "dungeon" and not delivered_from_dungeon and villagers.is_empty() and cariyes.is_empty():
 		return
 	if villagers.is_empty() and cariyes.is_empty():
-		print("[VillageScene] ⚠️ Dungeon payload has no villagers/cariyes, skipping.")
 		return
 	var vm = get_node_or_null("/root/VillageManager")
 	var mm = get_node_or_null("/root/MissionManager")
 	if not vm or not mm:
 		print("[VillageScene] ⚠️ Cannot apply dungeon rescued; vm=%s mm=%s" % [str(vm), str(mm)])
 		return
-	print("[VillageScene] 🔄 Applying dungeon rescued AFTER worker restoration. villagers=%d, cariyes=%d" % [villagers.size(), cariyes.size()])
 	for villager_data in villagers:
 		if villager_data is Dictionary and vm.has_method("add_villager_with_data"):
 			vm.add_villager_with_data(villager_data)
@@ -585,7 +549,6 @@ func _apply_dungeon_rescued() -> void:
 				first_rescued_name = String(cariye_data.get("isim", ""))
 	if vm.has_method("_spawn_concubines_in_scene"):
 		vm._spawn_concubines_in_scene()
-	print("[VillageScene] ✅ Dungeon rescued applied: %d villagers, %d cariyes" % [villagers.size(), cariyes.size()])
 	_dungeon_rescue_applied = true
 	if vm.has_method("get_guest_villager_count") and int(vm.call("get_guest_villager_count")) > 0:
 		var guest_n: int = int(vm.call("get_guest_villager_count"))
@@ -597,7 +560,10 @@ func _apply_dungeon_rescued() -> void:
 				"warning",
 				12
 			)
-		if time_skip_notification and time_skip_notification.has_method("show_simple_toast"):
+		var digest_g: Node = get_node_or_null("/root/VillageDigest")
+		if USE_DIGEST_TICKER and digest_g != null:
+			digest_g.call("report", "%d misafir köylü barınak bekliyor, ev kur" % guest_n, 2, "🏠")
+		elif time_skip_notification and time_skip_notification.has_method("show_simple_toast"):
 			time_skip_notification.show_simple_toast(
 				"Misafir köylüler",
 				"%d kişi barınak bekliyor — inşa menüsünden ev kur." % guest_n
@@ -700,15 +666,6 @@ func _reset_player_on_scene_load() -> void:
 # --- Köylü Ekleme Fonksiyonu ---
 func _on_add_villager_button_pressed() -> void:
 	VillageManager.add_villager()
-	# UI'ları sadece açıksa güncelle
-	if worker_assignment_ui and worker_assignment_ui.visible: worker_assignment_ui.update_ui()
-	if cariye_management_ui and cariye_management_ui.visible:
-		cariye_management_ui.populate_cariye_list() # Veya daha genel bir update fonksiyonu varsa o çağrılır
-
-# Belki UI'ın içindeki Kapat butonu yerine burada Esc ile kapatmak istersin? (Opsiyonel)
-# func _input(event):
-# 	if event.is_action_pressed("ui_cancel") and worker_assignment_ui.visible:
-# 		worker_assignment_ui.hide()
 
 ## Görünür bir arayüz öğesi odakta mı? (Gizli panellerdeki düğmeler odakta kalabilir; onlar sayılmaz.)
 func _visible_ui_has_focus() -> bool:
@@ -764,17 +721,15 @@ func _input(event: InputEvent) -> void:
 		# 'N' tuşu: test köylüsü ekle (barınak kontrolü + sinyaller)
 		elif event.keycode == KEY_N:
 			VillageManager.add_villager()
-			print("DEBUG: 'N' key pressed, attempting to add new villager.")
 		
 		# 'M' tuşuna basıldığında rastgele işçi sil (DEBUG)
 		elif event.keycode == KEY_M:
 			var worker_ids = VillageManager.get_active_worker_ids() # VillageManager'da bu fonksiyonu eklememiz gerekecek
 			if not worker_ids.is_empty():
 				var random_worker_id = worker_ids.pick_random()
-				print("DEBUG: 'M' key pressed, attempting to remove random worker: %d" % random_worker_id)
 				VillageManager.remove_worker_from_village(random_worker_id)
 			else:
-				print("DEBUG: 'M' key pressed, but no active workers to remove.")
+				pass
 		elif event.alt_pressed:
 			if event.keycode == KEY_UP:
 				_try_move_on_world_map(0, -1)
@@ -822,11 +777,9 @@ func _setup_camera_limits() -> void:
 	
 	if left_marker and left_marker is Marker2D:
 		final_left_limit = left_marker.global_position.x
-		print("[VillageScene] Using CameraLeftLimit Marker2D position: ", final_left_limit)
 	
 	if right_marker and right_marker is Marker2D:
 		final_right_limit = right_marker.global_position.x
-		print("[VillageScene] Using CameraRightLimit Marker2D position: ", final_right_limit)
 	
 	# Oyuncuyu bul
 	var player = get_node_or_null("Player")
@@ -844,7 +797,6 @@ func _setup_camera_limits() -> void:
 	if camera.get_script() and camera.get_script().resource_path.ends_with("VillageCameraController.gd"):
 		camera.left_limit = final_left_limit
 		camera.right_limit = final_right_limit
-		print("[VillageScene] Updated camera limits: left=", final_left_limit, " right=", final_right_limit)
 		return
 	
 	# VillageCameraController scriptini ekle
@@ -858,7 +810,6 @@ func _setup_camera_limits() -> void:
 		# _initialize_player'ı manuel çağır (eğer _ready() çalışmadıysa)
 		if camera.has_method("_initialize_player"):
 			camera.call_deferred("_initialize_player")
-		print("[VillageScene] Added VillageCameraController to player camera with limits: left=", final_left_limit, " right=", final_right_limit)
 	else:
 		print("[VillageScene] Error: Could not load VillageCameraController.gd")
 	# In exported builds, this won't be called due to OS.has_feature check
@@ -949,16 +900,10 @@ func _check_village_tutorial_start() -> void:
 	if tm == null:
 		return
 	if tm.consume_village_tutorial_pending():
-		print("[VillageScene] Tutorial 2 başlatılıyor — köy karşılama mesajları kuyruğa ekleniyor")
 		tm.begin_village_core_tutorial_messages()
 		return
 	if tm.is_village_tutorial_active() or tm.village_dungeon_guide_active:
 		tm.refresh_village_objective_for_step()
-	_sync_tutorial_village_ui_gates()
-
-
-func _sync_tutorial_village_ui_gates() -> void:
-	_hide_legacy_side_panel_buttons()
 
 
 func _spawn_objective_ui() -> void:
@@ -990,7 +935,6 @@ func _tutorial_on_forest_return(transferred: Dictionary) -> void:
 		tm.mark_tutorial_forest_gather_complete()
 	tm.village_core_step = 4
 	tm.set_objective_tr("tutorial.village.objective_build_house")
-	_sync_tutorial_village_ui_gates()
 
 
 func tutorial_on_mission_page(_page_index: int) -> void:
@@ -1025,7 +969,6 @@ func _tutorial_on_building_built(building_key: String) -> void:
 			tm.mark_tutorial_house_built()
 		return
 	tm.mark_tutorial_starter_building_built(building_key)
-	_sync_tutorial_village_ui_gates()
 
 
 ## Adım 2: üç binadan birine ilk işçi atandı — üçü de dolunca adım 3'e (orman/yiyecek) geçer.
@@ -1034,7 +977,6 @@ func _tutorial_on_worker_assigned(building_key: String = "") -> void:
 	if tm == null or not tm.is_village_tutorial_active():
 		return
 	tm.mark_tutorial_starter_worker_assigned(building_key)
-	_sync_tutorial_village_ui_gates()
 
 
 # =======================================================
@@ -1050,7 +992,7 @@ func _tutorial_on_first_cariye(concubine_name: String = "") -> void:
 	tm.hint_cariye_delivered = true
 	tm.enqueue_message(
 		"hint_first_cariye",
-		tr("tutorial.hint.first_cariye"),
+		tr("tutorial.hint.first_cariye2"),
 		"hint",
 		5
 	)

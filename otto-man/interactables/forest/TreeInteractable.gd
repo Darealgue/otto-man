@@ -93,7 +93,6 @@ func _build_minigame_context() -> Dictionary:
 	return ctx
 
 func _on_player_enter(_player: Node) -> void:
-	print("[TreeInteractable] Player entered area, ready for interaction (press interact key)")
 	if _player and _player is Node:
 		_active_player_path = (_player as Node).get_path()
 	# Highlight'ı göster
@@ -123,7 +122,6 @@ func _setup_highlight_sprite(width: float, height: float, base_x: float) -> void
 			_highlight_sprite.z_index = _tree_sprite.z_index + 1  # Tree sprite'ın üstünde
 
 func _on_minigame_started() -> void:
-	print("[TreeInteractable] Minigame started!")
 	if _placeholder_polygon and is_instance_valid(_placeholder_polygon):
 		_placeholder_polygon.visible = false
 	# Minigame başladığında highlight'ı gizle
@@ -138,7 +136,6 @@ func _on_minigame_failure(_payload: Dictionary) -> void:
 
 func _on_minigame_success(payload: Dictionary) -> void:
 	_mark_consumed_visual(true)
-	print("[TreeInteractable] Minigame completed successfully! Resources: ", payload.get("amount", 0))
 
 func _mark_consumed_visual(success: bool) -> void:
 	if has_node("Sprite2D"):

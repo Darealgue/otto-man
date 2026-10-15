@@ -15,7 +15,6 @@ func _init():
 	item_name = tr("item.altin_pencere.name")
 	description = tr("item.altin_pencere.description")
 	flavor_text = "Ustalık zamanı genişletir"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.PARRY
 	affected_stats = ["parry_window_stack"]
 
@@ -23,14 +22,12 @@ func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
 	player.parry_window_mult = 1.0
-	print("[Altın Pencere] ✅ Her parry pencereyi %15 uzatır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	if is_instance_valid(player):
 		player.parry_window_mult = 1.0
 	_player = null
-	print("[Altın Pencere] ❌ Kaldırıldı")
 
 func _on_perfect_parry() -> void:
 	if is_instance_valid(_player):

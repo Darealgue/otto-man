@@ -20,7 +20,6 @@ func _init():
 	item_name = tr("item.kukla_oyunu.name")
 	description = tr("item.kukla_oyunu.description")
 	flavor_text = "Perdenin arkasındaki el seni çeker"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.BLOCK
 	affected_stats = ["hit_puppet"]
 
@@ -28,12 +27,10 @@ func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
 	_cooldown_left = 0.0
-	print("[Kukla Oyunu] ✅ Hasarda %40 ihtimalle iade + ışınlanma")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Kukla Oyunu] ❌ Kaldırıldı")
 
 func process(_player_ref: CharacterBody2D, delta: float) -> void:
 	if _cooldown_left > 0.0:
@@ -56,7 +53,6 @@ func _on_player_took_damage(amount: float, attacker: Node2D) -> void:
 		_player.hurtbox.set_invincible(IFRAME_DURATION)
 	_spawn_decoy(old_pos)
 	_hop_away(attacker)
-	print("[Kukla Oyunu] ⚡ Hasar iade edildi, ışınlanıldı")
 
 func _hop_away(attacker: Node2D) -> void:
 	var dir: float = 1.0

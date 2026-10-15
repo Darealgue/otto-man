@@ -79,7 +79,7 @@ static func render(
 		return
 
 	var camera := Camera2D.new()
-	camera.zoom = Vector2(48.0, 48.0)
+	camera.zoom = Vector2(38.0, 38.0)
 	camera.position = Vector2(0, -40)
 	viewport.add_child(camera)
 	camera.make_current()

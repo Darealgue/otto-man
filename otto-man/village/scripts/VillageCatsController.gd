@@ -87,7 +87,6 @@ func _process(delta: float) -> void:
 		_sync_cat_roam_bounds()
 		if debug_cat_controller:
 			var b := _get_roam_bounds()
-			print("[VillageCats] roam_bounds pos=%s size=%s prosper=%.2f cats=%d" % [b.position, b.size, _prosperity_score, _count_cats_in_workers_container()])
 
 	if _roof_scan_timer <= 0.0:
 		_roof_scan_timer = 2.5

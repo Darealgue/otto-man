@@ -11,14 +11,11 @@ func _init():
 	item_name = tr("item.soguk_temas.name")
 	description = tr("item.soguk_temas.description")
 	flavor_text = "Değdiği yer üşür"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.DODGE
 	affected_stats = ["dodge_frost"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Soğuk Temas] ✅ Dodge/dash temas ettiği düşmanları donduruyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Soğuk Temas] ❌ Kaldırıldı")

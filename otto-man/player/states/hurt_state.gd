@@ -178,7 +178,7 @@ func enter() -> void:
 		animation_player.animation_finished.connect(_on_animation_finished)
 
 	if debug_knockback_recovery:
-		print("[Hurt] enter | launch=", is_launch_hurt, " profile=", knockback_data.get("profile", "n/a") if knockback_data else "n/a", " force=", knockback_data.get("force", 0.0) if knockback_data else 0.0, " up=", knockback_data.get("up_force", 0.0) if knockback_data else 0.0)
+		pass
 
 	if player.get("pending_death") == true:
 		begin_lethal_sequence()
@@ -314,7 +314,7 @@ func _set_launch_phase(next_phase: LaunchPhase) -> void:
 		return
 	launch_phase = next_phase
 	if debug_hurt_recovery_crouch:
-		print("[HurtDebug] phase -> ", launch_phase, " vel=", player.velocity, " on_floor=", player.is_on_floor())
+		pass
 	player.reset_sprite_visual_to_default()
 	match launch_phase:
 		LaunchPhase.RISE:
@@ -353,7 +353,7 @@ func _update_launch_phase(delta: float) -> void:
 			launch_lie_timer -= delta
 			_update_lie_slide_animation(delta)
 			if debug_hurt_recovery_crouch:
-				print("[HurtDebug] LIE tick | lie_timer=", snapped(launch_lie_timer, 0.001), " lethal=", lethal_sequence_active, " lethal_timer=", snapped(lethal_death_timer, 0.001), " vel=", player.velocity, " anim=", animation_player.current_animation)
+				pass
 			if lethal_sequence_active:
 				# Death finalization should happen after sliding settles and lie pose is visible.
 				if absf(player.velocity.x) < lie_slide_speed_threshold * 0.6:
@@ -387,7 +387,7 @@ func _try_air_recover() -> void:
 		player.velocity.x *= 0.45
 		player.velocity.y = min(player.velocity.y, -player.jump_velocity * 0.2)
 		if debug_knockback_recovery:
-			print("[Hurt] Air recover success")
+			pass
 		state_machine.transition_to("Jump")
 	elif debug_knockback_recovery:
 		print("[Hurt] Air recover failed (no stamina)")
@@ -419,32 +419,30 @@ func _enter_crouch_recovery() -> void:
 	player.set_meta("hurt_exit_timer", 0.5)
 	if debug_hurt_recovery_crouch:
 		var state_name_before = state_machine.current_state.name if state_machine and state_machine.current_state else "<none>"
-		print("[HurtDebug] _enter_crouch_recovery start | state=", state_name_before, " vel=", player.velocity, " on_floor=", player.is_on_floor())
 	if lethal_sequence_active and player.has_method("_finalize_player_death"):
 		if debug_hurt_recovery_crouch:
-			print("[HurtDebug] lethal sequence active -> finalize death deferred")
+			pass
 		player.call_deferred("_finalize_player_death")
 		return
 	if state_machine.has_node("Crouch"):
 		# Reuse normal slide-exit crouch flow for identical timing/feel.
 		player.set_meta("hurt_recovery_use_slide_exit", true)
 		if debug_hurt_recovery_crouch:
-			print("[HurtDebug] set meta hurt_recovery_use_slide_exit=true | current_anim=", animation_player.current_animation, " vel=", player.velocity)
+			pass
 		transitioned_to_crouch_recovery = true
 		state_machine.transition_to("Crouch")
 		if debug_hurt_recovery_crouch:
 			var state_name_after = state_machine.current_state.name if state_machine and state_machine.current_state else "<none>"
-			print("[HurtDebug] transitioned to=", state_name_after)
 		# Guarantee crouch visual on recovery frame (prevents occasional idle skip).
 		if animation_player and animation_player.has_animation("crouch"):
 			animation_player.play("crouch")
 			if debug_hurt_recovery_crouch:
-				print("[HurtDebug] forced animation_player.play('crouch')")
+				pass
 		# Return from hurt should keep combat stance, not normal idle.
 		if player.has_method("enter_combat_state"):
 			player.enter_combat_state()
 			if debug_hurt_recovery_crouch:
-				print("[HurtDebug] enter_combat_state called")
+				pass
 	else:
 		if debug_hurt_recovery_crouch:
 			print("[HurtDebug] Crouch state missing -> fallback _finish_hurt_state")

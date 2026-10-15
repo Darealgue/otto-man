@@ -47,7 +47,6 @@ func _ready() -> void:
 		
 		# Keep damage area always enabled for spike trap
 		damage_area.monitoring = true
-		print("[SpikeTrap] Damage area set to always monitoring")
 		
 		# Create a timer to ensure damage area stays active
 		var monitor_timer = Timer.new()
@@ -55,7 +54,6 @@ func _ready() -> void:
 		monitor_timer.timeout.connect(_ensure_damage_area_active)
 		monitor_timer.autostart = true
 		add_child(monitor_timer)
-		print("[SpikeTrap] Monitor timer created to keep damage area active")
 	
 	# Create spike visual
 	_create_spike_visual()
@@ -69,9 +67,7 @@ func _ready() -> void:
 	rising_damage_timer.one_shot = true
 	rising_damage_timer.timeout.connect(_on_rising_damage_ready)
 	add_child(rising_damage_timer)
-	print("[SpikeTrap] Rising damage timer created - delay: %.2fs" % rising_damage_timer.wait_time)
 	
-	print("[SpikeTrap] Ready - Sprite position: %s, Z-index: %d" % [sprite_offset, sprite_z_index])
 
 func _create_spike_visual() -> void:
 	# Remove the generic sprite node
@@ -90,9 +86,7 @@ func _create_spike_visual() -> void:
 		spike_sprite.hframes = 18  # 18 frames horizontal
 		spike_sprite.vframes = 1   # 1 row
 		spike_sprite.frame = 0     # Start with idle frame (frame 0)
-		print("[SpikeTrap] Loaded real sprite animation with 18 frames")
 	else:
-		print("[SpikeTrap] Could not load spike sprite, using placeholder")
 		# Fallback to placeholder if sprite not found
 		_create_placeholder_spike()
 		return
@@ -235,7 +229,6 @@ func _execute_trap_behavior() -> void:
 		print("[SpikeTrap] Cannot execute - current state: %s" % SpikeState.keys()[current_state])
 		return
 	
-	print("[SpikeTrap] Executing spike behavior - starting activation")
 	_activate_spikes()
 
 func _activate_spikes() -> void:
@@ -255,18 +248,15 @@ func _activate_spikes() -> void:
 		# Then rising animation
 		current_state = SpikeState.RISING
 		_update_status_indicator("RISING", Color.YELLOW)
-		print("[SpikeTrap] Spikes rising - duration: %.1f seconds" % rise_duration)
 		
 		# Start the rising damage timer (damage after half of rising duration)
 		rising_damage_timer.start()
-		print("[SpikeTrap] Rising damage timer started - damage in %.2fs" % rising_damage_timer.wait_time)
 		
 		anim_player.play("spike_anims/rising")
 		await anim_player.animation_finished
 		
 		_on_spikes_fully_risen()
 	else:
-		print("[SpikeTrap] No AnimationPlayer found, using fallback")
 		# Fallback to old system
 		var tween = create_tween()
 		tween.tween_property(spike_sprite, "scale", Vector2(1.0, 1.0), rise_duration)
@@ -275,8 +265,6 @@ func _activate_spikes() -> void:
 func _on_spikes_fully_risen() -> void:
 	current_state = SpikeState.ACTIVE
 	_update_status_indicator("ACTIVE - DANGER!", Color.RED)
-	print("[SpikeTrap] ⚠️ SPIKES NOW ACTIVE AND DANGEROUS for %.1f seconds ⚠️" % stay_duration)
-	print("[SpikeTrap] State changed to: %s" % SpikeState.keys()[current_state])
 	
 	# Check if any players are currently in damage area and damage them
 	_check_players_in_damage_area()
@@ -295,8 +283,6 @@ func _on_spikes_fully_risen() -> void:
 func _retract_spikes() -> void:
 	current_state = SpikeState.FALLING
 	_update_status_indicator("RETRACTING", Color.YELLOW)
-	print("[SpikeTrap] ✅ SPIKES RETRACTING - SAFE AGAIN - duration: %.1f seconds" % fall_duration)
-	print("[SpikeTrap] State changed to: %s" % SpikeState.keys()[current_state])
 	
 	# Get AnimationPlayer and play retracting animation
 	var anim_player = get_node("SpikeAnimationPlayer")
@@ -305,7 +291,6 @@ func _retract_spikes() -> void:
 		await anim_player.animation_finished
 		_on_spikes_fully_retracted()
 	else:
-		print("[SpikeTrap] No AnimationPlayer found, using fallback")
 		# Fallback animation
 		var tween = create_tween()
 		tween.tween_property(spike_sprite, "scale", Vector2(1.0, 0.0), fall_duration)
@@ -314,7 +299,6 @@ func _retract_spikes() -> void:
 func _on_spikes_fully_retracted() -> void:
 	current_state = SpikeState.HIDDEN
 	_update_status_indicator("HIDDEN", Color.GRAY)
-	print("[SpikeTrap] Spikes retracted - waiting for cooldown")
 	
 	# Return to idle animation
 	var anim_player = get_node("SpikeAnimationPlayer")
@@ -322,7 +306,7 @@ func _on_spikes_fully_retracted() -> void:
 		anim_player.play("spike_anims/idle")
 
 func _on_rising_damage_ready() -> void:
-	print("[SpikeTrap] Rising damage timer finished - spikes now dangerous during RISING!")
+	pass
 	# This function is called when rising damage timer finishes
 	# The actual damage check happens in _on_damage_area_entered
 
@@ -344,72 +328,53 @@ func deal_damage_to_player(player: Node) -> void:
 		
 		if damage_dealt:
 			player_damaged.emit(player, base_damage)
-			print("[SpikeTrap] Dealt %.1f damage to player" % base_damage)
 			_update_status_indicator("DAMAGE!", Color.WHITE)
 		else:
-			print("[SpikeTrap] Player has no compatible damage method")
+			pass
 	else:
-		print("[SpikeTrap] Player hit spikes but they're not active")
+		pass
 
 func _on_damage_area_entered(body: Node2D) -> void:
-	print("[SpikeTrap] Body entered damage area: %s" % body.name)
-	print("[SpikeTrap] Body groups: %s" % body.get_groups())
-	print("[SpikeTrap] Current spike state: %s" % SpikeState.keys()[current_state])
-	print("[SpikeTrap] Is player in group: %s" % body.is_in_group("player"))
 	
 	if body.is_in_group("player"):
-		print("[SpikeTrap] ✓ PLAYER CONFIRMED - State: %s" % SpikeState.keys()[current_state])
 		
 		# Only deal damage once per cycle and only when spikes are dangerous
 		if not has_dealt_damage and (current_state == SpikeState.RISING or current_state == SpikeState.ACTIVE):
 			# For RISING state, only deal damage if enough time has passed
 			if current_state == SpikeState.RISING:
 				if rising_damage_timer.is_stopped():  # Timer has finished
-					print("[SpikeTrap] ✓ RISING SPIKES ARE DANGEROUS - DEALING DAMAGE!")
 					_deal_damage_to_player(body)
 					has_dealt_damage = true
 				else:
-					print("[SpikeTrap] ✗ Rising spikes not dangerous yet - waiting for timer")
+					pass
 			elif current_state == SpikeState.ACTIVE:
-				print("[SpikeTrap] ✓ ACTIVE SPIKES ARE DANGEROUS - DEALING DAMAGE!")
 				_deal_damage_to_player(body)
 				has_dealt_damage = true
 		elif has_dealt_damage:
-			print("[SpikeTrap] ✗ Damage already dealt this cycle")
+			pass
 		else:
-			print("[SpikeTrap] ✗ Spikes not dangerous yet - State: %s" % SpikeState.keys()[current_state])
+			pass
 	else:
-		print("[SpikeTrap] ✗ Not a player body, ignoring")
+		pass
 
 func _ensure_damage_area_active() -> void:
 	if damage_area and not damage_area.monitoring:
 		damage_area.monitoring = true
-		print("[SpikeTrap] ⚠️ Damage area was disabled, re-enabling it!")
 
 func _check_players_in_damage_area() -> void:
 	if not damage_area:
-		print("[SpikeTrap] No damage area found!")
 		return
 		
-	print("[SpikeTrap] Checking for players currently in damage area...")
 	var bodies_in_area = damage_area.get_overlapping_bodies()
-	print("[SpikeTrap] Found %d bodies in damage area" % bodies_in_area.size())
 	
 	for body in bodies_in_area:
-		print("[SpikeTrap] Checking body: %s, groups: %s" % [body.name, body.get_groups()])
 		if body.is_in_group("player"):
-			print("[SpikeTrap] ✓ FOUND PLAYER IN DAMAGE AREA - DEALING DAMAGE!")
 			_deal_damage_to_player(body)
 
 func _deal_damage_to_player(player: Node2D) -> void:
-	print("[SpikeTrap] Attempting to deal damage to player: %s" % player.name)
-	print("[SpikeTrap] Player groups: %s" % player.get_groups())
-	print("[SpikeTrap] Base damage: %s" % base_damage)
 	
 	if player.has_method("take_damage"):
-		print("[SpikeTrap] Player has take_damage method - calling it with damage: %s" % base_damage)
 		player.take_damage(base_damage)
-		print("[SpikeTrap] take_damage called successfully")
 		
 		# Visual feedback
 		_update_status_indicator("DAMAGE DEALT!", Color.MAGENTA)
@@ -418,7 +383,6 @@ func _deal_damage_to_player(player: Node2D) -> void:
 		_show_damage_number(base_damage)
 	else:
 		print("[SpikeTrap] ERROR: Player doesn't have take_damage method!")
-		print("[SpikeTrap] Available methods: %s" % player.get_method_list())
 		
 func _show_damage_number(damage: float) -> void:
 	# Simple damage number display
@@ -440,13 +404,11 @@ func adjust_sprite_position(new_offset: Vector2) -> void:
 	sprite_offset = new_offset
 	if spike_sprite:
 		spike_sprite.position = sprite_offset
-		print("[SpikeTrap] Sprite position adjusted to: %s" % sprite_offset)
 
 func adjust_sprite_z_index(new_z_index: int) -> void:
 	sprite_z_index = new_z_index
 	if spike_sprite:
 		spike_sprite.z_index = sprite_z_index
-		print("[SpikeTrap] Sprite z_index adjusted to: %d" % sprite_z_index)
 
 func get_trap_info() -> String:
 	return "Spike Trap - Deals %d damage when spikes are extended" % int(base_damage)

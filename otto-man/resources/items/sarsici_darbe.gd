@@ -18,7 +18,6 @@ func _init():
 	item_name = tr("item.sarsici_darbe.name")
 	description = tr("item.sarsici_darbe.description")
 	flavor_text = "Üçüncü vuruş yer sarsar"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SPECIAL
 	affected_stats = ["shockwave_combo"]
 
@@ -29,7 +28,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("player_attack_landed"):
 		if not player.is_connected("player_attack_landed", _on_player_attack_landed):
 			player.connect("player_attack_landed", _on_player_attack_landed)
-	print("[Sarsıcı Darbe] ✅ Her 3. vuruşta şok dalgası")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -37,7 +35,6 @@ func deactivate(player: CharacterBody2D):
 		if _player.is_connected("player_attack_landed", _on_player_attack_landed):
 			_player.disconnect("player_attack_landed", _on_player_attack_landed)
 	_player = null
-	print("[Sarsıcı Darbe] ❌ Kaldırıldı")
 
 func _on_player_attack_landed(_attack_type: String, _damage: float, _targets: Array, position: Vector2, effect_filter: String = "all") -> void:
 	if effect_filter == "physical_only" or not is_instance_valid(_player):

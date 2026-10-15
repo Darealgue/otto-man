@@ -17,19 +17,16 @@ func _init():
 	item_name = tr("item.sabir_tasi.name")
 	description = tr("item.sabir_tasi.description")
 	flavor_text = "Sabreden derviş, muradına ermiş"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["poison_growth"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_tracked.clear()
-	print("[Sabır Taşı] ✅ Dokunmadığın zehir güçlenir (max 5x)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_tracked.clear()
-	print("[Sabır Taşı] ❌ Kaldırıldı")
 
 func process(player: CharacterBody2D, delta: float) -> void:
 	if not is_instance_valid(player):

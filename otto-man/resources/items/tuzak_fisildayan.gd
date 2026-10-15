@@ -6,7 +6,6 @@ func _init():
 	item_name = tr("item.tuzak_fisildayan.name")
 	description = tr("item.tuzak_fisildayan.description")
 	flavor_text = "Taş da, ateş de senin dilinden anlar"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["traps_hurt_enemies"]
 
@@ -15,8 +14,6 @@ func _init():
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Tuzak Fısıldayan] ✅ Tuzaklar düşmanlara da hasar veriyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Tuzak Fısıldayan] ❌ Kaldırıldı")

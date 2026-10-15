@@ -93,7 +93,6 @@ func _on_minigame_ready() -> void:
 	_save_parallax_original_scales()
 	
 	set_process(true)
-	print("[FoodMinigame] Food minigame active (fruits=%d, max_misses=%d)" % [_fruits_to_spawn, _max_misses])
 
 func _setup_nodes() -> void:
 	_resolve_bush_and_player_nodes(true)
@@ -104,7 +103,7 @@ func _resolve_bush_and_player_nodes(log_found: bool = false) -> void:
 	if not _bush_path.is_empty():
 		_bush_node = get_node_or_null(_bush_path)
 		if _bush_node and log_found:
-			print("[FoodMinigame] Bush node found: %s" % _bush_node.name)
+			pass
 		elif not _bush_node and log_found:
 			print("[FoodMinigame] Warning: Bush node not found at path: %s" % _bush_path)
 	if not _player_path.is_empty():
@@ -143,7 +142,6 @@ func _create_gauge(parent: Node) -> void:
 		_gauge.global_position = _bush_node.global_position + _anchor_offset
 	else:
 		_gauge.global_position = Vector2(960, 540)  # Ekran merkezi
-	print("[FoodMinigame] Gauge created at position: %s" % _gauge.global_position)
 
 func _setup_hurtbox() -> void:
 	if not _bush_node:
@@ -163,7 +161,6 @@ func _setup_hurtbox() -> void:
 	shape.position = Vector2(0, -24)  # Çalının merkezine göre
 	_hurtbox.add_child(shape)
 	
-	print("[FoodMinigame] Hurtbox created and bound to minigame")
 
 func _process(delta: float) -> void:
 	if is_finished():
@@ -190,30 +187,24 @@ func _process(delta: float) -> void:
 	_check_active_fruits()
 
 func _on_food_hurtbox_hit(hitbox: Area2D) -> void:
-	print("[FoodMinigame] _on_food_hurtbox_hit() called - is_finished=", is_finished(), " fruits_already_spawned=", _fruits_already_spawned)
 	if is_finished():
-		print("[FoodMinigame] BLOCKED: Minigame already finished")
 		return
 	if not (hitbox is PlayerHitbox):
-		print("[FoodMinigame] BLOCKED: Not a PlayerHitbox")
 		return
 	var player_hitbox := hitbox as PlayerHitbox
 	if not _is_heavy_hit(player_hitbox):
 		if _gauge:
 			_gauge.set_feedback(tr("mg.feedback.only_heavy_attack"), fail_feedback_color, 0.9)
-		print("[FoodMinigame] BLOCKED: Not a heavy hit")
 		return
 	
 	# Eğer meyveler zaten spawn olduysa, bir daha vuruş yapma ve bar'ı kapat
 	if _fruits_already_spawned:
-		print("[FoodMinigame] BLOCKED: Fruits already spawned, ignoring hit")
 		# Bar'ı kapat
 		if _gauge:
 			_cleanup_gauge()
 		return
 	
 	# Sadece heavy attack ile vuruş yapılabilir
-	print("[FoodMinigame] Proceeding with _attempt_hit()")
 	_attempt_hit()
 
 func _is_heavy_hit(hitbox: PlayerHitbox) -> bool:
@@ -276,10 +267,8 @@ func _attempt_hit() -> void:
 func _on_perfect_hit() -> void:
 	# Eğer meyveler zaten spawn olduysa, bir daha spawn etme
 	if _fruits_already_spawned:
-		print("[FoodMinigame] BLOCKED: Fruits already spawned, ignoring hit")
 		return
 	
-	print("[FoodMinigame] _on_perfect_hit() called - spawning fruits")
 	# Çalı hit animasyonu
 	_play_bush_hit_animation()
 	
@@ -303,7 +292,6 @@ func _on_perfect_hit() -> void:
 
 func _spawn_fruits_delayed(fill_value: float) -> void:
 	# 0.3 saniye bekle (çalı animasyonuna uyum için)
-	print("[FoodMinigame] _spawn_fruits_delayed() called - waiting 0.3 seconds...")
 	var tree := get_tree()
 	if tree == null:
 		_fruits_spawning = false
@@ -316,7 +304,6 @@ func _spawn_fruits_delayed(fill_value: float) -> void:
 	if tree == null:
 		_fruits_spawning = false
 		return
-	print("[FoodMinigame] Timer finished, calling _spawn_fruits()")
 	_fruits_spawning = false
 	_spawn_fruits(fill_value)
 
@@ -344,13 +331,11 @@ func _on_miss(reason: String) -> void:
 
 func _spawn_fruits(bar_level: float) -> void:
 	# Bar seviyesine göre meyveleri fırlat
-	print("[FoodMinigame] _spawn_fruits() called with bar_level=", bar_level, " fruits_to_spawn=", _fruits_to_spawn)
 	if not _bush_node:
 		print("[FoodMinigame] ERROR: _bush_node is null!")
 		return
 	
 	var bush_pos := _bush_node.global_position
-	print("[FoodMinigame] Bush position: ", bush_pos)
 	
 	var spawned_count := 0
 	for i in range(_fruits_to_spawn):
@@ -381,11 +366,9 @@ func _spawn_fruits(bar_level: float) -> void:
 			
 			_active_fruits.append(fruit)
 			spawned_count += 1
-			print("[FoodMinigame] Fruit spawned: %d/%d" % [i+1, _fruits_to_spawn])
 		else:
 			print("[FoodMinigame] ERROR: spawn_parent is null!")
 	
-	print("[FoodMinigame] Total fruits spawned: %d/%d" % [spawned_count, _fruits_to_spawn])
 
 func _on_fruit_hit(fruit: Node2D) -> void:
 	# Oyuncu meyveye vurdu
@@ -403,7 +386,6 @@ func _collect_fruit(fruit: Node2D) -> void:
 	
 	# Meyveyi topla
 	_fruits_collected += 1
-	print("[FoodMinigame] _collect_fruit() - fruits_collected=", _fruits_collected, " active_fruits=", _active_fruits.size())
 	
 	# Feedback
 	if _gauge:
@@ -417,16 +399,14 @@ func _collect_fruit(fruit: Node2D) -> void:
 		fruit.queue_free()
 	
 	_active_fruits.erase(fruit)
-	print("[FoodMinigame] After erase - active_fruits=", _active_fruits.size(), " waiting_for_fruits=", _waiting_for_fruits)
 	
 	# Tüm meyveler toplandı mı veya yere düştü mü?
 	# Eğer tüm meyveler toplandıysa veya yere düştüyse kontrol et
 	if _waiting_for_fruits:
 		if _active_fruits.is_empty():
-			print("[FoodMinigame] All fruits collected/dropped, calling _check_fruit_collection_complete()")
 			_check_fruit_collection_complete()
 		else:
-			print("[FoodMinigame] Still waiting for ", _active_fruits.size(), " fruits")
+			pass
 
 func _check_active_fruits() -> void:
 	# Eğer meyveler şu anda spawn oluyorsa (delay sırasında) kontrol etme
@@ -463,19 +443,15 @@ func _check_active_fruits() -> void:
 	# Sadece meyveler spawn olduktan sonra kontrol et
 	# (_fruits_already_spawned true ve _active_fruits boşsa, meyveler spawn olmuş ama hepsi toplanmış/düşmüş demektir)
 	if _waiting_for_fruits and _active_fruits.is_empty() and _fruits_already_spawned:
-		print("[FoodMinigame] All fruits collected/dropped (from _check_active_fruits), calling _check_fruit_collection_complete()")
 		_check_fruit_collection_complete()
 
 func _on_fruit_grounded(fruit: Node2D) -> void:
 	# Yere düşen meyveyi aktif listeden kaldır
-	print("[FoodMinigame] _on_fruit_grounded() called - removing from active_fruits")
 	if fruit in _active_fruits:
 		_active_fruits.erase(fruit)
-		print("[FoodMinigame] Fruit removed from active_fruits, remaining: ", _active_fruits.size())
 	
 	# Tüm meyveler toplandı/yere düştü mü?
 	if _waiting_for_fruits and _active_fruits.is_empty():
-		print("[FoodMinigame] All fruits collected/dropped (from _on_fruit_grounded), calling _check_fruit_collection_complete()")
 		_check_fruit_collection_complete()
 
 func _check_fruit_collection_complete() -> void:
@@ -491,11 +467,9 @@ func _check_fruit_collection_complete() -> void:
 	# Ödül hesapla
 	var reward := _calculate_reward()
 	
-	print("[FoodMinigame] _check_fruit_collection_complete() - reward=", reward, " fruits_collected=", _fruits_collected)
 	
 	if reward > 0:
 		# Başarılı!
-		print("[FoodMinigame] Showing resource gain text: +", reward)
 		_show_resource_gain_text(reward)
 		if _gauge:
 			_gauge.set_feedback(tr("mg.feedback.success_food") % reward, success_feedback_color)
@@ -508,7 +482,6 @@ func _check_fruit_collection_complete() -> void:
 		})
 	else:
 		# Hiç meyve toplanamadı
-		print("[FoodMinigame] No reward - fruits_collected=", _fruits_collected)
 		if _gauge:
 			_gauge.set_feedback(tr("mg.feedback.fruit_not_collected"), fail_feedback_color)
 		
@@ -531,7 +504,6 @@ func _change_speed() -> void:
 	_fill_speed *= speed_multiplier
 	# Hız sınırlarını kontrol et
 	_fill_speed = clamp(_fill_speed, min_speed, max_speed)
-	print("[FoodMinigame] Speed changed to: %.2f (multiplier: %.2f)" % [_fill_speed, speed_multiplier])
 
 func _reset_bar() -> void:
 	_fill_value = 0.0  # Bar'ı sıfırla
@@ -557,10 +529,8 @@ func _update_gauge_state() -> void:
 
 func _play_bush_hit_animation() -> void:
 	# Çalı hit animasyonu oynat
-	print("[FoodMinigame] _play_bush_hit_animation() called - _bush_node: ", _bush_node)
 	if _bush_node and is_instance_valid(_bush_node):
 		if _bush_node.has_method("play_hit_animation"):
-			print("[FoodMinigame] Calling play_hit_animation() on bush")
 			_bush_node.play_hit_animation()
 		else:
 			print("[FoodMinigame] ERROR: Bush node does not have play_hit_animation method")
@@ -574,7 +544,6 @@ func _zoom_camera_out() -> void:
 		print("[FoodMinigame] ERROR: Could not find player camera for zoom")
 		return
 	
-	print("[FoodMinigame] Zooming camera out - current zoom: ", camera.zoom)
 	_camera_zoomed_out = true
 	
 	# Target zoom hesapla (default zoom'un 0.7 katı)
@@ -589,14 +558,12 @@ func _zoom_camera_out() -> void:
 	# hedefliyoruz, böylece geri dönüş her zaman tam olarak başlangıç seviyesine gelir.
 	if camera.has_method("zoom_to_vector"):
 		camera.zoom_to_vector(target_zoom, 0.4)
-		print("[FoodMinigame] Camera zoom out to: ", target_zoom)
 	else:
 		# Manuel zoom animasyonu
 		if _camera_zoom_tween and _camera_zoom_tween.is_running():
 			_camera_zoom_tween.kill()
 		_camera_zoom_tween = create_tween()
 		_camera_zoom_tween.tween_property(camera, "zoom", target_zoom, 0.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-		print("[FoodMinigame] Camera zoom out (manual) to: ", target_zoom)
 
 func _update_parallax_for_zoom(zoom_level: Vector2) -> void:
 	# ParallaxBackground'ı bul
@@ -620,7 +587,6 @@ func _update_parallax_for_zoom(zoom_level: Vector2) -> void:
 	# ParallaxBackground'ı force update et (deferred olarak)
 	call_deferred("_force_parallax_update", parallax_bg, zoom_level)
 	
-	print("[FoodMinigame] Scheduled parallax update for zoom: ", zoom_level)
 
 func _save_parallax_original_scales() -> void:
 	# ParallaxBackground'ı bul
@@ -644,7 +610,6 @@ func _save_parallax_original_scales() -> void:
 			var layer_path := layer.get_path()
 			if not _parallax_original_mirroring.has(layer_path):
 				_parallax_original_mirroring[layer_path] = layer.motion_mirroring
-				print("[FoodMinigame] Saved original motion_mirroring for ", layer_path, ": ", layer.motion_mirroring)
 			
 			# Sprite scale'lerini kaydet
 			for sprite in layer.get_children():
@@ -653,7 +618,6 @@ func _save_parallax_original_scales() -> void:
 					var sprite_path := spr.get_path()
 					if not _parallax_original_scales.has(sprite_path):
 						_parallax_original_scales[sprite_path] = spr.scale
-						print("[FoodMinigame] Saved original parallax scale for ", sprite_path, ": ", spr.scale)
 
 func _adjust_parallax_scales(parallax_bg: ParallaxBackground, zoom_level: Vector2) -> void:
 	# Zoom faktörü (zoom out = daha küçük zoom değeri = daha büyük görüş alanı)
@@ -662,7 +626,6 @@ func _adjust_parallax_scales(parallax_bg: ParallaxBackground, zoom_level: Vector
 	var current_zoom := zoom_level.x
 	var scale_multiplier := default_zoom / current_zoom  # Zoom out yapıldığında scale artmalı
 	
-	print("[FoodMinigame] Adjusting parallax scales - default zoom: ", default_zoom, " current zoom: ", current_zoom, " multiplier: ", scale_multiplier)
 	
 	# Tüm parallax layer'ları bul ve sprite scale'lerini ayarla
 	for child in parallax_bg.get_children():
@@ -676,7 +639,6 @@ func _adjust_parallax_scales(parallax_bg: ParallaxBackground, zoom_level: Vector
 					var sprite_path := spr.get_path()
 					if not _parallax_original_scales.has(sprite_path):
 						_parallax_original_scales[sprite_path] = spr.scale
-						print("[FoodMinigame] Saved original scale for ", sprite_path, ": ", spr.scale)
 					
 					# Yeni scale hesapla
 					var original_scale: Vector2 = _parallax_original_scales[sprite_path]
@@ -692,7 +654,6 @@ func _adjust_parallax_scales(parallax_bg: ParallaxBackground, zoom_level: Vector
 					# Zoom out yapıldığında, daha fazla alan görünür, bu yüzden mirroring artmalı
 					var new_mirroring := original_mirroring * scale_multiplier
 					layer.motion_mirroring = new_mirroring
-					print("[FoodMinigame] Adjusted motion_mirroring for layer ", layer.name, " from ", original_mirroring, " to ", new_mirroring)
 			
 			# Sprite'ları bul ve scale'lerini ayarla
 			for sprite in layer.get_children():
@@ -702,13 +663,11 @@ func _adjust_parallax_scales(parallax_bg: ParallaxBackground, zoom_level: Vector
 					var sprite_path := spr.get_path()
 					if not _parallax_original_scales.has(sprite_path):
 						_parallax_original_scales[sprite_path] = spr.scale
-						print("[FoodMinigame] Saved original scale for ", sprite_path, ": ", spr.scale)
 					
 					# Yeni scale hesapla
 					var original_scale: Vector2 = _parallax_original_scales[sprite_path]
 					var new_scale := original_scale * scale_multiplier
 					spr.scale = new_scale
-					print("[FoodMinigame] Adjusted parallax sprite scale: ", sprite.name, " from ", original_scale, " to ", new_scale)
 
 func _reset_parallax_scales() -> void:
 	# ParallaxBackground'ı bul
@@ -732,7 +691,6 @@ func _reset_parallax_scales() -> void:
 			var layer_path := layer.get_path()
 			if _parallax_original_mirroring.has(layer_path):
 				layer.motion_mirroring = _parallax_original_mirroring[layer_path]
-				print("[FoodMinigame] Reset motion_mirroring for layer ", layer.name, " to ", layer.motion_mirroring)
 			
 			# Sprite scale'lerini orijinal değerlerine döndür
 			for sprite in layer.get_children():
@@ -741,7 +699,6 @@ func _reset_parallax_scales() -> void:
 					var sprite_path := spr.get_path()
 					if _parallax_original_scales.has(sprite_path):
 						spr.scale = _parallax_original_scales[sprite_path]
-						print("[FoodMinigame] Reset parallax sprite scale: ", sprite.name, " to ", spr.scale)
 
 func _force_parallax_update(parallax_bg: ParallaxBackground, zoom_level: Vector2) -> void:
 	# ParallaxBackground'ı force update et
@@ -791,7 +748,6 @@ func _force_parallax_update(parallax_bg: ParallaxBackground, zoom_level: Vector2
 						# Ama bu genellikle otomatik olarak yapılır
 						pass
 	
-	print("[FoodMinigame] Force updated parallax background for zoom: ", zoom_level, " viewport: ", viewport_size)
 
 func _save_default_camera_zoom() -> void:
 	# Başlangıç zoom değerini kaydet
@@ -802,7 +758,6 @@ func _save_default_camera_zoom() -> void:
 	
 	# ÖNCE mevcut zoom değerini kaydet (bu gerçek başlangıç zoom'u)
 	_default_camera_zoom = camera.zoom
-	print("[FoodMinigame] Saved CURRENT camera zoom as default: ", _default_camera_zoom)
 	
 	# Eğer kamera script'inde _default_zoom varsa ve mevcut zoom'dan farklıysa, script'teki değeri kullan
 	# Ama genellikle mevcut zoom doğru değerdir
@@ -810,12 +765,11 @@ func _save_default_camera_zoom() -> void:
 		var script_default = camera.get("_default_zoom")
 		if script_default != null and script_default != Vector2.ZERO:
 			# Script'teki default zoom'u kontrol et, ama mevcut zoom'u tercih et
-			print("[FoodMinigame] Camera script has _default_zoom: ", script_default, " but using current: ", _default_camera_zoom)
+			pass
 	
 	# Eğer hala Vector2.ZERO veya geçersiz bir değerse, varsayılan değer kullan
 	if _default_camera_zoom == Vector2.ZERO or _default_camera_zoom.x <= 0 or _default_camera_zoom.y <= 0:
 		_default_camera_zoom = Vector2(1.5, 1.5)  # Player camera default
-		print("[FoodMinigame] Using fallback default zoom: ", _default_camera_zoom)
 
 func _reset_camera_zoom() -> void:
 	if not _camera_zoomed_out:
@@ -832,7 +786,6 @@ func _reset_camera_zoom() -> void:
 		print("[FoodMinigame] ERROR: Could not find player camera for reset zoom")
 		return
 
-	print("[FoodMinigame] Resetting camera zoom - current zoom: ", camera.zoom, " target: ", _default_camera_zoom)
 
 	# Parallax'i orijinal scale'lerine döndür
 	_reset_parallax_scales()
@@ -848,17 +801,14 @@ func _reset_camera_zoom() -> void:
 	# hedefliyoruz; reset_zoom() sadece o metot hiç yoksa son çare olarak kullanılıyor.
 	if camera.has_method("zoom_to_vector"):
 		camera.zoom_to_vector(_default_camera_zoom, 0.6)
-		print("[FoodMinigame] Camera reset zoom to: ", _default_camera_zoom)
 	elif camera.has_method("reset_zoom"):
 		camera.reset_zoom(0.6)  # Yavaşça dön (0.6 saniye)
-		print("[FoodMinigame] Camera reset zoom via reset_zoom() method")
 	else:
 		# Manuel zoom animasyonu - kesin çalışır
 		if _camera_zoom_tween and _camera_zoom_tween.is_running():
 			_camera_zoom_tween.kill()
 		_camera_zoom_tween = create_tween()
 		_camera_zoom_tween.tween_property(camera, "zoom", _default_camera_zoom, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		print("[FoodMinigame] Camera reset zoom (manual tween) to: ", _default_camera_zoom)
 
 func _find_player_camera() -> Camera2D:
 	# Player'ı bul ve kamerasını döndür
@@ -884,7 +834,6 @@ func _find_player_camera() -> Camera2D:
 
 func _show_resource_gain_text(amount: int) -> void:
 	# Çalının tepesinde "+X" floating text göster
-	print("[FoodMinigame] _show_resource_gain_text() called with amount=", amount)
 	
 	if not _bush_node or not is_instance_valid(_bush_node):
 		print("[FoodMinigame] ERROR: _bush_node is null or invalid!")
@@ -899,23 +848,19 @@ func _show_resource_gain_text(amount: int) -> void:
 	var bush_pos := _bush_node.global_position
 	var text_pos := Vector2(bush_pos.x, bush_pos.y - 60.0)  # Çalının tepesinde
 	
-	print("[FoodMinigame] Bush position: ", bush_pos, " Text position: ", text_pos)
 	
 	# Scene'e ekle (chunk sistemine uygun)
 	var spawn_parent: Node = null
 	if _bush_node and _bush_node.get_parent():
 		spawn_parent = _bush_node.get_parent()
-		print("[FoodMinigame] Using bush parent as spawn_parent: ", spawn_parent.name)
 	else:
 		spawn_parent = get_tree().current_scene
-		print("[FoodMinigame] Using scene root as spawn_parent: ", spawn_parent.name)
 	
 	if spawn_parent:
 		spawn_parent.add_child(damage_number)
 		damage_number.global_position = text_pos
 		damage_number.z_index = 200000  # Çok yüksek z-index
 		
-		print("[FoodMinigame] Damage number added to scene at position: ", damage_number.global_position)
 		
 		# "+X" text'i göster (yeşil renk)
 		var label := damage_number.get_node_or_null("Label") as Label
@@ -926,7 +871,6 @@ func _show_resource_gain_text(amount: int) -> void:
 			# setup() text'i değiştirdi, tekrar "+" ekle
 			label.text = "+" + str(amount)
 			label.modulate = Color(0.2, 1.0, 0.2)  # Yeşil renk
-			print("[FoodMinigame] Label text set to: ", label.text)
 		else:
 			print("[FoodMinigame] ERROR: Label node not found in damage_number!")
 	else:

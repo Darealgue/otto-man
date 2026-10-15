@@ -2856,3 +2856,474 @@ synergy.jump_blast,her hava zıplaması patlama bırakır,every air jump leaves 
 wm.tooltip.stock.full,Hammadde: dolu,Resources: full
 wm.tooltip.stock.partial,Hammadde: %d/%d (~%d gün sonra dolar),Resources: %d/%d (full in ~%d days)
 wm.tooltip.stock.empty,Hammadde tükendi (~%d gün sonra dolar),Resources depleted (refills in ~%d days)
+challenge.chip.difficulty,Zorluk %d,Difficulty %d
+challenge.chip.days,%d gün kaldı,%d days left
+challenge.accept.warning_short,Başarısız olursan ölürsün. Tek kullanımlık.,Fail and you die. One time only.
+village.event.name.gather_bandits,Haydut Pususu,Bandit Ambush
+village.event.name.gather_birds,Kuş Sürüsü,Bird Flock
+village.event.desc.gather_bandits,Bir kaynağın toplama seferleri tamamen eli boş döner. Görev merkezinden ya da haritadan çözülür.,Trips for one resource come back empty handed. Solve it from the mission center or on the map.
+village.event.desc.gather_birds,Bir kaynağın toplama seferleri tamamen eli boş döner. Görev merkezinden ya da haritadan çözülür.,Trips for one resource come back empty handed. Solve it from the mission center or on the map.
+village.event.gather_bandits.body,Haydutlar yolu kesti ve %s toplayan köylüler eli boş dönüyor. Görev merkezinden birini gönder ya da haritadan kendin temizle.,Bandits have cut the road and villagers gathering %s come back empty handed. Send someone from the mission center or clear them yourself on the map.
+village.event.gather_birds.body,Bir kuş sürüsü yolu tuttu ve %s toplayan köylüler eli boş dönüyor. Görev merkezinden birini gönder ya da kuşları haritadan kendin uzaklaştır.,A flock of birds has taken the road and villagers gathering %s come back empty handed. Send someone from the mission center or lure the birds away yourself on the map.
+village.event.bubble.gather_bandits,🗡️ Toplama yolunda haydutlar var!,🗡️ Bandits on the gathering road!
+village.event.bubble.gather_bandits_2,"🗡️ Eli boş döndük, yol kesik.","🗡️ We came back empty handed, the road is cut."
+village.event.bubble.gather_bandits_3,🗡️ Birinin onları defetmesi lazım.,🗡️ Somebody has to drive them off.
+village.event.bubble.gather_birds,🐦 Kuşlar yolu kapattı!,🐦 The birds blocked the road!
+village.event.bubble.gather_birds_2,🐦 Bu sürü bizi yaklaştırmıyor.,🐦 That flock won't let us near.
+village.event.bubble.gather_birds_3,🐦 Biri onları başka yere çekmeli.,🐦 Somebody must draw them elsewhere.
+mission.relief.gather_bandits.name,Yolu Haydutlardan Temizle,Clear the Road of Bandits
+mission.relief.gather_bandits.desc,"Toplama yolunu tutan haydutları dağıt. Askerler gerekir, kayıp riski var. Başarılı olursan köylüler yeniden toplayabilir.",Scatter the bandits holding the gathering road. Soldiers are needed and losses are possible. If you succeed the villagers can gather again.
+mission.relief.gather_birds.name,Kuşları Uzaklaştır,Lure the Birds Away
+mission.relief.gather_birds.desc,Yolu kapatan kuş sürüsünü başka yöne çek. Başarılı olursan köylüler yeniden toplayabilir.,Draw the flock blocking the road in another direction. If you succeed the villagers can gather again.
+challenge.blockade.desc.dalga,"Haydutlar köylülerin toplama yolunu tuttu. Hepsini temizle, yol açılsın.",Bandits hold the villagers' gathering road. Clear them all to open it.
+challenge.blockade.desc.kovalamaca,"Bir kuş sürüsü toplama yolunu kapatmış. Onları peşine takıp çıkış kapısına koş, yol açılsın.",A flock of birds blocks the gathering road. Lead them on a chase to the exit door to open it.
+challenge.blockade.reward,Köylüler %s toplamaya döner,Villagers go back to gathering %s
+challenge.reward.head,Ödül,Reward
+challenge.chip.blocked,Engellenen: %s,Blocked: %s
+challenge.accept.warning_blockade,Başarısız olursan ölürsün. Engel yerinde kalır.,Fail and you die. The blockade stays.
+challenge.win.blockade,Yol açıldı! %s toplama yeniden başlıyor. +%d altın,The road is open! %s gathering resumes. +%d gold
+digest.raid.won,%s püskürtüldü,%s repelled
+digest.raid.lost,%s köyü yağmaladı,%s raided the village
+digest.raid.soldiers_lost,-%d asker,-%d soldiers
+digest.raid.disarmed,%d asker silahsız,%d soldiers disarmed
+digest.raid.morale,Moral %+d,Morale %+d
+digest.raid.allied_help,müttefik yardım etti,allies helped
+digest.gold,%+d altın,%+d gold
+digest.mission.won,%s başarılı,%s succeeded
+digest.mission.lost,%s başarısız,%s failed
+digest.produced,%d saatte üretildi:,Produced in %d h:
+digest.produced_none,%d saattir üretim yok,Nothing produced in %d h
+digest.built,%s tamamlandı,%s completed
+digest.event.start,başladı,began
+digest.event.end,%s sona erdi,%s ended
+digest.event.blocked,%s toplama durdu,%s gathering halted
+digest.event.hindered,%s toplama aksıyor,%s gathering disrupted
+digest.shortage.food,"Yiyecek yetmedi, köylüler aç (%d eksik)","Not enough food, villagers go hungry (%d short)"
+digest.shortage.soldier_food,Askerlere yiyecek yetmedi (%d eksik),Not enough food for the soldiers (%d short)
+digest.villager.joined,Köye yeni bir köylü katıldı (toplam %d),A new villager joined the village (%d total)
+digest.morale.low,Moral düşük (%d),Morale is low (%d)
+digest.morale.critical,"Moral çok düşük (%d), köy tehlikede","Morale is very low (%d), the village is in danger"
+digest.morale.recovered,Moral toparlandı,Morale has recovered
+digest.cariye.title_covered,Cariye ihtiyaçları karşılanamadı,The concubines' needs were not met
+digest.cariye.hungry,Cariyeler aç kaldı: %s,The concubines went without: %s
+digest.gather.empty.food,Köylüler yemek bulamadı,Villagers could not find food
+digest.gather.empty.wood,Oduncular eli boş döndü,The woodcutters came back empty handed
+digest.gather.empty.stone,Taş toplayanlar eli boş döndü,The stone gatherers came back empty handed
+digest.sick.count,%d köylü hastalandı,%d villagers fell sick
+digest.sick.healed,%d köylü iyileşti,%d villagers recovered
+digest.villager.left,"%s barınak bulamadı, köyden ayrıldı",%s found no shelter and left the village
+digest.storage.full,"%s deposu dolu, fazlası boşa gidiyor","The %s storage is full, the surplus is wasted"
+digest.cariye.departed,%s göreve çıktı: %s,%s set out on a mission: %s
+digest.cariye.leveled,%s seviye atladı (%d),%s reached level %d
+digest.cariye.injured,%s yaralandı,%s was injured
+digest.cariye.joined,Yeni cariye katıldı: %s,A new concubine joined: %s
+digest.army.lost,-%d asker kaybedildi,-%d soldiers lost
+digest.building.upgraded,%s yükseltildi (seviye %d),%s upgraded (level %d)
+digest.villager.fallen,%s savaşta düştü,%s fell in battle
+digest.villager.fallen_many,%d asker savaşta düştü,%d soldiers fell in battle
+digest.villager.lost,%s köyden silindi,%s is gone from the village
+digest.villager.lost_many,%d köylü köyden silindi,%d villagers are gone from the village
+digest.army.survived,%d asker silahı sayesinde sağ kaldı,%d soldiers survived thanks to their weapons
+build.section.basic,Temel binalar,Basic buildings
+build.section.processing,İşleme (ham maddeyi dönüştürür),Processing (turns raw goods into new ones)
+build.section.advanced,Gelişmiş üretim,Advanced production
+build.section.luxury,Lüks ve destek,Luxury and support
+build.state.built,Kurulu,Built
+build.state.recommended,Sıradaki önerilen bina,Recommended next
+build.ui.produces,Üretir:,Produces:
+build.ui.from,Girdi:,Needs:
+build.ui.from_map,(haritadan toplanır),(gathered from the map)
+build.ui.needs_buildings,Zincir (önce bunlar):,Chain (build these first):
+build.ui.cost,İnşa bedeli (elinde):,Build cost (you have):
+build.ui.can_build,Kurulabilir. Tıkla ya da Enter ile inşa et.,Ready to build. Click or press Enter.
+build.ui.no_plot,Boş inşa parseli yok veya konut katı eklenemiyor.,"No free plot, or no floor can be added."
+build.ui.upgrade_first,Önce yükselt: ,Upgrade first: 
+build.gold,Altın,Gold
+build.info.woodcutter,"Köylüler ormandan odun toplar. Neredeyse her yapının ve işleme zincirinin temel malzemesi, ilk kurulacaklardan biri.","Villagers gather wood from the forest. The basic material of almost every building and processing chain, one of the first to build."
+build.info.stone_mine,"Dağdan taş çıkarır. İnşaat, tuğla, demir ve silah için gerekir.","Quarries stone from the mountains. Needed for construction, bricks, metal and weapons."
+build.info.hunter_hut,Yiyecek toplar ve avlanır. Köylüleri ve askerleri doyurur; yiyecek biterse moral düşer.,Gathers and hunts food. Feeds villagers and soldiers; morale falls when food runs out.
+build.info.house,Köylülere barınak olur. Evsiz kalan köylü misafir sayılır ve birkaç gün sonra köyden ayrılır. Gerektikçe kat eklenebilir.,Shelter for villagers. A villager without a home is a guest and leaves after a few days. Floors can be added as needed.
+build.info.sawmill,Odunu keresteye çevirir. Gelişmiş binaların çoğu inşaatta kereste ister.,Turns wood into lumber. Most advanced buildings need lumber to be built.
+build.info.brickworks,"Taşı tuğlaya çevirir. Gelişmiş binalar, çay evi ve 2. seviye silah tuğla ister.","Turns stone into bricks. Advanced buildings, the tea house and tier 2 weapons need bricks."
+build.info.bakery,"Yiyecekten ekmek yapar. Cariyeler her hafta ekmek ister, yoksa moral düşer; terzi ve çay evi de ekmek ister.",Bakes bread from food. Concubines want bread every week or morale drops; the tailor and tea house need it too.
+build.info.blacksmith,Taş ve odundan metal üretir. Sabun ve 3. seviye silah için metal gerekir.,Smelts metal from stone and wood. Soap and tier 3 weapons need metal.
+build.info.weaver,Odun ve yiyecekten kumaş dokur. Terzi ve 3. seviye silah için kumaş gerekir.,Weaves cloth from wood and food. The tailor and tier 3 weapons need cloth.
+build.info.herbalist,Taş ve yiyecekten ilaç yapar. Hasta köylüleri iyileştirir ve tıbbiyeci cariye eğitimi için gerekir.,Makes medicine from stone and food. Heals sick villagers and is needed to train a healer concubine.
+build.info.gunsmith,Askerler için silah üretir. Silahlı askerler savaşta daha çok sağ kalır ve baskınlara daha iyi karşı koyar.,Produces weapons for soldiers. Armed soldiers survive battles more often and hold raids off better.
+build.info.gunsmith_out,Silah (binanın seviyesine göre),Weapons (depends on the building level)
+build.info.gunsmith_in,"1. sv odun+taş, 2. sv kereste+tuğla, 3. sv metal+kumaş","Tier 1 wood+stone, tier 2 lumber+brick, tier 3 metal+cloth"
+build.info.tailor,Ekmek ve kumaştan giysi diker. Lüks maldır; tüccar cariye eğitimi için gerekir.,Sews garments from bread and cloth. A luxury good; needed to train a merchant concubine.
+build.info.teahouse,"Tuğla ve ilaçtan çay yapar. Cariyeler her hafta çay ister, diplomat cariye eğitimi için de gerekir.",Makes tea from bricks and medicine. Concubines want tea every week and a diplomat concubine needs it for training.
+build.info.soapmaker,"Kereste ve metalden sabun yapar. Lüks maldır, ticarette ve ileri üretimde değer taşır.","Makes soap from lumber and metal. A luxury good, valuable for trade and advanced production."
+build.info.inventor,"Kalıcı karakter yükseltmeleri ve sefer malzemeleri buradan yönetilir. Ucuzdur, erken kurulabilir.",Permanent character upgrades and expedition supplies are managed here. Cheap and can be built early.
+build.info.storage,Tüm temel kaynakların depo kapasitesini artırır. Depo dolunca fazla üretim boşa gider.,Raises the storage capacity of all basic resources. Surplus production is wasted once storage is full.
+build.info.barracks,Askerleri barındırır ve savunma kuvvetini oluşturur. Baskınlarda köyü bu askerler savunur; silah verirsen daha çok sağ kalırlar.,Houses the soldiers that form your defense. They defend the village in raids; armed soldiers survive more often.
+dm.tab_dispatch,Göreve Yolla,Send on Mission
+dm.dispatch_action,Göreve Yolla (hedefi haritadan seç),Send on Mission (pick a target on the map)
+dm.banner,%s (%s) için hedef seç,Choose a target for %s (%s)
+dm.modal.title,%s · %s,%s · %s
+dm.distance,%d hex uzakta,%d hexes away
+dm.hint.options,Yukarı aşağı: seç · Onayla: devam · İptal: kapat,Up Down: select · Confirm: continue · Cancel: close
+dm.hint.prep,Yukarı aşağı: satır · Sol sağ: değiştir · Onayla: ilerle ve yolla · İptal: geri,Up Down: row · Left Right: change · Confirm: next and send · Cancel: back
+dm.kind.fog,Keşfedilmemiş bölge,Unexplored area
+dm.kind.village,Komşu köy,Neighbor village
+dm.kind.dungeon,Zindan,Dungeon
+dm.kind.challenge,Meydan okuma,Challenge
+dm.kind.landmark,Önemli yer,Landmark
+dm.kind.camp,Haydut kampı,Bandit camp
+dm.kind.wild,Açık arazi,Wilderness
+dm.kind.home,Kendi köyün,Your village
+dm.reason.no_concubine,Cariye bulunamadı,Concubine not found
+dm.reason.bad_hex,Buraya görev gönderilemez,No mission can be sent here
+dm.reason.home_hex,Burası kendi köyün,This is your own village
+dm.reason.fog_agent_only,Bilinmeyen bölgeye yalnız Ajan gönderilebilir,Only an Agent can be sent into unexplored areas
+dm.reason.no_option,Bu rolün burada yapabileceği bir iş yok,This role has nothing to do here
+dm.reason.not_idle,Cariye şu an müsait değil,The concubine is not available
+dm.reason.no_soldiers,Yeterli asker yok,Not enough soldiers
+dm.reason.cant_afford,Hediye için yeterli kaynak yok,Not enough resources for the gift
+dm.reason.cant_handle,Cariye bu göreve çıkamıyor (sağlık veya moral düşük),The concubine cannot take this mission (low health or morale)
+dm.res.gold,Altın,Gold
+dm.res.wood,Odun,Wood
+dm.res.stone,Taş,Stone
+dm.res.food,Yiyecek,Food
+dm.res.medicine,İlaç,Medicine
+dm.res.reputation,İtibar,Reputation
+dm.pen.injured,Cariye yaralanabilir,Concubine may be hurt
+dm.pen.army_losses,Asker kaybı,Soldier losses
+dm.prep.soldiers,Asker,Soldiers
+dm.prep.recommended,önerilen,suggested
+dm.prep.max,en çok,max
+dm.prep.send,Yolla,Send
+dm.prep.duration,Süre,Duration
+dm.prep.chance,Başarı,Success
+dm.prep.rewards,Ödül,Reward
+dm.prep.risks,Risk,Risk
+dm.time.hm,%d sa %d dk,%dh %dm
+dm.opt.agent_scout_fog.title,Bilinmeyeni keşfet,Scout the unknown
+dm.opt.agent_scout_fog.desc,Ajan sisli bölgeye sızıp çevreyi haritalar.,The agent slips into the fog and maps the surroundings.
+dm.opt.agent_intel_village.title,İstihbarat topla,Gather intelligence
+dm.opt.agent_intel_village.desc,Komşu köyün çevresini ve niyetlerini araştırır.,Looks into the neighbor village and its intentions.
+dm.opt.diplomat_gift.title,Hediye götür,Bring a gift
+dm.opt.diplomat_gift.desc,Köye hediye götürüp ilişkileri düzeltir. Hediye ne kadar büyükse etkisi o kadar artar.,Brings a gift to improve relations. A bigger gift helps more.
+dm.opt.diplomat_treaty.title,Anlaşma görüşmesi,Negotiate a treaty
+dm.opt.diplomat_treaty.desc,Daha derin bir ilişki için görüşmeye gider. Zordur ama ilişkiyi çok artırır.,"Goes for deeper talks. Harder, but improves relations a lot."
+dm.opt.trader_deal.title,Ticaret anlaşması,Trade deal
+dm.opt.trader_deal.desc,Köyle ticaret anlaşması yapıp kâr getirir.,Strikes a trade deal with the village and brings profit.
+dm.opt.commander_support.title,Asker desteği,Military support
+dm.opt.commander_support.desc,Komşu köye asker götürüp güven kazanır.,Brings soldiers to the neighbor village and earns trust.
+dm.opt.scholar_purchase.title,Malzeme satın al,Buy supplies
+dm.opt.scholar_purchase.desc,Köyden odun ve taş satın alır.,Buys wood and stone from the village.
+dm.opt.medic_aid_village.title,Yardım götür,Bring aid
+dm.opt.medic_aid_village.desc,"İlaç götürüp köye yardım eder, ilişkiler gelişir.","Brings medicine and helps the village, improving relations."
+dm.opt.none_envoy.title,Haber götür,Carry a message
+dm.opt.none_envoy.desc,Köye basit bir haber taşır.,Carries a simple message to the village.
+dm.opt.agent_infiltrate.title,Zindana sız,Infiltrate the dungeon
+dm.opt.agent_infiltrate.desc,"Zindanı önceden gözetler, içeriden bilgi getirir.",Scouts the dungeon beforehand and brings back inside information.
+dm.opt.commander_clear_dungeon.title,Giriş temizliği,Clear the entrance
+dm.opt.commander_clear_dungeon.desc,Askerlerle zindanın girişindeki tehditleri temizler.,Clears threats at the dungeon entrance with soldiers.
+dm.opt.any_scout_dungeon.title,Zindanı gözetle,Watch the dungeon
+dm.opt.any_scout_dungeon.desc,Uzaktan zindanı gözetler.,Watches the dungeon from afar.
+dm.opt.commander_clear_camp.title,Kampa saldır,Attack the camp
+dm.opt.commander_clear_camp.desc,Haydut kampına saldırıp ganimet alır. Kayıp verilebilir.,Attacks the bandit camp for loot. Losses are possible.
+dm.opt.commander_challenge.title,Meydan okumayı çöz,Take the challenge
+dm.opt.commander_challenge.desc,Askerlerle meydan okumayı çözer.,Takes on the challenge with soldiers.
+dm.opt.agent_watch_camp.title,Kampı gözetle,Watch the camp
+dm.opt.agent_watch_camp.desc,Haydut kampının çevresini gözetler.,Watches the area around the bandit camp.
+dm.opt.agent_watch_challenge.title,Alanı gözetle,Watch the area
+dm.opt.agent_watch_challenge.desc,Meydan okuma alanını önceden inceler.,Studies the challenge site beforehand.
+dm.opt.diplomat_parley.title,Haydutlarla pazarlık,Parley with bandits
+dm.opt.diplomat_parley.desc,Haydutlarla konuşup anlaşmaya çalışır. Riskli.,Tries to strike a deal with the bandits. Risky.
+dm.opt.any_inspect_landmark.title,Yeri incele,Inspect the site
+dm.opt.any_inspect_landmark.desc,Önemli yeri inceleyip bilgi toplar.,Inspects the site and gathers information.
+dm.opt.medic_help_landmark.title,Yardım et,Offer help
+dm.opt.medic_help_landmark.desc,Oradaki insanlara ilaç verip yardım eder.,Gives medicine and help to people there.
+dm.opt.trader_landmark.title,Takas yap,Barter
+dm.opt.trader_landmark.desc,Oradakilerle takas yapıp kâr eder.,Barters with the people there for profit.
+dm.opt.diplomat_landmark.title,Görüş,Talk
+dm.opt.diplomat_landmark.desc,Oradakilerle konuşup köyün adını duyurur.,Talks to them and spreads the village's name.
+dm.opt.commander_guard_landmark.title,Nöbet tut,Stand guard
+dm.opt.commander_guard_landmark.desc,Askerlerle bölgeyi korur.,Guards the place with soldiers.
+dm.opt.agent_scout_wild.title,Bölgeyi keşfet,Scout the area
+dm.opt.agent_scout_wild.desc,Çevreyi dolaşıp haritayı genişletir.,Wanders the area and widens the map.
+dm.opt.commander_patrol.title,Devriye ve temizlik,Patrol and clear
+dm.opt.commander_patrol.desc,"Bölgede devriye gezip tehdidi temizler, kaynak toplatır.","Patrols the region, clears threats and secures resources."
+dm.opt.trader_route.title,Ticaret yolu araştır,Survey a trade route
+dm.opt.trader_route.desc,Bölgede kâr getirecek bir yol arar.,Looks for a profitable route in the region.
+dm.opt.scholar_gather.title,Malzeme topla,Gather materials
+dm.opt.scholar_gather.desc,Bölgeden değerli malzeme toplar.,Collects valuable materials from the region.
+dm.opt.medic_herbs.title,Şifalı bitki topla,Gather herbs
+dm.opt.medic_herbs.desc,Bölgedeki şifalı bitkilerden ilaç hazırlar.,Prepares medicine from herbs found in the region.
+dm.opt.none_scout_wild.title,Çevreyi gez,Look around
+dm.opt.none_scout_wild.desc,Yakın çevreyi dolaşıp bilgi toplar.,Looks around nearby and gathers information.
+wm.tooltip.bandit_camp.title,Haydut kampı,Bandit camp
+wm.tooltip.bandit_camp.body,Haydutlar burada kamp kurmuş. Bir komutan cariye bu kampa saldırabilir.,Bandits have set up camp here. A commander concubine can attack it.
+concubine.status.captive,Esir,Captive
+concubine.trait.fast.name,Fırtına Ayaklı,Windfoot
+concubine.trait.fast.desc,Yolculuk süresi yüzde 20 kısalır,Trips take 20 percent less time
+concubine.trait.iron.name,Demir İrade,Iron Will
+concubine.trait.iron.desc,"Yaralar yarı sürede iyileşir, moral az düşer",Heals twice as fast and loses less morale
+concubine.trait.cunning.name,Kurnaz,Cunning
+concubine.trait.cunning.desc,Esir düşerse yüzde 40 kendi kaçar,40 percent chance to escape if captured
+concubine.trait.beloved.name,Sevilen Komutan,Beloved Leader
+concubine.trait.beloved.desc,Götürdüğü asker daha az kayıp verir,Her soldiers suffer fewer losses
+concubine.trait.frugal.name,Tutumlu,Frugal
+concubine.trait.frugal.desc,Hediyenin dörtte biri her zaman geri döner,A quarter of the gift always comes back
+concubine.trait.lucky.name,Şanslı Yıldız,Lucky Star
+concubine.trait.lucky.desc,Büyük başarı şansı artar,Higher chance of a great success
+concubine.trait.learner.name,Çabuk Öğrenir,Quick Learner
+concubine.trait.learner.desc,Başarılı görevlerden daha çok deneyim kazanır,Gains more experience from successful missions
+concubine.trait.timid.name,Ürkek,Timid
+concubine.trait.timid.desc,"Moral hızlı düşer, esir düşme ihtimali artar",Loses morale faster and is more likely to be captured
+concubine.trait.fragile.name,Kırılgan,Fragile
+concubine.trait.fragile.desc,Yaraları daha geç iyileşir,Wounds take longer to heal
+concubine.trait.wasteful.name,Savurgan,Wasteful
+concubine.trait.wasteful.desc,Götürdüğü hediye yüzde 20 fazla harcanır,Gifts cost 20 percent more
+concubine.trait.stubborn.name,Dikbaşlı,Stubborn
+concubine.trait.stubborn.desc,Morali düşükse göreve çıkmayı reddeder,Refuses missions when morale is low
+concubine.trait.lazy.name,Tembel,Lazy
+concubine.trait.lazy.desc,Yolculuk süresi yüzde 20 uzar,Trips take 20 percent longer
+concubine.trait.arrogant.name,Kibirli,Arrogant
+concubine.trait.arrogant.desc,Götürdüğü asker daha çok kayıp verir,Her soldiers suffer heavier losses
+concubine.trait.grumbler.name,Dert Küpü,Complainer
+concubine.trait.grumbler.desc,Başarısız olunca köyün morali düşer,Village morale drops when she fails
+dm.news.big.title,Büyük başarı,Great success
+dm.news.big.body,"%s, ""%s"" görevinde parladı.","%s shone on ""%s""."
+dm.news.fail.title,Görev başarısız,Mission failed
+dm.news.fail.body,"%s, ""%s"" görevinde başarısız oldu.","%s failed ""%s""."
+dm.news.escaped.title,Cariye kaçtı,Concubine escaped
+dm.news.escaped.body,"%s, ""%s"" görevinde yakalandı ama kaçmayı başardı.","%s was caught on ""%s"" but escaped."
+dm.news.captured.title,Cariye esir düştü,Concubine captured
+dm.news.captured.body,%s esir düştü. Haritada kurtarma görevi açıldı.,%s was captured. A rescue mission is now on the map.
+dm.news.rescued.title,Cariye kurtarıldı,Concubine rescued
+dm.news.rescued.body,%s esirlikten kurtuldu ve köye dönüyor.,%s was freed and is heading home.
+dm.rescue.name,Esir cariyeyi kurtar: %s,Rescue the captive: %s
+dm.rescue.desc,%s esir tutuluyor. Baskınla ya da fidyeyle kurtarılabilir.,%s is held captive. She can be freed by a raid or a ransom.
+dm.rescue.strategy.raid,Baskınla kurtar,Free by raid
+dm.rescue.strategy.ransom,Fidye öde,Pay the ransom
+dm.opt.commander_rescue.title,Esiri kurtar,Rescue the captive
+dm.opt.commander_rescue.desc,Askerlerle esir cariyeyi kurtarmaya gider.,Goes with soldiers to free the captive concubine.
+dm.reason.refuses,"Cariyenin morali çok düşük, göreve çıkmayı reddediyor","Her morale is too low, she refuses to go"
+wm.tooltip.dungeon.intel,Ajan bilgisi: %d gün,Agent intel: %d days
+wm.tooltip.dungeon.cleared,Giriş temizlendi: %d gün,Entrance cleared: %d days
+dm.role_track_hint,"Haritadaki ""%s"" görevine yolla.","Send her to ""%s"" on the map."
+cm_popup.role_changed,Rol değişti: %s,Role changed: %s
+dm.opt.trader_sell_wood.title,Odun sat,Sell wood
+dm.opt.trader_sell_wood.desc,Köyün odununu komşu köye satıp altın kazanır. Kâr ilişkiye ve cariyenin ticaret yeteneğine göre artar.,Sells the village's wood to the neighbor for gold. Profit grows with relations and her trade skill.
+dm.opt.trader_sell_stone.title,Taş sat,Sell stone
+dm.opt.trader_sell_stone.desc,Köyün taşını komşu köye satıp altın kazanır. Kâr ilişkiye ve cariyenin ticaret yeteneğine göre artar.,Sells the village's stone to the neighbor for gold. Profit grows with relations and her trade skill.
+dm.opt.trader_sell_food.title,Yiyecek sat,Sell food
+dm.opt.trader_sell_food.desc,Köyün yiyeceğini komşu köye satıp altın kazanır. Kâr ilişkiye ve cariyenin ticaret yeteneğine göre artar.,Sells the village's food to the neighbor for gold. Profit grows with relations and her trade skill.
+dm.prep.good,Mal,Goods
+dm.prep.task,Görev,Task
+dm.prep.amount,Miktar,Amount
+dm.hint.prep2,Sol sağ: değiştir · Onayla: yolla · İptal: geri,Left Right: change · Confirm: send · Cancel: back
+dm.opt.scholar_buy_wood.title,Odun satın al,Buy wood
+dm.opt.scholar_buy_wood.desc,Verilen altına karşılık komşu köyden odun alır.,Buys wood from the neighbor village for the gold you give.
+dm.opt.scholar_buy_stone.title,Taş satın al,Buy stone
+dm.opt.scholar_buy_stone.desc,Verilen altına karşılık komşu köyden taş alır.,Buys stone from the neighbor village for the gold you give.
+dm.pen.relation,Köyle ilişki bozulur,Relations with the village worsen
+dm.opt.commander_pillage_land.title,Toprakları yağmala,Plunder the lands
+dm.opt.commander_pillage_land.desc,"Komşu köyün orman, dağ ya da tarlalarını yağmalar. Ne kadar çok asker, o kadar çok ganimet. Köyle ilişki bozulur.","Plunders the neighbor village's forests, mountains or fields. More soldiers, more loot. Relations worsen."
+dm.opt.commander_raid_village.title,Köyü yağmala,Raid the village
+dm.opt.commander_raid_village.desc,"Askerlerle köye baskın yapıp ganimet alır. İlişki ciddi şekilde bozulur, kayıp verilebilir.",Raids the village with soldiers for loot. Relations worsen badly and losses are possible.
+dm.opt.trader_buy_wood.title,Odun satın al,Buy wood
+dm.opt.trader_buy_wood.desc,Verilen altına karşılık komşu köyden odun alır.,Buys wood from the neighbor village for the gold you give.
+dm.opt.trader_buy_stone.title,Taş satın al,Buy stone
+dm.opt.trader_buy_stone.desc,Verilen altına karşılık komşu köyden taş alır.,Buys stone from the neighbor village for the gold you give.
+cm_popup.points_free,Boş puan: %d,Free points: %d
+cm_popup.points_free_line,Boş puan: %d,Free points: %d
+cm_popup.role_points_line,Bu role verilen puan: %d / %d,Points in this role: %d / %d
+cm_popup.point_given,%s için puan verildi,Point given to %s
+concubine.trait.nervous.name,Ürkek,Timid
+concubine.trait.nervous.desc,Başarısız görevde morali daha çok düşer,Loses more morale after a failed mission
+concubine.trait.silver_tongue.name,Tatlı Dilli,Silver Tongue
+concubine.trait.silver_tongue.desc,Köyle ilişkiyi her başarılı girişimde 1 fazla artırır,Improves relations by 1 more on every successful attempt
+concubine.trait.greedy.name,Açgözlü,Greedy
+concubine.trait.greedy.desc,"Altın ödülü yüzde 25 fazla, götürdüğü hediye yüzde 20 pahalı",Gold rewards are 25 percent higher but gifts cost 20 percent more
+concubine.trait.reckless.name,Atılgan,Reckless
+concubine.trait.reckless.desc,Başarı şansı yüzde 8 artar ama felaket ihtimali de artar,Success chance rises 8 percent but disaster is likelier
+cm_popup.traits_title,Özellikler,Traits
+cm_popup.traits_none,Belirgin bir özelliği yok,No notable traits
+cm_popup.dismiss,Köyden yolla,Send away
+cm_popup.dismiss_confirm,Emin misin? Tekrar bas,Sure? Press again
+cm_popup.nav_hint_keyboard2,[↑↓◄►] Gezin   [Enter] Onayla   [Q/E] Sekme   [Esc] Kapat,[↑↓◄►] Move   [Enter] Confirm   [Q/E] Tab   [Esc] Close
+cm_popup.nav_hint_gamepad2,[↑↓◄►] Gezin   [A] Onayla   [L2/R2] Sekme   [B] Kapat,[↑↓◄►] Move   [A] Confirm   [L2/R2] Tab   [B] Close
+digest.cariye_dismissed,%s köyden ayrıldı,%s left the village
+rescue.choice.title,Cariye kurtarıldı,Concubine rescued
+rescue.choice.question,%s ne yapsın?,What should %s do?
+rescue.choice.accept,Köye al,Take to the village
+rescue.choice.decline,Yoluna gitsin (+%d altın),Let her go (+%d gold)
+rescue.choice.thanks,%s teşekkür etti ve yoluna gitti,%s thanked you and went on her way
+dm.res.villager,Köylü,Villagers
+dm.opt.diplomat_recruit.title,Köylü devşir,Recruit villagers
+dm.opt.diplomat_recruit.desc,"Komşu köyden altın karşılığı köylü çeker. Her köylü için altın ve köyle ilişki harcanır, köyde barınak gerekir.","Draws villagers from a neighbor village for gold. Each villager costs gold and relations, and needs housing."
+dm.pen.recruit_relation,Köyle ilişki -%d,Relations with the village -%d
+dm.reason.recruit_relation,Köyle ilişki yetersiz,Relations with the village are too low
+dm.reason.recruit_cooldown,Bu köyden yakın zamanda köylü alındı,Villagers were recently taken from this village
+dm.reason.no_housing,Köyde yeni köylü için barınak yok,No housing for new villagers
+dm.reason.leadership_full,Komutanların önderlik kapasitesi dolu,Your commanders cannot lead more soldiers
+wm.tooltip.neighbor.no_intel,Haber alınamıyor,No news available
+cm_popup.role_strength_line,Köyün bu rolde gücü: %d / %d (%d cariye),Village strength in this role: %d / %d (%d concubines)
+cm_popup.role_missing_line,Köyde bu rolde cariye yok,No concubine holds this role
+cm_popup.benefit_commander2,"Köyde boştayken orduyu güçlendirir. Her komutan 5 artı puanının iki katı kadar askere önderlik eder, komutan yoksa aynı anda yalnız 3 asker görevde olabilir.",Strengthens the army while idle. Each commander leads 5 plus twice her points in soldiers; with no commander only 3 soldiers can be on missions at once.
+cm_popup.benefit_agent2,"Komşu köylerin krizlerini ve baskınlarını görürsün. Ajan yoksa yalnız en yakın köyü görürsün, puan ve yardımcı ajanlar daha çok köyü açar.",Lets you see neighbor villages' crises and raids. Without an agent you only see the nearest village; points and extra agents reveal more.
+cm_popup.benefit_diplomat2,"Komşu köylerden altın ve ilişki karşılığı köylü devşirir, diplomasi görevlerini yapar.","Recruits villagers from neighbors for gold and relations, and handles diplomacy."
+cm_popup.benefit_trader2,"Köyün malını satar, mal satın alır ve köye tüccar gelme şansını artırır.","Sells the village's goods, buys goods, and makes traders visit more often."
+cm_popup.benefit_physician2,"Asker kaybını ve yaraların süresini azaltır. Tıbbiyeci yoksa kayıplar yüzde 25, iyileşme süreleri yüzde 50 artar.",Reduces soldier losses and healing time. Without a physician losses rise 25 percent and healing takes 50 percent longer.
+cm_popup.abilities_active,Aktif yetenekler (görevde),Active abilities (on missions)
+cm_popup.abilities_passive,Pasif yetenekler (köyde olduğu sürece),Passive abilities (while in the village)
+cm_popup.ab.komutan.active,"Köy ve arazi yağması, haydut kampına saldırı, zindan girişi temizliği, esir kurtarma.","Plundering villages and lands, attacking bandit camps, clearing dungeon entrances, rescuing captives."
+cm_popup.ab.komutan.passive,"Köyde boştayken orduya saldırı +%%%d, savunma +%%%d verir. Önderlik: aynı anda %d asker görevde olabilir.","While idle in the village: army attack +%%%d, defense +%%%d. Leadership: %d soldiers can be on missions at once."
+cm_popup.ab.ajan.active,"Sisli bölgeyi keşfetme, zindana sızma, köy ve kamp gözetleme.","Scouting the fog, infiltrating dungeons, watching villages and camps."
+cm_popup.ab.ajan.passive,Komşu köylerden %d tanesinin kriz ve baskınını görürsün.,You see the crises and raids of %d neighbor villages.
+cm_popup.ab.diplomat.active,"Hediye götürme, anlaşma görüşmesi, köylü devşirme, haydutlarla pazarlık.","Bringing gifts, negotiating treaties, recruiting villagers, parleying with bandits."
+cm_popup.ab.diplomat.passive,"Krizler daha kısa sürer, istikrar daha hızlı toparlanır.",Crises are shorter and stability recovers faster.
+cm_popup.ab.tuccar.active,"Köyün malını satma, mal satın alma, kervan ve harabelerde takas.","Selling the village's goods, buying goods, bartering at caravans and ruins."
+cm_popup.ab.tuccar.passive,Köye tüccar gelme şansı +%%%d.,Chance of a trader visiting the village +%%%d.
+cm_popup.ab.tibbiyeci.active,"Köylere ilaçla yardım, şifalı bitki toplama, hasta ve yaralı tedavisi.","Bringing medicine to villages, gathering herbs, treating the sick and wounded."
+cm_popup.ab.tibbiyeci.passive,"Asker kaybı %+d%%, iyileşme süreleri %+d%%.","Soldier losses %+d%%, healing times %+d%%."
+cm_popup.ab.diplomat.passive2,"Görevlerden doğan köy ilişkisi kayıpları (yağma, devşirme) %%%d azalır.","Relation losses from missions (plundering, recruiting) are %%%d smaller."
+cm_popup.ab.diplomat.passive3,"Kendi eylemlerinden doğan köy ilişkisi kayıpları (yağma, baskın, taraf tutma, ittifak bozma) %%%d azalır.","Relation losses from your own actions (plundering, raids, taking sides, breaking alliances) are %%%d smaller."
+tutorial.hint.first_cariye2,"Tebrikler, bir [color=#ff99cc]cariye[/color] kurtardın!
+Köyde ona yaklaş ([color=#f5d76e]^[/color] basılı tut), [color=#f5d76e]Göreve Yolla[/color] ile haritadan görev ver.","Congratulations, you rescued a [color=#ff99cc]concubine[/color]!
+Approach her in the village (hold [color=#f5d76e]^[/color]) and use [color=#f5d76e]Send on Mission[/color] to give her a task from the map."
+tutorial.rescue_chain.message2,"[color=#ff99cc]%s[/color] köye geldi.
+Ona yaklaş, [color=#f5d76e]Göreve Yolla[/color]'yı seç ve haritada işaretli yere gönder: [color=#f5d76e]«Dinlen ve Anlat»[/color].","[color=#ff99cc]%s[/color] has arrived.
+Approach her, pick [color=#f5d76e]Send on Mission[/color] and send her to the marked spot on the map: [color=#f5d76e]«Rest and Debrief»[/color]."
+tutorial.rescue_chain.objective2,"%s ile konuş, «Göreve Yolla» ile haritadaki «Dinlen ve Anlat» görevine gönder",Talk to %s and send her to «Rest and Debrief» on the map with «Send on Mission»
+news.rescue_chain.start.body2,Kurtardığın cariyeyle konuş: «Göreve Yolla» ile haritada işaretli yere gönder. «Kurtarılanın Yolu» açıldı.,Talk to the concubine you rescued: use «Send on Mission» to send her to the marked spot. «Path of the Rescued» is open.
+mentor_brief.raid_result_hint2,Sonuç: bir cariyeyi «Göreve Yolla» ile göndererek takip edilebilir.,Result: can be followed by sending a concubine with «Send on Mission».
+cm_popup.tab_overview,Cariyeler,Concubines
+cm_popup.overview_empty,Köyde cariye yok,No concubines in the village
+cm_popup.overview_days,%d gün,%d days
+cm_popup.overview_points,+%d puan,+%d points
+wm.tooltip.bandit_camp.body2,"Haydutlar burada kamp kurmuş, çevredeki yollar tehlikeli. Bir komutan cariye saldırabilir.",Bandits have set up camp here and the roads around are dangerous. A commander concubine can attack it.
+cm_popup.level_short,Seviye %d,Level %d
+cm_popup.stamina,Dinçlik %d/%d,Stamina %d/%d
+dm.news.starved_left.title,Cariye köyü terk etti,Concubine left the village
+dm.news.starved_left.body,%s açlığa dayanamadı ve köyden ayrıldı.,%s could not bear the hunger and left the village.
+digest.cariye.starving,"%s aç, dinçliği düşüyor","%s is hungry, stamina is dropping"
+falci.v2.tab.all,Tümü,All
+falci.v2.tab.archive,Arşiv,Archive
+falci.v2.tab.sale,Satılık,For sale
+falci.v2.theme.ates,Ateş,Fire
+falci.v2.theme.buz,Buz,Ice
+falci.v2.theme.zehir,Zehir,Poison
+falci.v2.theme.firtina,Fırtına,Storm
+falci.v2.theme.barut,Barut,Gunpowder
+falci.v2.theme.golge,Gölge,Shadow
+falci.v2.theme.notr,Nötr,Neutral
+falci.v2.sort.label,Sırala,Sort
+falci.v2.sort.chrono,Son açılan önce,Newest first
+falci.v2.sort.element,Element,Element
+falci.v2.sort.category,Kategori,Category
+falci.v2.level,Falcı seviyesi %d/%d,Seer level %d/%d
+falci.v2.boost_slots,Güçlendirme %d/%d,Boosts %d/%d
+falci.v2.deck,Deste %d (taban %d),Deck %d (floor %d)
+falci.v2.upgrade,Falcıyı yükselt (%d),Upgrade seer (%d)
+falci.v2.upgrade_max,Falcı en üst seviyede,Seer is at max level
+falci.v2.act.boost,Güçlendir (%d),Boost (%d)
+falci.v2.act.unboost,Güçlendirmeyi kaldır,Remove boost
+falci.v2.act.archive,Arşivle (%d),Archive (%d)
+falci.v2.act.restore,Geri al (%d),Restore (%d)
+falci.v2.act.swap_add,Takasa ekle,Add to trade
+falci.v2.act.swap_remove,Takastan çıkar,Remove from trade
+falci.v2.act.buy,Satın al (%d),Buy (%d)
+falci.v2.swap.status,Takas: %d/%d kart seçili,Trade: %d/%d cards chosen
+falci.v2.swap.go,Takas yap (%d),Trade (%d)
+falci.v2.swap.clear,Seçimi temizle,Clear selection
+falci.v2.closed.hint,Henüz açılmadı,Not unlocked yet
+falci.v2.card.price,%d altın,%d gold
+falci.v2.state.boosted,Güçlendirildi,Boosted
+falci.v2.state.swap,Takasa seçildi,Chosen for trade
+falci.v2.state.archived,Arşivde,Archived
+falci.v2.detail.none,Bir kart seç.,Choose a card.
+falci.v2.grid.empty,Burada gösterilecek kart yok.,No cards to show here.
+falci.v2.sale.empty,Bu ziyaretin hakkı kullanıldı ya da falcının satacağı bir şey yok. Biri alınınca diğerleri gider.,"This visit's choice is used or the seer has nothing to sell. Once you buy one, the rest are gone."
+falci.v2.info.upgraded,Falcı yükseldi: seviye %d.,The seer grew stronger: level %d.
+falci.v2.info.boosted,%s artık üç kat şansla gelecek.,%s will now appear with triple the chance.
+falci.v2.info.unboosted,%s artık güçlendirilmiyor.,%s is no longer boosted.
+falci.v2.info.archived,%s arşive kaldırıldı.,%s was moved to the archive.
+falci.v2.info.restored,%s desteye geri döndü.,%s is back in the deck.
+falci.v2.info.swapped,"%s gitti, yerine %s geldi.","%s is gone, %s took their place."
+falci.v2.info.swap_failed,Falcı buna uygun bir şey bulamadı.,The seer could not find anything suitable.
+falci.v2.info.bought,%s koleksiyonuna eklendi.,%s was added to your collection.
+falci.v2.reason.not_in_deck,Bu kart destede değil.,This card is not in the deck.
+falci.v2.reason.active,Bu kart şu an üzerinde.,You are carrying this card right now.
+falci.v2.reason.parent,"Başka kartlar buna bağlı, çıkarılamaz.",Other cards depend on this one.
+falci.v2.reason.floor,Deste en düşük sayıya indi.,The deck is at its minimum size.
+falci.v2.reason.count,Takas için tam 3 kart seçmelisin.,You must choose exactly 3 cards to trade.
+falci.v2.reason.dupe,Aynı kartı iki kez seçemezsin.,You cannot choose the same card twice.
+falci.v2.reason.no_slot,"Boş güçlendirme yerin yok, falcıyı yükselt.","No free boost slot, upgrade the seer."
+falci.v2.reason.already,Bu kart zaten güçlendirilmiş.,This card is already boosted.
+falci.v2.page,Sayfa %d / %d,Page %d / %d
+falci.v2.trade.title,Takas sepeti,Trade basket
+falci.v2.trade.empty,boş,empty
+falci.v2.trade.hint,"Üç kart feda edilir, feda ettiklerinin elementlerinden biri rastgele açılır.",Three cards are sacrificed and one of their elements is picked at random to unlock a new card.
+falci.v2.sale.title,Bu ziyaretin satışı,This visit's sale
+falci.v2.sale.hint,Biri alınınca diğerleri gider.,Buying one removes the rest.
+falci.v2.hint.actions,"Güçlendir: bu kart ödüllerde üç kat sık çıkar. Arşivle: desteden çıkar, geri alınabilir. Takas: üç kart feda edilip yenisi açılır.","Boost: this card appears three times as often in rewards. Archive: leaves the deck, can be restored. Trade: sacrifice three cards to unlock a new one."
+falci.v2.hint.archived,"Bu kart arşivde, ödüllerde çıkmaz. Geri alarak desteye döndürebilirsin.",This card is archived and will not show up in rewards. Restore it to put it back in the deck.
+falci.v2.hint.sale,"Satın alırsan koleksiyonuna eklenir, bu ziyaretteki diğer eşyalar gider.","If you buy it, it joins your collection and the other items of this visit are gone."
+falci.v2.anim.new,Yeni kart!,New card!
+falci.v2.anim.continue,Devam etmek için bas,Press to continue
+falci.v2.close_label,Kapat,Close
+trader.origin,%s köyünden,From %s
+trader.in_village,Köyde: %d,In village: %d
+trader.tier.basic,Temel,Basic
+trader.tier.processed,İşlenmiş,Processed
+trader.tier.crafted,El işi,Crafted
+trader.tier.arms,Silah,Arms
+wm.settlement.adj.tembel,Tembel,Lazy
+wm.settlement.adj.ac,Aç,Hungry
+wm.settlement.adj.uykulu,Uykulu,Sleepy
+wm.settlement.adj.dedikodulu,Dedikodulu,Gossipy
+wm.settlement.adj.kavgaci,Kavgacı,Brawling
+wm.settlement.adj.inatci,İnatçı,Stubborn
+wm.settlement.adj.cimri,Cimri,Stingy
+wm.settlement.adj.saskin,Şaşkın,Bewildered
+wm.settlement.adj.mahcup,Mahcup,Bashful
+wm.settlement.adj.sivri,Sivri,Pointy
+wm.settlement.adj.egri,Eğri,Crooked
+wm.settlement.adj.bozuk,Bozuk,Busted
+wm.settlement.adj.kokulu,Kokulu,Smelly
+wm.settlement.adj.sasirmis,Şaşırmış,Startled
+wm.settlement.adj.gevrek,Gevrek,Crispy
+wm.settlement.adj.mutsuz,Mutsuz,Glum
+wm.settlement.adj.horoz,Horoz,Rooster
+wm.settlement.adj.kaz,Kaz,Goose
+wm.settlement.adj.esek,Eşek,Donkey
+wm.settlement.adj.kurbaga,Kurbağa,Frog
+wm.settlement.adj.patates,Patates,Potato
+wm.settlement.adj.sogan,Soğan,Onion
+wm.settlement.adj.pilav,Pilav,Pilaf
+wm.settlement.adj.corba,Çorba,Soup
+wm.settlement.adj.yogurt,Yoğurt,Yogurt
+wm.settlement.adj.simit,Simit,Bagel
+wm.settlement.adj.kavun,Kavun,Melon
+wm.settlement.adj.karpuz,Karpuz,Watermelon
+wm.settlement.adj.kabak,Kabak,Squash
+wm.settlement.adj.tosbaga,Tosbağa,Tortoise
+wm.settlement.adj.deve,Deve,Camel
+wm.settlement.adj.kedi,Kedi,Cat
+wm.settlement.adj.kopek,Köpek,Dog
+wm.settlement.adj.tavuk,Tavuk,Chicken
+wm.settlement.adj.ordek,Ördek,Duck
+wm.settlement.adj.hindi,Hindi,Turkey
+wm.settlement.adj.karga,Karga,Crow
+wm.settlement.adj.baykus,Baykuş,Owl
+wm.settlement.adj.yilan,Yılan,Snake
+wm.settlement.adj.kurt,Kurt,Wolf
+wm.settlement.adj.ayi,Ayı,Bear
+wm.settlement.adj.tilki,Tilki,Fox
+wm.settlement.adj.tavsan,Tavşan,Rabbit
+wm.settlement.adj.salyangoz,Salyangoz,Snail
+wm.settlement.adj.hamsi,Hamsi,Anchovy
+wm.settlement.adj.kofte,Köfte,Meatball
+wm.settlement.adj.baklava,Baklava,Baklava
+wm.settlement.adj.lokum,Lokum,Delight
+wm.settlement.adj.kebap,Kebap,Kebab
+wm.settlement.adj.pazar,Pazar,Market
+wm.settlement.adj.cesme,Çeşme,Fountain
+wm.settlement.adj.degirmen,Değirmen,Mill
+wm.settlement.adj.kuyu,Kuyu,Well

@@ -34,9 +34,6 @@ func _ready() -> void:
 	wake_distance = 1500.0
 	
 	# DEBUG: Collision info
-	print("[Firemage] Collision Layer: ", collision_layer)
-	print("[Firemage] Collision Mask: ", collision_mask)
-	print("[Firemage] Position: ", global_position)
 	
 	# Initialize combat components
 	if hitbox:
@@ -207,28 +204,21 @@ func _handle_takeoff_rise_state(delta: float) -> void:
 			velocity.x = 0.0  # No horizontal movement if no target
 		
 		set_meta("takeoff_jumped", true)
-		print("[Firemage] Takeoff Rise - Jumped! Velocity: ", velocity)
-		print("[Firemage] Takeoff Rise - Ceiling detector: ", ceiling_detector.is_colliding())
 	
 	# DEBUG: Rise state - her 10 frame debug
 	if Engine.get_physics_frames() % 10 == 0:
-		print("[Firemage] Takeoff Rise - Timer: ", behavior_timer)
-		print("[Firemage] Takeoff Rise - Position: ", global_position)
-		print("[Firemage] Takeoff Rise - Velocity: ", velocity)
-		print("[Firemage] Takeoff Rise - Ceiling detector: ", ceiling_detector.is_colliding())
+		pass
 	
 	# Minimum 0.3 saniye bekle, sonra ceiling kontrolü yap
 	if behavior_timer >= 0.3:
 		# Tepesinde duvar varsa flying'e geç
 		if ceiling_detector.is_colliding():
-			print("[Firemage] Takeoff Rise - Ceiling detected after 0.3s, going to flying")
 			is_flying = true
 			change_behavior("flying")
 			return
 	
 	# 0.3 saniye sonra flying'e geç
 	if behavior_timer >= 0.3:  # 0.3 saniye rise animasyonu
-		print("[Firemage] Takeoff Rise - Timer finished, going to flying")
 		is_flying = true
 		# Meta flag'i temizle
 		if has_meta("takeoff_jumped"):
@@ -264,8 +254,7 @@ func _handle_flying_state(delta: float) -> void:
 	
 	# DEBUG: Movement calculation
 	if Engine.get_physics_frames() % 60 == 0:  # Print every second
-		print("[Firemage] Movement - Direction: ", direction, " Target velocity: ", target_velocity)
-		print("[Firemage] Movement - Current velocity: ", velocity, " Distance to target: ", global_position.distance_to(target_pos))
+		pass
 	
 	# Yumuşak geçiş (lerp) - daha smooth
 	# Ensure horizontal movement is maintained
@@ -273,11 +262,7 @@ func _handle_flying_state(delta: float) -> void:
 	
 	# DEBUG: Flying state
 	if Engine.get_physics_frames() % 60 == 0:  # Print every second
-		print("[Firemage] Flying - Position: ", global_position)
-		print("[Firemage] Flying - Target: ", target_pos)
-		print("[Firemage] Flying - Velocity: ", velocity)
-		print("[Firemage] Flying - Is on floor: ", is_on_floor())
-		print("[Firemage] Flying - Is flying flag: ", is_flying)
+		pass
 	
 	# Duvar kaçınma
 	_avoid_obstacles()
@@ -299,10 +284,8 @@ func _handle_bombard_state(delta: float) -> void:
 	if behavior_timer >= 0.3 and not has_meta("bomb_thrown"):  # 3 frame sonra (prepare bitince) bomba at
 		_throw_fire_bomb()
 		set_meta("bomb_thrown", true)
-		print("[Firemage] Bomb thrown at timer: ", behavior_timer)
 	if behavior_timer >= 0.6:  # 6 frame sonra (animasyon bitince) uçuşa dön
 		remove_meta("bomb_thrown")
-		print("[Firemage] Bombard finished, going to flying")
 		change_behavior("flying")
 
 func _handle_fall_state(delta: float) -> void:
@@ -344,11 +327,10 @@ func _handle_hurt_state(delta: float) -> void:
 	
 	# DEBUG: Hurt state info (reduced frequency)
 	if Engine.get_physics_frames() % 30 == 0:  # Print every 0.5 seconds
-		print("[Firemage] Hurt State - Timer: ", behavior_timer, " Is Flying: ", is_flying, " On Floor: ", is_on_floor(), " Velocity: ", velocity)
+		pass
 	
 	# Behavior timer kontrolü
 	if behavior_timer >= 0.3:  # 3 frame sonra uçuşa dön
-		print("[Firemage] Hurt State - Transitioning. Is Flying: ", is_flying)
 		if is_flying:
 			change_behavior("flying")
 		else:
@@ -399,9 +381,7 @@ func _calculate_target_position() -> Vector2:
 	
 	# DEBUG: Target position calculation (reduced frequency)
 	if Engine.get_physics_frames() % 120 == 0:  # Print every 2 seconds
-		print("[Firemage] Target calc - Player pos: ", player_pos, " Target height: ", target_height, " Hover height: ", HOVER_HEIGHT)
-		print("[Firemage] Target calc - Distance: ", distance, " Direction: ", direction_to_player)
-		print("[Firemage] Target calc - Correction factor: ", correction_factor, " Target X: ", target_x)
+		pass
 	
 	var target_pos = Vector2(target_x, target_height)
 	
@@ -436,7 +416,6 @@ func _throw_fire_bomb() -> void:
 	# Timer sıfırla
 	bomb_timer = 0.0
 	
-	print("[Firemage] Threw fire bomb at: ", target.global_position)
 
 func _avoid_obstacles() -> void:
 	# Duvar kaçınma
@@ -516,7 +495,6 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	
 	# Don't interrupt takeoff_rise state - let it continue rising
 	if current_behavior == "takeoff_rise":
-		print("[Firemage] Damage during takeoff_rise - continuing ascent, not switching to hurt")
 		# Just flash red but don't change behavior
 		if sprite:
 			sprite.modulate = Color(1, 0, 0, 1)
@@ -530,18 +508,15 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	behavior_timer = 0.0
 	
 	# Check if we're actually on the ground - if so, we're not flying anymore
-	print("[Firemage] Damage taken - Is on floor: ", is_on_floor(), " Is flying: ", is_flying, " Velocity: ", velocity)
 	if is_on_floor():
 		is_flying = false
-		print("[Firemage] Hit while on ground - no longer flying")
 	else:
 		# If we're in the air, keep flying but reduce velocity
 		if velocity.y > 0:  # Falling down
-			print("[Firemage] Falling but still in air - keeping flying flag")
+			pass
 		else:
-			print("[Firemage] Still in air - keeping flying flag")
+			pass
 	
-	print("[Firemage] Took damage: ", amount, " Health: ", health)
 
 func apply_gravity(_delta: float) -> void:
 	# Override to prevent gravity when flying
@@ -603,7 +578,6 @@ func _setup_normal_map_sync():
 	if not normal_sprite:
 		return
 	
-	print("[FiremageEnemy] Normal sprite found: ", normal_sprite.name)
 	
 	# Sync animation and frame with main sprite
 	normal_sprite.animation = sprite.animation
@@ -619,14 +593,12 @@ func _setup_normal_map_sync():
 			var material = ShaderMaterial.new()
 			material.shader = shader
 			sprite.material = material
-			print("[FiremageEnemy] Added normal map shader material to main sprite")
 			
 			# Debug: Check if normal texture is properly set
 			if normal_sprite.sprite_frames:
 				var test_texture = normal_sprite.sprite_frames.get_frame_texture(normal_sprite.animation, normal_sprite.frame)
 				if test_texture:
-					print("[FiremageEnemy] Normal texture loaded successfully: ", test_texture.get_class())
-					print("[FiremageEnemy] Normal texture size: ", test_texture.get_size())
+					pass
 				else:
 					print("[FiremageEnemy] ERROR: Normal texture is null!")
 			else:

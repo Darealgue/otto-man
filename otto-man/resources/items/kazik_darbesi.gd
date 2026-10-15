@@ -21,7 +21,6 @@ func _init():
 	item_name = tr("item.kazik_darbesi.name")
 	description = tr("item.kazik_darbesi.description")
 	flavor_text = "Kazık gibi çak"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.FALL_ATTACK
 	affected_stats = ["air_slam"]
 

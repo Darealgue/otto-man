@@ -284,7 +284,6 @@ func set_active_profile(profile_id: int) -> bool:
 	_ensure_save_directory()
 	_persist_active_profile()
 	active_profile_changed.emit(active_profile_id)
-	print("[SaveManager] Aktif profil: %d" % active_profile_id)
 	return true
 
 
@@ -368,7 +367,6 @@ func delete_profile(profile_id: int) -> bool:
 		return false
 	_ensure_save_directory()
 	profile_deleted.emit(profile_id)
-	print("[SaveManager] ✅ Profil %d temizlendi" % profile_id)
 	return true
 
 
@@ -414,7 +412,7 @@ func _ensure_save_directory() -> void:
 		if error != OK:
 			push_error("[SaveManager] Failed to create save directory: %s" % SAVE_ROOT)
 		else:
-			print("[SaveManager] Created save directory: %s" % SAVE_ROOT)
+			pass
 	dir = DirAccess.open("user://")
 	if not dir:
 		return
@@ -449,7 +447,6 @@ func _migrate_legacy_flat_files_to_profile_1() -> void:
 		return
 	if FileAccess.file_exists(dst_first):
 		return
-	print("[SaveManager] Eski düz kayıtlar profil 1'e kopyalanıyor...")
 	for slot_id: int in range(1, MAX_SAVE_SLOTS + 1):
 		var src: String = SAVE_ROOT + "save_%d.json" % slot_id
 		var dst: String = get_save_file_path_for_profile(1, slot_id)
@@ -553,7 +550,6 @@ func _write_save_data_to_file(save_data: Dictionary, file_path: String) -> bool:
 		push_error("[SaveManager] Failed to write to file: %s (error: %d)" % [file_path, store_error])
 		error_occurred.emit(err_write, "save")
 		return false
-	print("[SaveManager] ✅ Kayıt yazıldı: %s" % file_path)
 	return true
 
 
@@ -701,7 +697,6 @@ func _load_game_from_path(file_path: String, emit_slot_id: int) -> bool:
 		if is_instance_valid(SceneManager):
 			call_deferred("_change_to_saved_scene", SceneManager.VILLAGE_SCENE)
 	
-	print("[SaveManager] ✅ Game loaded (slot/kaynak=%d) %s" % [emit_slot_id, file_path])
 	load_completed.emit(emit_slot_id, true)
 	return true
 
@@ -716,7 +711,6 @@ func _change_to_saved_scene(scene_path: String) -> void:
 			SceneManager.change_to_village({})
 		return
 	
-	print("[SaveManager] Changing to saved scene: %s" % scene_path)
 	if is_instance_valid(VillageManager) and VillageManager.has_method("schedule_skip_next_snapshot"):
 		VillageManager.schedule_skip_next_snapshot()
 	# Use SceneManager's public methods
@@ -734,14 +728,12 @@ func _change_to_saved_scene(scene_path: String) -> void:
 			SceneManager.change_to_village({}, true)
 	else:
 		# For other scenes, try to use start_new_game or fallback
-		print("[SaveManager] Unknown scene path, defaulting to village: %s" % scene_path)
 		if SceneManager.has_method("change_to_village"):
 			SceneManager.change_to_village({})
 
 # === SAVE HELPERS ===
 
 func _save_village_state() -> Dictionary:
-	print("[SaveManager] 💾 DEBUG: Starting _save_village_state()")
 	var state: Dictionary = {}
 	
 	if not is_instance_valid(VillageManager):
@@ -783,7 +775,6 @@ func _save_village_state() -> Dictionary:
 		state["basic_gather_last_departure_day"] = VillageManager._saved_basic_gather_last_departure_day.duplicate(true)
 	if "_saved_basic_resource_overflow" in VillageManager:
 		state["basic_resource_overflow"] = VillageManager._saved_basic_resource_overflow.duplicate(true)
-	print("[SaveManager] 💾 DEBUG: Resources saved: %s" % str(state["resources"]))
 	
 	# Buildings (use saved building states if available, otherwise snapshot current state)
 	var building_states: Array = []
@@ -792,18 +783,15 @@ func _save_village_state() -> Dictionary:
 		if "_skip_next_snapshot" in VillageManager:
 			skip_snapshot = bool(VillageManager.get("_skip_next_snapshot"))
 		if skip_snapshot:
-			print("[SaveManager] 💾 DEBUG: Skipping snapshot_state_for_scene_exit (preserve in-memory village state)")
 			VillageManager.set("_skip_next_snapshot", false)
 		else:
-			print("[SaveManager] 💾 DEBUG: Calling snapshot_state_for_scene_exit()...")
 			VillageManager.snapshot_state_for_scene_exit()
 		# Get saved building states
 		var saved_states = VillageManager.get("_saved_building_states")
 		if saved_states is Array:
 			building_states = saved_states.duplicate(true)
-			print("[SaveManager] 💾 DEBUG: Got %d building states from snapshot" % building_states.size())
 		else:
-			print("[SaveManager] ⚠️ DEBUG: _saved_building_states is not an Array: %s" % str(saved_states))
+			pass
 	else:
 		# Fallback: try to get building states directly
 		if "village_scene_instance" in VillageManager and is_instance_valid(VillageManager.village_scene_instance):
@@ -820,21 +808,13 @@ func _save_village_state() -> Dictionary:
 						building_states.append(entry)
 	
 	state["buildings"] = building_states
-	print("[SaveManager] 💾 DEBUG: Saved %d buildings to state" % building_states.size())
 	for i in range(min(building_states.size(), 5)):  # İlk 5 binayı logla
 		var b = building_states[i]
-		print("[SaveManager] 💾 DEBUG: Building %d - Path: %s, Level: %s, Workers: %s" % [
-			i + 1,
-			b.get("scene_path", "unknown"),
-			b.get("level", "N/A"),
-			b.get("assigned_workers", 0)
-		])
 	
 	# Workers
 	var worker_states: Array = []
 	if "_saved_worker_states" in VillageManager and VillageManager._saved_worker_states is Array:
 		worker_states = VillageManager._saved_worker_states.duplicate(true)
-		print("[SaveManager] 💾 DEBUG: Saved %d workers to state" % worker_states.size())
 	else:
 		print("[SaveManager] ⚠️ DEBUG: _saved_worker_states not found or not Array")
 	state["workers"] = worker_states
@@ -933,7 +913,7 @@ func _save_mission_state() -> Dictionary:
 				if cariye.appearance == null:
 					printerr("[SaveManager] ⚠️ Cariye %d görünümü NULL (save edilmeden önce)! Bu bir sorun!" % cariye_id)
 				else:
-					print("[SaveManager] 🔍 Cariye %d görünümü var, to_dict() çağrılıyor..." % cariye_id)
+					pass
 				
 				var cariye_data = cariye.to_dict()
 				
@@ -944,7 +924,7 @@ func _save_mission_state() -> Dictionary:
 					elif cariye_data["appearance"] == null:
 						printerr("[SaveManager] ⚠️ Cariye %d görünümü to_dict() sonrası null!" % cariye_id)
 					else:
-						print("[SaveManager] ✅ Cariye %d görünümü kaydedildi (dict size: %d)" % [cariye_id, cariye_data["appearance"].size() if cariye_data["appearance"] is Dictionary else 0])
+						pass
 				else:
 					printerr("[SaveManager] ⚠️ Cariye %d görünümü null, kaydedilemiyor!" % cariye_id)
 				state["concubines"].append({"id": cariye_id, "data": cariye_data})
@@ -986,17 +966,13 @@ func _save_mission_state() -> Dictionary:
 			if s is Dictionary:
 				ss_out.append((s as Dictionary).duplicate(true))
 		state["mm_settlements"] = ss_out
-	if "trade_routes" in MissionManager:
-		var tr_out: Array = []
-		for r in MissionManager.trade_routes:
-			if r is Dictionary:
-				tr_out.append((r as Dictionary).duplicate(true))
-		state["mm_trade_routes"] = tr_out
 	if "settlement_trade_modifiers" in MissionManager:
 		state["mm_settlement_trade_modifiers"] = MissionManager.settlement_trade_modifiers.duplicate(true)
 	state["mm_active_traders"] = MissionManager.active_traders.duplicate(true)
 	state["mm_active_rate_modifiers"] = MissionManager.active_rate_modifiers.duplicate(true)
 	state["mm_player_reputation"] = MissionManager.player_reputation
+	if "directed_state" in MissionManager:
+		state["mm_directed_state"] = MissionManager.directed_state.duplicate(true)
 	state["mm_world_stability"] = MissionManager.world_stability
 	state["mm_bandit_activity_active"] = MissionManager.bandit_activity_active
 	state["mm_bandit_trade_multiplier"] = MissionManager.bandit_trade_multiplier
@@ -1187,8 +1163,6 @@ func _save_weather_state() -> Dictionary:
 # === LOAD HELPERS ===
 
 func _load_village_state(state: Dictionary) -> void:
-	print("[SaveManager] 🔄 DEBUG: Starting _load_village_state()")
-	print("[SaveManager] 🔍 DEBUG: State keys: %s" % str(state.keys()))
 	
 	if not is_instance_valid(VillageManager):
 		push_warning("[SaveManager] VillageManager not available")
@@ -1247,19 +1221,17 @@ func _load_village_state(state: Dictionary) -> void:
 			if VillageManager.has_method("_strip_legacy_water_from_resources"):
 				VillageManager._strip_legacy_water_from_resources()
 			VillageManager._saved_resource_levels = VillageManager.resource_levels.duplicate(true)
-			print("[SaveManager] ✅ DEBUG: Resources loaded: %s" % str(VillageManager.resource_levels))
 		else:
-			print("[SaveManager] ⚠️ DEBUG: Resources is not a Dictionary: %s" % str(resources))
+			pass
 	else:
-		print("[SaveManager] ⚠️ DEBUG: State has no 'resources' key")
+		pass
 	if state.has("production_progress"):
 		var progress = state["production_progress"]
 		if progress is Dictionary:
 			VillageManager.base_production_progress = progress.duplicate(true)
 			VillageManager._saved_base_production_progress = VillageManager.base_production_progress.duplicate(true)
-			print("[SaveManager] ✅ DEBUG: Production progress loaded")
 		else:
-			print("[SaveManager] ⚠️ DEBUG: Production progress is not a Dictionary")
+			pass
 		VillageManager._saved_base_production_progress = VillageManager.base_production_progress.duplicate(true)
 	if state.has("basic_gather_expeditions"):
 		var ge: Variant = state["basic_gather_expeditions"]
@@ -1285,44 +1257,34 @@ func _load_village_state(state: Dictionary) -> void:
 	# Building states (will be restored when village scene loads)
 	if state.has("buildings"):
 		var raw_buildings = state["buildings"]
-		print("[SaveManager] 🔍 DEBUG: Found 'buildings' in state, type: %s, size: %d" % [typeof(raw_buildings), raw_buildings.size() if raw_buildings is Array else 0])
 		if raw_buildings is Array:
 			var converted_buildings: Array = []
-			print("[SaveManager] 🔄 DEBUG: Converting %d buildings..." % raw_buildings.size())
 			for i in range(raw_buildings.size()):
 				var raw_entry = raw_buildings[i]
 				if raw_entry is Dictionary:
 					var entry: Dictionary = raw_entry.duplicate(true)
 					var scene_path = entry.get("scene_path", "unknown")
-					print("[SaveManager] 🔄 DEBUG: Converting building %d: %s" % [i + 1, scene_path.get_file()])
 					if entry.has("position"):
 						entry["position"] = _to_vector2(entry.get("position"))
 					if entry.has("global_position"):
 						entry["global_position"] = _to_vector2(entry.get("global_position"))
-						print("[SaveManager] 📍 DEBUG: Building %d global_position: %s" % [i + 1, str(entry["global_position"])])
 					if entry.has("local_position"):
 						entry["local_position"] = _to_vector2(entry.get("local_position"))
 					if entry.has("level"):
-						print("[SaveManager] 📊 DEBUG: Building %d level: %s" % [i + 1, str(entry.get("level"))])
+						pass
 					if entry.has("assigned_workers"):
 						entry["assigned_workers"] = int(entry.get("assigned_workers", 0))
-						print("[SaveManager] 👷 DEBUG: Building %d assigned_workers: %d" % [i + 1, entry["assigned_workers"]])
 					if entry.has("max_workers"):
 						entry["max_workers"] = int(entry.get("max_workers", 0))
-						print("[SaveManager] 👷 DEBUG: Building %d max_workers: %d" % [i + 1, entry["max_workers"]])
 					if entry.has("assigned_worker_ids") and entry["assigned_worker_ids"] is Array:
 						entry["assigned_worker_ids"] = (entry["assigned_worker_ids"] as Array).duplicate(true)
-						print("[SaveManager] 👷 DEBUG: Building %d worker_ids: %s" % [i + 1, str(entry["assigned_worker_ids"])])
 					converted_buildings.append(entry)
 				else:
-					print("[SaveManager] ⚠️ DEBUG: Building entry %d is not a Dictionary: %s" % [i + 1, typeof(raw_entry)])
+					pass
 			VillageManager._saved_building_states = converted_buildings
-			print("[SaveManager] ✅ DEBUG: Loaded %d buildings into _saved_building_states" % converted_buildings.size())
 		else:
-			print("[SaveManager] ⚠️ DEBUG: Buildings is not an Array: %s" % typeof(raw_buildings))
 			VillageManager._saved_building_states = []
 	else:
-		print("[SaveManager] ⚠️ DEBUG: State has no 'buildings' key")
 		VillageManager._saved_building_states = []
 	
 	if state.has("pending_constructions"):
@@ -1351,7 +1313,6 @@ func _load_village_state(state: Dictionary) -> void:
 		var raw_workers = state["workers"]
 		if raw_workers is Array:
 			var converted_workers: Array = []
-			print("[SaveManager] 🔄 DEBUG: Converting %d workers..." % raw_workers.size())
 			for i in range(raw_workers.size()):
 				var raw_worker = raw_workers[i]
 				if raw_worker is Dictionary:
@@ -1359,7 +1320,6 @@ func _load_village_state(state: Dictionary) -> void:
 					var worker_id = worker_entry.get("worker_id", -1)
 					var job_type = worker_entry.get("job_type", "")
 					var building_key = worker_entry.get("building_key", "")
-					print("[SaveManager] 🔄 DEBUG: Converting worker %d - ID: %d, Job: %s, Building: %s" % [i + 1, worker_id, job_type, building_key])
 					var npc_info_val = worker_entry.get("npc_info", {})
 					if npc_info_val is Dictionary:
 						var npc_copy = npc_info_val.duplicate(true)
@@ -1370,14 +1330,11 @@ func _load_village_state(state: Dictionary) -> void:
 					worker_entry["building_key"] = String(building_key)
 					converted_workers.append(worker_entry)
 				else:
-					print("[SaveManager] ⚠️ DEBUG: Worker entry %d is not a Dictionary: %s" % [i + 1, typeof(raw_worker)])
+					pass
 			VillageManager._saved_worker_states = converted_workers
-			print("[SaveManager] ✅ DEBUG: Loaded %d workers into _saved_worker_states" % converted_workers.size())
 		else:
-			print("[SaveManager] ⚠️ DEBUG: Workers is not an Array: %s" % typeof(raw_workers))
 			VillageManager._saved_worker_states = []
 	else:
-		print("[SaveManager] ⚠️ DEBUG: State has no 'workers' key")
 		VillageManager._saved_worker_states = []
 
 	if is_instance_valid(VillagerAiInitializer):
@@ -1420,6 +1377,9 @@ func _should_persist_mission_snapshot(mission_id: String, mission_obj: Variant, 
 	if mission_id.begins_with("defense_") or mission_id.begins_with("raid_"):
 		return true
 	if mission_id.begins_with("rescue_chain_") or mission_id.begins_with("role_") or mission_id.begins_with("story_"):
+		return true
+	# Esir cariyenin kurtarma görevi: kaydedilmezse cariye sonsuza dek esir kalırdı.
+	if mission_id.begins_with("rescue_captive_"):
 		return true
 	if mission_obj is Mission:
 		var mo: Mission = mission_obj
@@ -1574,7 +1534,7 @@ func _load_mission_state(state: Dictionary) -> void:
 						if cariye.appearance == null:
 							printerr("[SaveManager] ⚠️ Cariye %d görünümü yüklenemedi! Data: %s" % [cariye_id, str(cariye_data.get("appearance"))])
 						else:
-							print("[SaveManager] ✅ Cariye %d görünümü yüklendi" % cariye_id)
+							pass
 					else:
 						printerr("[SaveManager] ⚠️ Cariye %d görünümü save'de yok!" % cariye_id)
 					
@@ -1587,7 +1547,6 @@ func _load_mission_state(state: Dictionary) -> void:
 							if next_id is int:
 								MissionManager.set("next_concubine_id", max(next_id, cariye_id + 1))
 			
-			print("[SaveManager] ✅ %d cariye yüklendi" % loaded_concubines.size())
 	
 	# Trade agreements
 	if state.has("trade_agreements"):
@@ -1603,13 +1562,6 @@ func _load_mission_state(state: Dictionary) -> void:
 			for s in lsett:
 				if s is Dictionary:
 					MissionManager.settlements.append((s as Dictionary).duplicate(true))
-	if state.has("mm_trade_routes"):
-		var ltr: Variant = state["mm_trade_routes"]
-		if ltr is Array:
-			MissionManager.trade_routes.clear()
-			for r in ltr:
-				if r is Dictionary:
-					MissionManager.trade_routes.append((r as Dictionary).duplicate(true))
 	if state.has("mm_settlement_trade_modifiers"):
 		var lmod: Variant = state["mm_settlement_trade_modifiers"]
 		if lmod is Array:
@@ -1634,6 +1586,10 @@ func _load_mission_state(state: Dictionary) -> void:
 			for tr in lat:
 				if tr is Dictionary:
 					MissionManager.active_traders.append((tr as Dictionary).duplicate(true))
+	if state.has("mm_directed_state") and "directed_state" in MissionManager:
+		var lds: Variant = state["mm_directed_state"]
+		if lds is Dictionary:
+			MissionManager.directed_state = (lds as Dictionary).duplicate(true)
 	if state.has("mm_active_rate_modifiers"):
 		var larm: Variant = state["mm_active_rate_modifiers"]
 		if larm is Array:
@@ -1936,7 +1892,6 @@ func _load_weather_state(state: Dictionary) -> void:
 		WeatherManager.wind_strength = 0.0
 		WeatherManager.wind_direction_angle = 0.0
 	
-	print("[SaveManager] ✅ Weather state loaded: storm_active=%s, storm_level=%d, rain_intensity=%.3f" % [storm_active, storm_level, WeatherManager.rain_intensity])
 
 func _to_vector2(value) -> Vector2:
 	if value is Vector2:
@@ -1994,7 +1949,6 @@ func delete_save(slot_id: int) -> bool:
 	
 	var file_path: String = get_save_file_path_current(slot_id)
 	if not FileAccess.file_exists(file_path):
-		print("[SaveManager] Save slot %d does not exist, nothing to delete" % slot_id)
 		return true
 	
 	var dir: DirAccess = DirAccess.open("user://")
@@ -2004,7 +1958,6 @@ func delete_save(slot_id: int) -> bool:
 	var rel: String = _user_data_relative(file_path)
 	var err: Error = dir.remove(rel)
 	if err == OK:
-		print("[SaveManager] ✅ Deleted save slot %d (%s)" % [slot_id, rel])
 		return true
 	push_error("[SaveManager] Silinemedi slot %d: %s (err %d)" % [slot_id, rel, err])
 	var abs_path: String = ProjectSettings.globalize_path(file_path)

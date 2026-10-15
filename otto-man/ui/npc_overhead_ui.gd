@@ -174,6 +174,54 @@ static func apply_nameplate_text_style(control: Control, name_reference: Label =
 		btn.add_theme_color_override("font_disabled_color", NAMEPLATE_FONT_COLOR)
 
 
+const _OverheadTracker := preload("res://ui/overhead_ui_tracker.gd")
+const NAMEPLATE_BOX := Vector2(120.0, 30.0)
+## Ok ikonunun merkezi, isim plakasının merkezinin bu kadar üstünde durur (falcıda ölçülmüş değer).
+const HINT_ABOVE_NAME := 27.5
+## Köylü okunun (Worker butonu) dikdörtgeni: InteractBand lekesi yüksekliği host'un çalışma anındaki
+## yüksekliğinden aldığı için ikon bu ölçüye sabitlenir, yoksa leke kareleşip yuvarlak görünür.
+const HINT_ICON_RECT := Vector2(23.0, 25.0)
+
+
+## Konuşulabilen NPC için isim plakası: plaka `name_center_y`'de, ok ikonu onun hemen üstünde durur.
+## Plaka yalnızca oyuncu menzildeyken görünür (çağıran taraf visible'ı yönetir). Döndürülen PanelContainer
+## `visible = false` başlar. hint_icon / hold_ring kendi tracker'larıyla zaten eklenmiş olmalıdır.
+static func attach_nameplate_above(host: Node2D, text: String, hint_icon: TextureRect, hold_ring: Control, name_center_y: float, x_shift: float = 0.0) -> PanelContainer:
+	if host == null:
+		return null
+	var plate := PanelContainer.new()
+	plate.name = "NpcNamePlate"
+	# Sabit ölçü şart: hizalama şeridin yüksekliğinden hesaplanıyor, içeriğe göre büyüyen kapsayıcı kaydırır.
+	plate.custom_minimum_size = NAMEPLATE_BOX
+	plate.size = NAMEPLATE_BOX
+	var label := Label.new()
+	label.name = "NamePlate"
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	plate.add_child(label)
+	host.add_child(plate)
+	apply_frameless_nameplate(plate)
+	apply_nameplate_text_style(label)
+	plate.visible = false
+	_OverheadTracker.attach(plate, host, Vector2(x_shift, name_center_y))
+	if hint_icon != null and is_instance_valid(hint_icon):
+		hint_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		hint_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		hint_icon.custom_minimum_size = HINT_ICON_RECT
+		hint_icon.size = HINT_ICON_RECT
+		if hold_ring != null and hold_ring.has_method("sync_to_control"):
+			hold_ring.call("sync_to_control", hint_icon)
+		var tracker := host.get_node_or_null("OverheadUiTracker_" + hint_icon.name)
+		if tracker != null and tracker.has_method("set_world_center_offset"):
+			tracker.call("set_world_center_offset", Vector2(x_shift, name_center_y - HINT_ABOVE_NAME))
+		# Lekenin genişliğini ismin ölçüsüne bağla: ok ve isim aynı genişlikte tek bir sütun oluşturur.
+		var band := hint_icon.get_node_or_null("InteractBand")
+		if band != null:
+			band.set("_width_source", label)
+	return plate
+
+
 static func sync_horizontal_flip(host: Node2D, ui_nodes: Array) -> void:
 	if not is_instance_valid(host):
 		return

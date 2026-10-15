@@ -89,7 +89,6 @@ func _ready() -> void:
 	timer.timeout.connect(_on_lifetime_timeout)
 	timer.start()
 	
-	print("[CannonShot] Spawned. hitbox layer:", hitbox.collision_layer, " mask:", hitbox.collision_mask)
 
 func _physics_process(delta: float) -> void:
 	# Apply gravity: light gravity before first bounce for a gentle arc, full after bounce
@@ -126,15 +125,12 @@ func _physics_process(delta: float) -> void:
 				var bounce_speed = velocity.length() * bounce_damping
 				velocity.x = cos(deg_to_rad(bounce_angle)) * bounce_speed * sign(velocity.x)
 				velocity.y = -sin(deg_to_rad(bounce_angle)) * bounce_speed
-				print("[CannonShot] Ground bounce #", bounce_count, " 45° angle, New velocity:", velocity)
 			elif is_on_wall():
 				# Wall bounce - reverse X velocity
 				velocity.x = -velocity.x * bounce_damping
 				has_bounced = true  # Enable gravity for wall bounces too
-				print("[CannonShot] Wall bounce #", bounce_count, " New velocity:", velocity)
 		else:
 			# Max bounces reached
-			print("[CannonShot] Max bounces reached, breaking")
 			break_and_free()
 
 func _on_lifetime_timeout() -> void:
@@ -243,7 +239,6 @@ func break_and_free() -> void:
 			sprite.rotation = 0.0
 			sprite.frame = 0
 			sprite.play(break_anim)
-			print("[CannonShot] Playing break animation:", break_anim)
 			# Return to pool after animation
 			sprite.animation_finished.connect(func():
 				if is_instance_valid(self):

@@ -197,7 +197,6 @@ func _setup_emission_and_visibility() -> void:
 			_process_material_overlap.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
 			_process_material_overlap.emission_box_extents = Vector3(world_emission_half_width, world_emission_half_height, 1.0)
 			particles_overlap.visibility_rect = particles.visibility_rect
-		print("[RainController] FOREST MODE: emission_box=", _process_material.emission_box_extents, " visibility_rect=", particles.visibility_rect)
 	else:
 		# Köy sahnesinde: Sabit pozisyon ve geniş visibility rect
 		_process_material.emission_box_extents = Vector3(world_emission_half_width, world_emission_half_height, 1.0)
@@ -207,10 +206,9 @@ func _setup_emission_and_visibility() -> void:
 			_process_material_overlap.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
 			_process_material_overlap.emission_box_extents = Vector3(world_emission_half_width, world_emission_half_height, 1.0)
 			particles_overlap.visibility_rect = particles.visibility_rect
-		print("[RainController] VILLAGE MODE: emission_box=", _process_material.emission_box_extents, " visibility_rect=", particles.visibility_rect, " position=", global_position)
 	
 	if debug_rain_emission:
-		print("[RainController] Initialized: emission half_width=", world_emission_half_width, " position=", global_position, " is_forest=", _is_forest_scene)
+		pass
 
 
 var _current_particles_amount: int = 0  # Mevcut partikül sistemi amount değeri
@@ -351,7 +349,6 @@ func _process(_delta: float) -> void:
 		var t: float = Time.get_ticks_msec() / 1000.0
 		if t - _debug_last_update_log >= _debug_interval:
 			_debug_last_update_log = t
-			print("[RainDEBUG] should_update_amount=TRUE reason=%s intensity=%.3f calculated_amount=%d" % [debug_update_reason, intensity, calculated_amount])
 	
 	if should_update_amount:
 		# Çakışan segment: önce overlap katmanını yeni amount ile başlat, 1 sn sonra ana katmanı güncelle (boş an kalmaz)
@@ -363,14 +360,12 @@ func _process(_delta: float) -> void:
 			_overlap_active = true
 			if debug_rain_verbose and (Time.get_ticks_msec() / 1000.0) - _debug_last_update_log >= _debug_interval:
 				_debug_last_update_log = Time.get_ticks_msec() / 1000.0
-				print("[RainDEBUG] OVERLAP START amount=%d should_emit=%s (%.1fs sonra primary güncellenecek)" % [calculated_amount, should_emit, overlap_duration])
 		else:
 			_current_particles_amount = calculated_amount
 			particles.amount = maxi(1, _current_particles_amount)
 			particles.emitting = should_emit
 			if debug_rain_verbose and (Time.get_ticks_msec() / 1000.0) - _debug_last_update_log >= _debug_interval:
 				_debug_last_update_log = Time.get_ticks_msec() / 1000.0
-				print("[RainDEBUG] PRIMARY direct update amount=%d emitting=%s" % [calculated_amount, should_emit])
 	
 	# Çakışma süresi dolduysa ana katmanı güncelle ve overlap'i kapat; yağmur bittiyse overlap'i hemen iptal et
 	if _overlap_active and particles_overlap:
@@ -384,7 +379,6 @@ func _process(_delta: float) -> void:
 				var t: float = Time.get_ticks_msec() / 1000.0
 				if t - _debug_last_update_log >= _debug_interval:
 					_debug_last_update_log = t
-					print("[RainDEBUG] OVERLAP CANCEL (yağmur durdu, intensity<=0.02)")
 		else:
 			var elapsed: float = (Time.get_ticks_msec() / 1000.0) - _overlap_start_time
 			if elapsed >= overlap_duration:
@@ -397,7 +391,6 @@ func _process(_delta: float) -> void:
 					var t: float = Time.get_ticks_msec() / 1000.0
 					if t - _debug_last_update_log >= _debug_interval:
 						_debug_last_update_log = t
-						print("[RainDEBUG] OVERLAP END -> primary amount=%d emitting=%s" % [_current_particles_amount, should_emit])
 	
 	# Emitting değerini sadece değiştiğinde güncelle (overlap yoksa)
 	if not _overlap_active and particles.emitting != should_emit:
@@ -406,7 +399,6 @@ func _process(_delta: float) -> void:
 			var t: float = Time.get_ticks_msec() / 1000.0
 			if t - _debug_last_emit_log >= _debug_interval:
 				_debug_last_emit_log = t
-				print("[RainDEBUG] primary.emitting -> %s (intensity=%.3f)" % [should_emit, intensity])
 	
 	# Threshold kontrolü için intensity değerini kaydet (debug log yok)
 	_debug_last_intensity = intensity

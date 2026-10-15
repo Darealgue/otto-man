@@ -96,7 +96,6 @@ func enter():
 	if animation_player.has_animation(current_attack):
 		animation_player.play(current_attack)
 		animation_player.seek(0.0, true)
-		print("[HeavyAttack] PLAY | ", current_attack, " len=", animation_player.current_animation_length)
 	else:
 		var target_state = "Idle"
 		if not player.is_on_floor():
@@ -117,7 +116,6 @@ func enter():
 		# Zehirli Dev vb.: heavy attack başladığında tetikle (vurmadan da zehir saçılsın)
 		if player.has_signal("heavy_attack_performed"):
 			player.emit_signal("heavy_attack_performed")
-		print("[HeavyAttack] HITBOX PREP | ", current_attack)
 
 func exit():
 	if animation_player.is_connected("animation_finished", _on_anim_finished):
@@ -170,7 +168,6 @@ func update(delta: float):
 			just_input_timer = 0.0
 	# jump-cancel after launcher (up_heavy) - only if movement not locked
 	if allow_jump_cancel and not movement_locked and Input.is_action_just_pressed("jump") and state_machine.has_node("Jump"):
-		print("[HeavyAttack] Jump-cancel!")
 		state_machine.transition_to("Jump")
 		return
 
@@ -209,7 +206,6 @@ func _check_movement_lock() -> void:
 	if progress >= HALFWAY_THRESHOLD and not past_halfway_point:
 		past_halfway_point = true
 		movement_locked = true
-		print("[HeavyAttack] Movement LOCKED at progress: ", String.num(progress, 2))
 
 func _check_early_cancel() -> bool:
 	# Only allow canceling if we haven't reached halfway point
@@ -219,7 +215,6 @@ func _check_early_cancel() -> bool:
 	# Check for movement input (cancel attack)
 	var input_dir_x = InputManager.get_flattened_axis(&"ui_left", &"ui_right")
 	if abs(input_dir_x) > 0.1:
-		print("[HeavyAttack] Early cancel due to movement input")
 		_cancel_attack()
 		if player.is_on_floor():
 			state_machine.transition_to("Run")
@@ -229,7 +224,6 @@ func _check_early_cancel() -> bool:
 		
 	# Check for jump input (cancel attack)
 	if Input.is_action_just_pressed("jump"):
-		print("[HeavyAttack] Early cancel due to jump input")
 		_cancel_attack()
 		if state_machine.has_node("Jump"):
 			state_machine.transition_to("Jump")
@@ -247,7 +241,6 @@ func _cancel_attack() -> void:
 	if hitbox and hitbox is PlayerHitbox:
 		hitbox.disable()
 		hitbox.disable_combo()
-	print("[HeavyAttack] Attack canceled, cleanup performed")
 
 func _handle_movement(_delta: float) -> void:
 	# If movement is locked, don't allow horizontal movement
@@ -295,7 +288,6 @@ func _update_hitbox_by_timing() -> void:
 			dmg_mult *= (1.0 + player.counter_damage_bonus)
 			kb_mult *= (1.0 + player.counter_knockback_bonus)
 			kb_up_mult *= (1.0 + player.counter_knockback_bonus)
-			print("[Counter] Heavy counter bonus applied")
 			player.consume_counter_window()
 		else:
 			# Fallback: just-tap timing bonus if enabled
@@ -306,7 +298,6 @@ func _update_hitbox_by_timing() -> void:
 					dmg_mult *= JUST_DAMAGE_BONUS
 					kb_mult *= JUST_KB_BONUS
 					kb_up_mult *= JUST_KB_BONUS
-					print("[HeavyAttack] JUST bonus applied!")
 					just_bonus_ready = false
 					just_landed = true
 		hitbox.enable_combo(current_attack, dmg_mult, kb_mult, kb_up_mult)

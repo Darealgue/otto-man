@@ -12,7 +12,6 @@ func _init():
 	item_name = tr("item.golge_pelerini.name")
 	description = tr("item.golge_pelerini.description")
 	flavor_text = "Gölgelerde kaybol"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SPECIAL
 	affected_stats = ["stealth_vision"]
 
@@ -20,7 +19,6 @@ func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
 	player.stealth_enemy_vision_mult = VISION_REDUCTION
-	print("[Gölge Pelerini] Düşman görüş menzili -%d%%" % int((1.0 - VISION_REDUCTION) * 100.0))
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)

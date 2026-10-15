@@ -25,7 +25,6 @@ func _init():
 	item_name = tr("item.golgeye_karisma.name")
 	description = tr("item.golgeye_karisma.description")
 	flavor_text = "Gölge biter, sen kaybolursun"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.DODGE
 	affected_stats = ["dodge_end_invis"]
 
@@ -35,7 +34,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("player_dodged"):
 		if not player.is_connected("player_dodged", _on_player_dodged):
 			player.connect("player_dodged", _on_player_dodged)
-	print("[Gölgeye Karışma] ✅ Dodge/dash bitişinde kısa görünmezlik")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -44,7 +42,6 @@ func deactivate(player: CharacterBody2D):
 		if _player.is_connected("player_dodged", _on_player_dodged):
 			_player.disconnect("player_dodged", _on_player_dodged)
 	_player = null
-	print("[Gölgeye Karışma] ❌ Kaldırıldı")
 
 func _on_player_dodged(_direction, _start_pos, _end_pos) -> void:
 	_start_flash()

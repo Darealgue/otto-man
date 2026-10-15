@@ -178,10 +178,8 @@ func _setup_idle_well_visual() -> void:
 		_well_sprite.centered = false
 		_well_sprite.offset = Vector2.ZERO
 		_well_sprite.visible = true
-		print("[WellInteractable] Well idle sprite positioned at: ", sprite_pos, " size: ", idle_size)
 	else:
 		# Placeholder görsel
-		print("[WellInteractable] Using placeholder - texture not loaded")
 		_well_sprite.visible = false
 	
 	# Highlight sprite'ı ayarla

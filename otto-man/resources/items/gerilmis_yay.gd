@@ -17,7 +17,6 @@ func _init():
 	item_name = tr("item.gerilmis_yay.name")
 	description = tr("item.gerilmis_yay.description")
 	flavor_text = "Sabreden ok, daha derin saplanır"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["charged_shot"]
 
@@ -26,12 +25,10 @@ func activate(player: CharacterBody2D):
 	_player = player
 	_charging = false
 	_charge_time = 0.0
-	print("[Gerilmiş Yay] ✅ Hafif saldırıyı tutup bırakınca şarjlı mermi")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Gerilmiş Yay] ❌ Kaldırıldı")
 
 func process(player: CharacterBody2D, delta: float) -> void:
 	if not is_instance_valid(player):

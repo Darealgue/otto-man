@@ -61,6 +61,21 @@ var _interact_hint_icon: TextureRect
 ## Basılı tutma halkası — Mentor/Worker ile aynı: tüccar da "village_priority_interact"
 ## grubunda olduğu için basılı tutmayla açılıyor, ipucu da onlarla aynı görünmeli.
 var _interact_hold_ring: NpcInteractHoldRing = null
+var _trader_player_near: bool = false
+var _trader_hint_on: bool = false
+var _nameplate: PanelContainer = null
+## Worker.gd ile aynı isim plakası yüksekliği (ok bunun 27.5 px üstünde durur)
+const NAMEPLATE_CENTER_Y: float = -85.0
+
+
+## İsim plakasında yazan metin: tüccarın adı (MissionManager'daki aktif tüccar kaydından).
+func _nameplate_text() -> String:
+	var mm := get_node_or_null("/root/MissionManager")
+	if mm != null and mm.has_method("get_active_traders"):
+		for t in mm.get_active_traders():
+			if String(t.get("id", "")) == trader_id:
+				return String(t.get("name", tr("trader.default_name")))
+	return tr("trader.default_name")
 
 const SPRITE_OFFSET_Y: float = 48.0
 
@@ -99,6 +114,33 @@ func setup(p_trader_id: String, p_entry_x: float, p_center_x: float, p_exit_x: f
 	var dir = 1.0 if center_x >= entry_x else -1.0
 	scale.x = dir
 	_show_walk_sprite()
+
+
+## Zaman atlama (kamp ateşinde dinlenme vb.) sonrası: tüccar/falcı/ozan animasyonsuz, zamana uygun konuma oturur.
+## Eskiden yalnızca köylüler (Worker.apply_time_skip_presence) buna uyuyordu; altı saat geçse de gezgin NPC giriş
+## noktasında kalıyordu. Giriş yürüyüşü bitmiş sayılır, çıkış yürüyüşü yapan gitmiş sayılır.
+func apply_time_skip_presence(hour: int, _minute: int) -> void:
+	if current_state == State.WALKING_OUT:
+		queue_free()
+		return
+	var tm := get_node_or_null("/root/TimeManager")
+	var wake_hour: int = int(tm.get("WAKE_UP_HOUR")) if tm else 6
+	var sleep_hour: int = int(tm.get("SLEEP_HOUR")) if tm else 22
+	var is_night: bool = hour >= sleep_hour or hour < wake_hour
+	current_state = State.IDLE
+	var spot_x: float = center_x + randf_range(-WANDER_RANGE_X, WANDER_RANGE_X)
+	var spot_y: float = randf_range(0.0, VERTICAL_RANGE_MAX)
+	global_position = Vector2(spot_x, spot_y)
+	target_x = spot_x
+	_target_global_y = spot_y
+	_is_sitting = false
+	if is_night:
+		_is_sleeping = true
+		_show_sleep_sprite()
+	else:
+		_is_sleeping = false
+		_show_idle_sprite()
+		_pick_wander_target()
 
 
 func start_leaving() -> void:
@@ -213,7 +255,6 @@ func _handle_idle_wander(delta: float) -> void:
 			_is_sitting = true
 			_sit_until_time = Time.get_ticks_msec() / 1000.0 + randf_range(SIT_DURATION_MIN, SIT_DURATION_MAX)
 			_show_sit_sprite()
-			HideInteractButton()
 			return
 		else:
 			_pick_wander_target()
@@ -252,6 +293,7 @@ func _physics_process(delta: float) -> void:
 	var foot_y = get_foot_y_position()
 	z_index = _calculate_z_index_from_foot_y(foot_y)
 	_update_interact_area_for_pose()
+	_sync_trader_hint()
 
 
 func _update_idle_animation(delta: float) -> void:
@@ -373,16 +415,18 @@ func _build_world_interact() -> void:
 	# ekran uzayında takip ettiriliyor.
 	_interact_hold_ring = NpcOverheadUi.attach_hold_ring(self, _interact_hint_icon)
 	OverheadUiTracker.attach(_interact_hint_icon, self, Vector2(INTERACT_HINT_X_SHIFT, -78))
+	# İsim plakası: oyuncu menzildeyken okun hemen altında görünür (Worker/falcı düzeni)
+	_nameplate = NpcOverheadUi.attach_nameplate_above(self, _nameplate_text(), _interact_hint_icon, _interact_hold_ring, NAMEPLATE_CENTER_Y, INTERACT_HINT_X_SHIFT)
 
 
+## Tüccar OTURURKEN de konuşulabilir. Eskiden oturunca etkileşim kapanıyordu ama tüccar vaktinin çoğunu
+## oturarak geçirdiği için (varışta %75 ihtimalle 8-18 sn oturur) pratikte hiç etkileşime girilemiyordu.
 func can_interact() -> bool:
 	if trader_id.is_empty():
 		return false
 	if current_state != State.IDLE:
 		return false
 	if _is_sleeping:
-		return false
-	if _is_sitting:
 		return false
 	return true
 
@@ -431,11 +475,28 @@ func HideInteractButton() -> void:
 
 func _on_interact_body_entered(body: Node2D) -> void:
 	if body.is_in_group("player") or body.is_in_group("Player"):
-		ShowInteractButton()
+		_trader_player_near = true
+		_sync_trader_hint()
 
 
 func _on_interact_body_exited(body: Node2D) -> void:
 	if body.is_in_group("player") or body.is_in_group("Player"):
+		_trader_player_near = false
+		_sync_trader_hint()
+
+
+## Oyuncu menzildeyken tüccar yürümekten oturmaya / uykudan uyanmaya geçince ok ikonu da güncellensin
+## (yalnızca giriş/çıkış anında değerlendirilirse ikon durumla uyumsuz kalıyordu).
+func _sync_trader_hint() -> void:
+	var want: bool = _trader_player_near and can_interact()
+	if want == _trader_hint_on:
+		return
+	_trader_hint_on = want
+	if is_instance_valid(_nameplate):
+		_nameplate.visible = want
+	if want:
+		ShowInteractButton()
+	else:
 		HideInteractButton()
 
 

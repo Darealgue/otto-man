@@ -18,19 +18,16 @@ func _init():
 	item_name = tr("item.falya.name")
 	description = tr("item.falya.description")
 	flavor_text = "Doğru anda tutuşan barut"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.HEAVY_ATTACK
 	affected_stats = ["heavy_just_explosion"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Falya] ✅ Tam zamanlı heavy → küçük patlama")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Falya] ❌ Kaldırıldı")
 
 func _on_heavy_attack_impact(_attack_name: String) -> void:
 	if not is_instance_valid(_player):
@@ -57,4 +54,4 @@ func _on_heavy_attack_impact(_attack_name: String) -> void:
 		tree.current_scene.add_child(burst)
 		burst.setup(origin, EXPLOSION_RADIUS, EXPLOSION_COLOR)
 	if hit > 0:
-		print("[Falya] 💥 Tam zamanlı patlama — %d düşman" % hit)
+		pass

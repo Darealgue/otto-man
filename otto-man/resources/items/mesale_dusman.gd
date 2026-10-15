@@ -20,7 +20,6 @@ func _init():
 	item_name = tr("item.mesale_dusman.name")
 	description = tr("item.mesale_dusman.description")
 	flavor_text = "Yanan düşman yürüyen meşaledir"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.HEAVY_ATTACK
 	affected_stats = ["air_fire_trail"]
 

@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://village/scripts/Armorer.gd" id="1"]
-[ext_resource type="Texture2D" uid="uid://iii410gatrpx" path="res://village/buildings/sprite/armorer1.png" id="2"]
+[ext_resource type="Texture2D" path="res://village/buildings/sprite/armorer1.png" id="2"]
 
 
 [sub_resource type="SegmentShape2D" id="SegmentShape2D_roof"]

@@ -227,6 +227,19 @@ func _on_command_submitted(command: String) -> void:
 		else:
 			print_output("Oyuncu yok (bir zindan sahnesine girip tekrar dene).")
 		return
+	if cmd == "stamina":
+		# stamina [n]: toplam stamina hücresini n'e (varsayılan 4) çeker; sızmış bonusları temizler.
+		var st_target := 4
+		if args.size() > 0 and String(args[0]).is_valid_int():
+			st_target = clampi(int(args[0]), 1, 40)
+		var st_ps = get_node_or_null("/root/PlayerStats")
+		if st_ps == null:
+			print_output("PlayerStats bulunamadı.")
+			return
+		var st_now: float = st_ps.get_stat("block_charges")
+		st_ps.add_stat_bonus("block_charges", float(st_target) - st_now)
+		print_output("Stamina: %d -> %d (kaydetmeyi unutma)" % [int(st_now), int(st_ps.get_stat("block_charges"))])
+		return
 	if cmd == "levelup":
 		var level_count := 5
 		if args.size() > 0 and String(args[0]).is_valid_int():
@@ -702,7 +715,7 @@ func handle_market_command(args: Array) -> void:
 	print_output("Market kapısı oyuncunun 110 piksel sağına kondu (zemine kendi oturur). Yaklaşıp yukarı tuşuna bas.")
 	for id in stock:
 		var m: Dictionary = im.get_item_meta(id)
-		print_output("  stok: %s (rarity %d)" % [String(m.get("name", id)), int(m.get("rarity", 0))])
+		print_output("  stok: %s" % String(m.get("name", id)))
 	toggle_console()
 
 

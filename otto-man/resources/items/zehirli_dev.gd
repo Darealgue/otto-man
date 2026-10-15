@@ -12,7 +12,6 @@ func _init():
 	item_name = tr("item.zehirli_dev.name")
 	description = tr("item.zehirli_dev.description")
 	flavor_text = "Zehirli patlama"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.HEAVY_ATTACK
 	tags = ["elemental_poison"]
 	affected_stats = ["heavy_poison_arc"]
@@ -27,7 +26,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("decoy_heavy_attack_impact"):
 		if not player.is_connected("decoy_heavy_attack_impact", _on_decoy_heavy_attack_impact):
 			player.connect("decoy_heavy_attack_impact", _on_decoy_heavy_attack_impact)
-	print("[Zehirli Dev] ✅ Heavy attack hasar karesinde zehir damlaları fırlar (vursa da vurmasa da)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -37,7 +35,6 @@ func deactivate(player: CharacterBody2D):
 		if _player.has_signal("decoy_heavy_attack_impact") and _player.is_connected("decoy_heavy_attack_impact", _on_decoy_heavy_attack_impact):
 			_player.disconnect("decoy_heavy_attack_impact", _on_decoy_heavy_attack_impact)
 	_player = null
-	print("[Zehirli Dev] ❌ Kaldırıldı")
 
 func _on_heavy_attack_impact(attack_name: String) -> void:
 	if not _player or not is_instance_valid(_player):

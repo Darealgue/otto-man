@@ -275,18 +275,11 @@ func _ready() -> void:
 		patrol_point_right = initial_pos.x + patrol_range
 	
 	if debug_enabled or debug_chase_wall:
-		print("[BasicEnemy] Debug ENABLED | name=%s path=%s" % [name, get_path()])
+		pass
 	
 	# Spawn debug: log ambient-related configuration for this enemy instance
 	if debug_enabled:
 		var scene_path := get_tree().current_scene.scene_file_path if get_tree().current_scene else ""
-		print("[BasicEnemy][Spawn] pos=%s scene=%s ambient_enabled=%s start_chance=%.2f start_in_ambient_pose=%s" % [
-			str(global_position),
-			scene_path,
-			str(ambient_enabled),
-			ambient_start_chance,
-			str(start_in_ambient_pose),
-		])
 	
 	# Pool nesneleri (0,0)'da _ready çalıştırır; snap/floor kontrolü yapmadan patrol'e geç.
 	# Gerçek pozisyona taşındığında _physics_process gravity + floor_snap ile halleder.
@@ -303,13 +296,13 @@ func _ready() -> void:
 		if roll < ambient_start_chance:
 			want_ambient_start = true
 		if debug_enabled:
-			print("[BasicEnemy][Ambient] spawn roll=%.2f chance=%.2f -> %s" % [roll, ambient_start_chance, str(want_ambient_start)])
+			pass
 	else:
 		if debug_enabled:
-			print("[BasicEnemy][Ambient] spawn flag start_in_ambient_pose=%s" % [str(start_in_ambient_pose)])
+			pass
 	if want_ambient_start:
 		if debug_enabled:
-			print("[BasicEnemy][Ambient] starting in ambient pose at %s" % [str(global_position)])
+			pass
 		_start_initial_ambient_pose()
 		_ambient_spawn_grace_timer = ambient_spawn_grace
 		_should_transition_to_patrol = false
@@ -330,22 +323,13 @@ func _try_spawn_floor_snap() -> bool:
 	var result = space_state.intersect_ray(query)
 	if result.is_empty():
 		if debug_enabled:
-			print("[BasicEnemy][SpawnFloorFix] no hit (level=%s) from=%s to=%s" % [
-				str(get_meta("spawned_level") if has_meta("spawned_level") else "unknown"),
-				str(from_pos),
-				str(to_pos),
-			])
+			pass
 		return false
 	# Ignore non-floor hits (normali yukarı bakmayan yüzeyler), duvar i&ccedil;i snap'leri engelle
 	var normal: Vector2 = result.normal
 	if normal.y <= 0.5:
 		if debug_enabled:
-			print("[BasicEnemy][SpawnFloorFix] non-floor normal=%s, skipping (level=%s from=%s to=%s)" % [
-				str(normal),
-				str(get_meta("spawned_level") if has_meta("spawned_level") else "unknown"),
-				str(from_pos),
-				str(to_pos),
-			])
+			pass
 		return false
 	# Compute vertical offset from our own collision shape instead of magic 32 px
 	var feet_offset: float = 32.0
@@ -363,14 +347,7 @@ func _try_spawn_floor_snap() -> bool:
 	velocity = Vector2.ZERO
 	move_and_slide()
 	if debug_enabled:
-		print("[BasicEnemy][SpawnFloorFix] level=%s from=%s hit=%s offset=%.1f to=%s floor=%s" % [
-			str(get_meta("spawned_level") if has_meta("spawned_level") else "unknown"),
-			str(from_pos),
-			str(hit_pos),
-			feet_offset,
-			str(global_position),
-			is_on_floor(),
-		])
+		pass
 	return true
 
 func handle_behavior(delta: float) -> void:
@@ -447,7 +424,6 @@ func _handle_child_behavior(delta: float) -> void:
 				_debug_chase_timer += delta
 				if _debug_chase_timer >= _DEBUG_CHASE_INTERVAL:
 					_debug_chase_timer = 0.0
-					print("[BasicEnemy] chase | sep=%s blocked=%s on_wall=%s vel.x=%.0f anim=%s" % [do_separation, _chase_blocked_at_wall, is_on_wall(), velocity.x, sprite.animation if sprite else "n/a"])
 		"attack":
 			# Don't attack if dead
 			if health <= 0:
@@ -483,7 +459,7 @@ func _process_ambient(delta: float) -> void:
 			or (_ambient_spawn_grace_timer <= 0.0 and _has_stealth_awareness())
 		if unsafe:
 			if debug_enabled:
-				print("[BasicEnemy][Ambient] CANCEL ambient anim=%s reason=unsafe state=%s" % [_ambient_anim, current_behavior])
+				pass
 			_ambient_playing = false
 			if sprite.sprite_frames.has_animation("idle"):
 				sprite.play("idle")
@@ -510,9 +486,7 @@ func _process_ambient(delta: float) -> void:
 		var block_radius := 180.0  # Within ~3 tiles, don't sit
 		player_far_enough = dist > block_radius
 		if debug_enabled and Engine.get_physics_frames() % 180 == 0:
-			print("[BasicEnemy][Ambient] dist=%.1f block_radius=%.1f far_enough=%s state=%s vel=%.1f" % [
-				dist, block_radius, str(player_far_enough), current_behavior, velocity.x,
-			])
+			pass
 	
 	# In dungeon, patrol hızı zaten sabit (~movement_speed*0.7). Burada ekstra yavaşlama
 	# şartı koymak ambient'i neredeyse imkânsız hale getiriyor. Güvenlik için sadece:
@@ -523,13 +497,7 @@ func _process_ambient(delta: float) -> void:
 	
 	if not safe_for_ambient:
 		if debug_enabled and Engine.get_physics_frames() % 240 == 0:
-			print("[BasicEnemy][Ambient] NOT SAFE (floor=%s wall=%s far=%s vel=%.1f state=%s)" % [
-				str(is_on_floor()),
-				str(is_on_wall()),
-				str(player_far_enough),
-				velocity.x,
-				current_behavior,
-			])
+			pass
 		_ambient_timer = 0.0
 		return
 	
@@ -554,7 +522,7 @@ func _process_ambient(delta: float) -> void:
 	
 	_ambient_anim = options[randi() % options.size()]
 	if debug_enabled:
-		print("[BasicEnemy][Ambient] START ambient anim=%s at %s" % [_ambient_anim, str(global_position)])
+		pass
 	sprite.play(_ambient_anim)
 	_ambient_playing = true
 	_reset_ambient_timer()
@@ -900,7 +868,7 @@ func handle_chase(delta: float) -> void:
 			velocity.x = 0
 			_play_idle_or_sit(false)
 			if (debug_enabled or debug_chase_wall) and not _debug_was_blocked_last_frame:
-				print("[BasicEnemy] CHASE BLOCKED AT WALL (idle, no separation)")
+				pass
 			_debug_was_blocked_last_frame = true
 			if sprite and sprite.flip_h != (direction < 0):
 				sprite.flip_h = direction < 0
@@ -1307,7 +1275,7 @@ func change_behavior(new_behavior: String, force: bool = false) -> void:
 		return
 	var was_attack: bool = (current_behavior == "attack")
 	if debug_enabled or debug_chase_wall:
-		print("[BasicEnemy] change_behavior: %s -> %s (force=%s)" % [current_behavior, new_behavior, force])
+		pass
 	
 	# IMPORTANT: Don't allow changing to patrol/chase/attack if dead or dying
 	# Dead enemies should stay in hurt state until they hit ground

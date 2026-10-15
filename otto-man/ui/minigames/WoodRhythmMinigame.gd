@@ -71,7 +71,6 @@ func _on_minigame_ready() -> void:
 	if _gauge:
 		_gauge.set_feedback(tr("mg.hint.heavy_attack"), neutral_feedback_color, -1.0)
 	set_process(true)
-	print("[WoodRhythmMinigame] Timing minigame active (hits=%d, max_misses=%d)" % [_required_hits, _max_misses])
 
 func _process(delta: float) -> void:
 	# Yapraklar artık kendi scriptlerinde animasyon yapıyor, burada güncellemeye gerek yok
@@ -299,27 +298,21 @@ func _play_tree_fall_animation():
 
 func _spawn_hit_effects() -> void:
 	# Başarılı saldırıda yapraklar dökülür
-	print("[WoodRhythm] SPAWN DEBUG - Tree position check:")
 	print("  - _tree_node exists: ", _tree_node != null)
 	if _tree_node:
-		print("  - tree_node.global_position: ", _tree_node.global_position)
-		print("  - tree_node.is_inside_tree: ", _tree_node.is_inside_tree())
-		print("  - tree_node.visible: ", _tree_node.visible)
+		pass
 	print("  - _tree_sprite exists: ", _tree_sprite != null)
 	if _tree_sprite:
-		print("  - tree_sprite.global_position: ", _tree_sprite.global_position)
-		print("  - tree_sprite.position (local): ", _tree_sprite.position)
+		pass
 
 	var camera := get_viewport().get_camera_2d()
 	if camera:
-		print("  - camera.global_position: ", camera.global_position)
+		pass
 
 	var scene_root := get_tree().current_scene
-	print("  - scene_root: ", scene_root)
 	print("  - scene_root.is_inside_tree: ", scene_root.is_inside_tree() if scene_root else "null")
 
 	var leaf_count := _rng.randi_range(2, 5)
-	print("  - spawning ", leaf_count, " leaves")
 	for i in range(leaf_count):
 		_spawn_leaf_effect()
 
@@ -354,7 +347,6 @@ func _spawn_leaf_effect() -> void:
 	else:
 		spawn_parent = get_tree().current_scene
 
-	print("  - spawn_parent: ", spawn_parent, " (from tree_node parent)")
 
 	if spawn_parent:
 		leaf.global_position = spawn_pos
@@ -388,23 +380,13 @@ func _spawn_leaf_effect() -> void:
 		# Animasyonu hemen başlat (await'ten önce, minigame kapanmadan önce)
 		if leaf.has_method("start_fall"):
 			leaf.start_fall(start_pos, end_pos, start_rotation, end_rotation, start_scale, end_scale, fall_time)
-			print("[WoodRhythm] Leaf animation started via script - from ", start_pos, " to ", end_pos, " in ", fall_time, " seconds")
 		else:
 			print("[WoodRhythm] ERROR: Leaf script not found, animation will not work!")
 
 		# Spawn sonrası detaylı kontrol (await sonrası, ama animasyon zaten başladı)
 		await get_tree().process_frame
-		print("[WoodRhythm] LEAF SPAWNED - POST CHECK:")
-		print("  - leaf.global_position: ", leaf.global_position)
-		print("  - leaf.visible: ", leaf.visible)
-		print("  - leaf.z_index: ", leaf.z_index)
-		print("  - leaf.modulate: ", leaf.modulate)
-		print("  - leaf.is_inside_tree: ", leaf.is_inside_tree())
 		print("  - parent.name: ", spawn_parent.name if spawn_parent else "null")
 		print("  - parent.visible: ", spawn_parent.visible if spawn_parent else "null")
-		print("  - anim_sprite.playing: ", anim_sprite.is_playing())
-		print("  - anim_sprite.visible: ", anim_sprite.visible)
-		print("  - anim_sprite.z_index: ", anim_sprite.z_index)
 		print("  - camera_pos: ", get_viewport().get_camera_2d().global_position if get_viewport().get_camera_2d() else "null")
 
 		# Debug log
@@ -413,7 +395,6 @@ func _spawn_leaf_effect() -> void:
 ## amount: bu turda kazanılan odun sayısı — tam olarak bu kadar toplanabilir parça saçılır
 ## (eskiden 4-6 arası dekoratif parça + ayrı bir sayı otomatik envantere ekleniyordu).
 func _spawn_wood_pieces(amount: int) -> void:
-	print("[WoodRhythm] spawning ", amount, " collectible wood pieces")
 	for i in range(amount):
 		_spawn_wood_piece_effect()
 
@@ -454,7 +435,6 @@ func _spawn_wood_piece_effect() -> void:
 	else:
 		spawn_parent = get_tree().current_scene
 
-	print("  - spawn_parent: ", spawn_parent, " (from tree_node parent)")
 
 	if spawn_parent:
 		wood_piece.z_index = 100000  # Çok yüksek z-index
@@ -483,7 +463,6 @@ func _spawn_wood_piece_effect() -> void:
 		var chosen_angular: float = angular_options[_rng.randi() % angular_options.size()]
 		rigid_body.angular_velocity = chosen_angular
 
-		print("[WoodRhythm] Wood piece physics - velocity: ", velocity, " angular_velocity: ", rigid_body.angular_velocity)
 
 		# Sprite ayarları
 		sprite.visible = true
@@ -514,19 +493,8 @@ func _spawn_wood_piece_effect() -> void:
 
 		# Spawn sonrası detaylı kontrol
 		await get_tree().process_frame
-		print("[WoodRhythm] WOOD PIECE SPAWNED - POST CHECK:")
-		print("  - wood_piece.global_position: ", wood_piece.global_position)
-		print("  - wood_piece.visible: ", wood_piece.visible)
-		print("  - wood_piece.z_index: ", wood_piece.z_index)
-		print("  - wood_piece.modulate: ", wood_piece.modulate)
-		print("  - wood_piece.is_inside_tree: ", wood_piece.is_inside_tree())
-		print("  - rigid_body.gravity_scale: ", rigid_body.gravity_scale)
-		print("  - rigid_body.linear_velocity: ", rigid_body.linear_velocity)
-		print("  - rigid_body.angular_velocity: ", rigid_body.angular_velocity)
 		print("  - parent.name: ", spawn_parent.name if spawn_parent else "null")
 		print("  - parent.visible: ", spawn_parent.visible if spawn_parent else "null")
-		print("  - sprite.visible: ", sprite.visible)
-		print("  - sprite.z_index: ", sprite.z_index)
 		print("  - camera_pos: ", get_viewport().get_camera_2d().global_position if get_viewport().get_camera_2d() else "null")
 
 		# Otomatik silinme artık resource_piece.gd'nin kendi MAX_LIFETIME süresiyle yönetiliyor.
@@ -611,7 +579,6 @@ func _log_tree_sprite(tag: String) -> void:
 	var playing: bool = _tree_sprite.is_playing()
 	var global_pos: Vector2 = _tree_sprite.global_position
 	var local_pos: Vector2 = _tree_sprite.position
-	print("[WoodRhythm][DEBUG]", tag, "anim=", anim_name, "playing=", playing, "local=", local_pos, "global=", global_pos)
 
 func _reset_indicator(success: bool) -> void:
 	_indicator_direction = -1.0 if _rng.randi_range(0, 1) == 0 else 1.0

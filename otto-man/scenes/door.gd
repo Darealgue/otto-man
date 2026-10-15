@@ -183,7 +183,6 @@ func _exit_key_id() -> String:
 
 
 func _show_lock_denied() -> void:
-	print("Door locked — key required: ", key_id)
 	door_locked.emit(door_type)
 	if is_instance_valid(SoundManager) and SoundManager.has_method("play_sfx"):
 		SoundManager.play_sfx("door_locked", global_position)
@@ -211,7 +210,6 @@ func _show_lock_denied() -> void:
 		_player_entered_range()
 
 func _handle_locked_door() -> void:
-	print("Door is locked!")
 	door_locked.emit(door_type)
 	if is_instance_valid(SoundManager) and SoundManager.has_method("play_sfx"):
 		SoundManager.play_sfx("door_locked", global_position)
@@ -227,7 +225,6 @@ func _handle_locked_door() -> void:
 
 
 func _handle_missing_key() -> void:
-	print("Door requires key: ", key_id)
 	door_locked.emit(door_type)
 	
 	if interaction_prompt:
@@ -240,7 +237,6 @@ func _handle_missing_key() -> void:
 			_player_entered_range()
 
 func _handle_boss_door_locked() -> void:
-	print("Boss door is locked! Defeat the boss first.")
 	door_locked.emit(door_type)
 	
 	# Show boss locked message
@@ -278,7 +274,6 @@ func _open_door() -> void:
 	is_animating = true
 	current_state = DoorState.OPENING
 	
-	print("Opening door: ", door_type)
 	if is_instance_valid(SoundManager) and SoundManager.has_method("play_sfx"):
 		SoundManager.play_sfx("door_open", global_position)
 	
@@ -316,7 +311,6 @@ func _close_door() -> void:
 	is_animating = true
 	current_state = DoorState.CLOSING
 	
-	print("Closing door: ", door_type)
 	
 	# Play closing animation
 	if animation_player and animation_player.has_animation("close"):

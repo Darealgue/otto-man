@@ -16,7 +16,6 @@ func _init():
 	item_name = tr("item.golge_sahnesi.name")
 	description = tr("item.golge_sahnesi.description")
 	flavor_text = "Perde açılır, gölge sahneye çıkar"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.PARRY
 	affected_stats = ["parry_decoy"]
 
@@ -24,12 +23,10 @@ func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
 	_cooldown_left = 0.0
-	print("[Gölge Sahnesi] ✅ Perfect parry gölge bırakır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Gölge Sahnesi] ❌ Kaldırıldı")
 
 func process(_player_ref: CharacterBody2D, delta: float) -> void:
 	if _cooldown_left > 0.0:

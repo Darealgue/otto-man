@@ -122,7 +122,6 @@ func _open_chest() -> void:
 		_placeholder.color = Color(0.35, 0.28, 0.18)
 	_hint.visible = false
 	_spawn_gold_burst()
-	print("[StealthChest] Açıldı — %d altın saçıldı" % gold_total)
 
 
 func _spawn_gold_burst() -> void:

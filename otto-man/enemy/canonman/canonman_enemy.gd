@@ -79,20 +79,18 @@ func _ready() -> void:
 				if tex is Texture2D:
 					launch_smoke_texture = tex
 					if DEBUG_CANONMAN:
-						print("[Canonman] Launch smoke texture loaded:", p)
+						pass
 					break
 	if launch_smoke_texture == null:
 		if DEBUG_CANONMAN:
 			print("[Canonman] Launch smoke texture NOT found. Candidates:", LAUNCH_SMOKE_CANDIDATE_PATHS)
 	else:
 		if DEBUG_CANONMAN:
-			print("[Canonman] Launch smoke texture set via export or auto-load")
+			pass
 	
 	# DEBUG: Collision info
 	if DEBUG_CANONMAN:
-		print("[Canonman] Collision Layer: ", collision_layer)
-		print("[Canonman] Collision Mask: ", collision_mask)
-		print("[Canonman] Position: ", global_position)
+		pass
 	
 	# Initialize combat components
 	if hitbox:
@@ -358,7 +356,7 @@ func _handle_rocket_fire_state(delta: float) -> void:
 				retreat_cooldown_timer = ROCKET_RETREAT_COOLDOWN
 				remove_meta("rocket_retreat")
 			if DEBUG_CANONMAN:
-				print("[Canonman] Rocket jump started during launch after hold! Velocity: ", velocity)
+				pass
 	
 	# Launch animasyonu kısa bir süre oynadıktan sonra rise'a geç
 	if behavior_timer >= 0.3:
@@ -464,11 +462,11 @@ func _handle_hurt_state(delta: float) -> void:
 	velocity = Vector2.ZERO  # Yerde kal
 	
 	if DEBUG_CANONMAN:
-		print("[Canonman] Hurt state - behavior_timer: ", behavior_timer, " / 0.3")
+		pass
 	
 	if behavior_timer >= 0.3:  # 3 frame sonra idle'a dön
 		if DEBUG_CANONMAN:
-			print("[Canonman] Hurt state finished, changing to idle")
+			pass
 		change_behavior("idle")
 
 func _handle_death_state(delta: float) -> void:
@@ -550,7 +548,7 @@ func _spawn_smoke_generic(pos: Vector2, tex: Texture2D, frame_count_in: int, hor
 	else:
 		get_tree().current_scene.add_child(sprite)
 	if DEBUG_CANONMAN:
-		print("[Canonman] Spawned ", tag, " smoke at:", sprite.global_position, " frames:", total)
+		pass
 	if total > 0:
 		sprite.play("smoke")
 	else:
@@ -577,7 +575,7 @@ func _create_rocket_explosion(pos: Vector2) -> void:
 	# Cooldown kontrolü - çok hızlı ardışık patlamaları önle
 	if explosion_cooldown_timer > 0.0:
 		if DEBUG_CANONMAN:
-			print("[Canonman] Explosion cooldown active, skipping explosion")
+			pass
 		return
 	
 	# Rocket patlama efekti oluştur (görsel)
@@ -593,7 +591,7 @@ func _create_rocket_explosion(pos: Vector2) -> void:
 	explosion_cooldown_timer = 0.5
 	
 	if DEBUG_CANONMAN:
-		print("[Canonman] Rocket explosion at: ", pos)
+		pass
 
 func _spawn_explosion_hitbox(pos: Vector2) -> void:
 	# Geçici bir EnemyHitbox oluştur ve çember çarpışma ekle (player tarafından algılanır)
@@ -628,7 +626,7 @@ func _spawn_explosion_hitbox(pos: Vector2) -> void:
 	# Debug: log any area overlaps
 	hit.area_entered.connect(func(a: Area2D):
 		if DEBUG_CANONMAN:
-			print("[RocketExplosion] overlapped area=", a.name, " groups=", a.get_groups())
+			pass
 		if a.is_in_group("player_hurtbox"):
 			# Route damage through player's hurtbox so block/parry works
 			if a.has_method("store_hit_data"):
@@ -645,7 +643,7 @@ func _spawn_explosion_hitbox(pos: Vector2) -> void:
 				a.hurt.emit(hit)
 	)
 	if DEBUG_CANONMAN:
-		print("[RocketExplosion] spawned at ", pos, " layer=", hit.collision_layer, " mask=", hit.collision_mask)
+		pass
 	
 	# Birkaç frame aktif kalsın (temas garantisi için)
 	var t := get_tree().create_timer(0.35)
@@ -686,7 +684,7 @@ func _fire_cannon_shot() -> void:
 	shot.set_damage(CANNON_SHOT_DAMAGE)
 	
 	if DEBUG_CANONMAN:
-		print("[Canonman] Fired cannon shot at: ", target.global_position)
+		pass
 
 func _choose_attack_type() -> void:
 	# Saldırı türü seç (rocket jump veya ground shot)
@@ -706,18 +704,18 @@ func _choose_attack_type() -> void:
 			set_meta("rocket_retreat", true)
 			change_behavior("rocket_charge")
 			if DEBUG_CANONMAN:
-				print("[Canonman] Chose ROCKET RETREAT")
+				pass
 			return
 	
 	# Mesafeye göre saldırı türü seç
 	if distance > 300.0:  # Uzak mesafe - rocket jump (yaklaşma)
 		change_behavior("rocket_charge")
 		if DEBUG_CANONMAN:
-			print("[Canonman] Chose rocket jump attack")
+			pass
 	else:  # Yakın mesafe - ground shot
 		change_behavior("ground_aim")
 		if DEBUG_CANONMAN:
-			print("[Canonman] Chose ground shot attack")
+			pass
 
 func _fire_ground_shot() -> void:
 	# Yere doğru 45 derece atış
@@ -753,14 +751,14 @@ func _fire_ground_shot() -> void:
 	shot.set_damage(CANNON_SHOT_DAMAGE)
 	
 	if DEBUG_CANONMAN:
-		print("[Canonman] Fired ground shot toward:", aim_point, " dir:", direction)
+		pass
 
 func change_behavior(new_behavior: String, force: bool = false) -> void:
 	if (current_behavior == new_behavior and not force) or (state_lock > 0.0 and not force):
 		return
 	
 	if DEBUG_CANONMAN:
-		print("[Canonman] Behavior changed: ", current_behavior, " -> ", new_behavior)
+		pass
 	current_behavior = new_behavior
 	behavior_timer = 0.0
 	# Clear one-shot metas on state change
@@ -859,7 +857,7 @@ func _update_animation_state() -> void:
 	# Debug: Animasyon değişikliklerini logla ve sadece değiştiyse başlat
 	if sprite.animation != animation_name:
 		if DEBUG_CANONMAN:
-			print("[Canonman] Animation changed: ", sprite.animation, " -> ", animation_name, " (State: ", current_behavior, ")")
+			pass
 		sprite.play(animation_name)
 
 func handle_patrol(delta: float) -> void:
@@ -893,7 +891,7 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	# Go to hurt state
 	change_behavior("hurt")
 	if DEBUG_CANONMAN:
-		print("[Canonman] Took damage: ", amount, " Health: ", health)
+		pass
 
 func die() -> void:
 	if current_behavior == "dead":
@@ -938,7 +936,7 @@ func die() -> void:
 func _setup_normal_map_sync():
 	"""Setup normal map synchronization between main sprite and normal sprite"""
 	if DEBUG_CANONMAN:
-		print("[CanonmanEnemy] Setting up normal map shader...")
+		pass
 	
 	# Find the normal sprite (it's a child of the main AnimatedSprite2D)
 	var normal_sprite = sprite.get_node("AnimatedSprite2D_normal")
@@ -946,7 +944,7 @@ func _setup_normal_map_sync():
 		return
 	
 	if DEBUG_CANONMAN:
-		print("[CanonmanEnemy] Normal sprite found: ", normal_sprite.name)
+		pass
 	
 	# Sync animation and frame with main sprite
 	normal_sprite.animation = sprite.animation
@@ -963,15 +961,14 @@ func _setup_normal_map_sync():
 			material.shader = shader
 			sprite.material = material
 			if DEBUG_CANONMAN:
-				print("[CanonmanEnemy] Added normal map shader material to main sprite")
+				pass
 			
 			# Debug: Check if normal texture is properly set
 			if normal_sprite.sprite_frames:
 				var test_texture = normal_sprite.sprite_frames.get_frame_texture(normal_sprite.animation, normal_sprite.frame)
 				if test_texture:
 					if DEBUG_CANONMAN:
-						print("[CanonmanEnemy] Normal texture loaded successfully: ", test_texture.get_class())
-						print("[CanonmanEnemy] Normal texture size: ", test_texture.get_size())
+						pass
 				else:
 					if DEBUG_CANONMAN:
 						print("[CanonmanEnemy] ERROR: Normal texture is null!")

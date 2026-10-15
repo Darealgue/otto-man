@@ -798,6 +798,15 @@ public partial class LlamaService : Node, IDisposable
 
 		try
 		{
+			// Model dosyası yoksa CUDA/yerel kütüphane yoklamasına hiç girme: tek satır bilgi ver ve çık.
+			// (Önceden bu durumda onlarca CUDA satırı, bir DLL yükleme hatası ve bir istisna yığını basılıyordu.)
+			string modelLoadPathEarly = Path.GetFullPath(ResolveModelPath(modelFilename));
+			if (!File.Exists(modelLoadPathEarly))
+			{
+				GD.PushWarning($"LlamaService: model dosyası yok, yapay zeka köylüler devre dışı. Beklenen konum: {modelLoadPathEarly}");
+				return false;
+			}
+
 			TryConfigureWindowsCuda12NativeLoadingBeforeLlamaLoad();
 			LogManagedInferDllProbePaths();
 			LogLlamaBackendProbeNoteBeforeLoad();
@@ -820,15 +829,7 @@ public partial class LlamaService : Node, IDisposable
 			// llama.cpp memory-maps the weights through native code, so the path handed to ModelParams
 			// must be an actual filesystem path. Godot's .pck archive is invisible to System.IO and to
 			// native code alike, which is why the model is never packed into the export.
-			string modelLoadPath = ResolveModelPath(modelFilename);
-
-			modelLoadPath = Path.GetFullPath(modelLoadPath);
-			GD.Print($"Normalized model path: {modelLoadPath}");
-			GD.Print($"Path length: {modelLoadPath.Length} characters");
-			GD.Print($"Path exists: {File.Exists(modelLoadPath)}");
-
-			if (!File.Exists(modelLoadPath))
-				throw new Exception($"Model file not found at: {modelLoadPath}");
+			string modelLoadPath = modelLoadPathEarly;
 
 			try
 			{

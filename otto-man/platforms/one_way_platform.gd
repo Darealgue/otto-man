@@ -8,8 +8,8 @@ func _ready() -> void:
 	super._ready()
 	
 	# Set up one-way collision
-    collision_layer = CollisionLayers.WORLD  # Ground layer
-    collision_mask = CollisionLayers.NONE   # Don't collide with anything
+	collision_layer = CollisionLayers.WORLD  # Ground layer
+	collision_mask = CollisionLayers.NONE   # Don't collide with anything
 	
 	# Make platform semi-transparent
 	platform_color.a = 0.7

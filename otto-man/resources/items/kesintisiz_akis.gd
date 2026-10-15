@@ -14,19 +14,16 @@ func _init():
 	item_name = tr("item.kesintisiz_akis.name")
 	description = tr("item.kesintisiz_akis.description")
 	flavor_text = "Akış hiç durmaz"
-	rarity = ItemRarity.LEGENDARY
 	category = ItemCategory.DODGE
 	affected_stats = ["dodge_kill_stamina_refund"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Kesintisiz Akış] ✅ Dodge/dash sırasında öldürme stamina iade eder")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Kesintisiz Akış] ❌ Kaldırıldı")
 
 func on_enemy_killed(_enemy: Node2D) -> void:
 	if not is_instance_valid(_player):

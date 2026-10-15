@@ -16,21 +16,18 @@ func _init():
 	item_name = tr("item.sessiz_adim.name")
 	description = tr("item.sessiz_adim.description")
 	flavor_text = "Eğilen, görülmeyi geciktirir"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.CROUCH
 	affected_stats = ["crouch_stealth"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Sessiz Adım] ✅ Çömelirken düşman görüş menzili kısalıyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	if _player and is_instance_valid(_player):
 		_player.stealth_enemy_vision_mult = 1.0
 	_player = null
-	print("[Sessiz Adım] ❌ Kaldırıldı")
 
 func process(player: CharacterBody2D, _delta: float) -> void:
 	if not is_instance_valid(player):

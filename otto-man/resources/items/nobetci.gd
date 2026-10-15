@@ -11,17 +11,14 @@ func _init():
 	item_name = tr("item.nobetci.name")
 	description = tr("item.nobetci.description")
 	flavor_text = "Sabır, en iyi zırhtır"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.BLOCK
 	affected_stats = ["guard_regen"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	player.block_regen_mult = REGEN_MULT
-	print("[Nöbetçi] ✅ Yerinde savunmada stamina 2x hızlı dolar")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	if is_instance_valid(player):
 		player.block_regen_mult = 1.0
-	print("[Nöbetçi] ❌ Kaldırıldı")

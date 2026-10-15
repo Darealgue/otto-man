@@ -1,15 +1,12 @@
-[gd_scene load_steps=82 format=3 uid="uid://4yhee4tssqsb"]
+[gd_scene load_steps=79 format=3 uid="uid://4yhee4tssqsb"]
 
 [ext_resource type="Script" path="res://village/scripts/VillageScene.gd" id="1_q7bpx"]
 [ext_resource type="PackedScene" uid="uid://dfo7asubvab08" path="res://village/scenes/CampFire.tscn" id="1_u4slp"]
-[ext_resource type="PackedScene" uid="uid://cwc4rjb3xwqx" path="res://village/scenes/WorkerAssignmentUI.tscn" id="2_exr1e"]
 [ext_resource type="Script" path="res://village/scripts/PortalArea.gd" id="2_v83n0"]
-[ext_resource type="PackedScene" uid="uid://dc45tnfhvti72" path="res://village/scenes/CariyeManagementUI.tscn" id="4_fbyh8"]
 [ext_resource type="PackedScene" uid="uid://dptamh04yqugv" path="res://village/scenes/VillageStatusUI.tscn" id="5_3scu2"]
 [ext_resource type="PackedScene" uid="uid://dmoralejar01" path="res://village/scenes/MoraleJarUI.tscn" id="5_moralejar"]
 [ext_resource type="PackedScene" uid="uid://bepujd34sp2i1" path="res://player/player.tscn" id="6_nhirr"]
 [ext_resource type="PackedScene" uid="uid://ip73ci5ccf8t" path="res://village/scenes/TimeDisplayUI.tscn" id="7_miuw4"]
-[ext_resource type="PackedScene" uid="uid://d1hjdmbn1joxm" path="res://village/scenes/BuildMenuUI.tscn" id="8_buildmenu"]
 [ext_resource type="Theme" uid="uid://cl5jbc0pw6h15" path="res://resources/medieval_theme.tres" id="9_theme_medieval"]
 [ext_resource type="Texture2D" uid="uid://c4dwqep5smpnx" path="res://village/assets/sun,moon/sun.png" id="10_2gs62"]
 [ext_resource type="Script" path="res://village/scripts/DayNightController.gd" id="10_m5lc0"]
@@ -248,28 +245,8 @@ position = Vector2(4400, 0)
 [node name="BuildPlot22" type="Marker2D" parent="PlotMarkers"]
 position = Vector2(-4400, 0)
 
-[node name="WorkerAssignmentUI" parent="." instance=ExtResource("2_exr1e")]
-layer = 10
-visible = false
-
-[node name="CariyeManagementUI" parent="." instance=ExtResource("4_fbyh8")]
-layer = 10
-visible = false
-
 [node name="BuildMenuLayer" type="CanvasLayer" parent="."]
 layer = 10
-
-[node name="BuildMenuUI" parent="BuildMenuLayer" instance=ExtResource("8_buildmenu")]
-visible = false
-
-[node name="OpenWorkerUIButton" type="Button" parent="."]
-z_index = 10
-offset_left = -42.0
-offset_top = 456.0
-offset_right = 44.0
-offset_bottom = 487.0
-theme = ExtResource("9_theme_medieval")
-text = "Camp Fire"
 
 [node name="AddVillagerButton" type="Button" parent="."]
 z_index = 10
@@ -279,24 +256,6 @@ offset_right = 51.0
 offset_bottom = 450.0
 theme = ExtResource("9_theme_medieval")
 text = "Köylü lütfen"
-
-[node name="OpenCariyeUIButton" type="Button" parent="."]
-z_index = 10
-offset_left = -28.0
-offset_top = 490.0
-offset_right = 29.0
-offset_bottom = 521.0
-theme = ExtResource("9_theme_medieval")
-text = "Cariye"
-
-[node name="OpenBuildUIButton" type="Button" parent="."]
-z_index = 10
-offset_left = -28.0
-offset_top = 524.0
-offset_right = 29.0
-offset_bottom = 555.0
-theme = ExtResource("9_theme_medieval")
-text = "İnşaa"
 
 [node name="ForestPortalArea" type="Area2D" parent="."]
 position = Vector2(-3600, -120)

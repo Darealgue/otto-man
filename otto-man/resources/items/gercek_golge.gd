@@ -11,7 +11,6 @@ func _init():
 	item_name = tr("item.gercek_golge.name")
 	description = tr("item.gercek_golge.description")
 	flavor_text = "Gölge de senin kadar gerçek"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["shadow_damage"]
 

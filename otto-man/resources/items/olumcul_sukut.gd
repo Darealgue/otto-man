@@ -12,7 +12,6 @@ func _init():
 	item_name = tr("item.olumcul_sukut.name")
 	description = tr("item.olumcul_sukut.description")
 	flavor_text = "Sessizlikten sonra darbe"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.PARRY
 	affected_stats = ["counter_light_bonus"]
 
@@ -25,7 +24,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("player_blocked"):
 		if not player.is_connected("player_blocked", _on_parry_or_block):
 			player.connect("player_blocked", _on_parry_or_block)
-	print("[Ölümcül Sükût] Parry/blok sonrası ilk light attack +%50")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)

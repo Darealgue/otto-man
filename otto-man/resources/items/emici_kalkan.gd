@@ -15,7 +15,6 @@ func _init():
 	item_name = tr("item.emici_kalkan.name")
 	description = tr("item.emici_kalkan.description")
 	flavor_text = "Aldığın hasar sende kalır"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.BLOCK
 	affected_stats = ["block_damage_bank"]
 
@@ -26,7 +25,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("player_blocked"):
 		if not player.is_connected("player_blocked", _on_player_blocked):
 			player.connect("player_blocked", _on_player_blocked)
-	print("[Emici Kalkan] ✅ Bloklanan hasar sıradaki vuruşa ekleniyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -37,7 +35,6 @@ func deactivate(player: CharacterBody2D):
 		_hitbox.pending_flat_damage_bonus = 0.0
 	_player = null
 	_hitbox = null
-	print("[Emici Kalkan] ❌ Kaldırıldı")
 
 func _on_player_blocked(blocked_damage: float, _attacker: Node2D) -> void:
 	if blocked_damage <= 0.0 or not _hitbox or not is_instance_valid(_hitbox):

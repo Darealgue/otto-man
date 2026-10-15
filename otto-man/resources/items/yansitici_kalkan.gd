@@ -10,7 +10,6 @@ func _init():
 	item_name = tr("item.yansitici_kalkan.name")
 	description = tr("item.yansitici_kalkan.description")
 	flavor_text = "Savunma = saldırı"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.BLOCK
 	affected_stats = []
 
@@ -21,7 +20,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("player_blocked"):
 		if not player.is_connected("player_blocked", _on_player_blocked):
 			player.connect("player_blocked", _on_player_blocked)
-		print("[Yansıtıcı Kalkan] ✅ Aktif - block yansıtma hazır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -29,7 +27,6 @@ func deactivate(player: CharacterBody2D):
 	if player.has_signal("player_blocked"):
 		if player.is_connected("player_blocked", _on_player_blocked):
 			player.disconnect("player_blocked", _on_player_blocked)
-		print("[Yansıtıcı Kalkan] ❌ Deaktif")
 
 func _on_player_blocked(blocked_damage: float, attacker: Node2D):
 	if !attacker or blocked_damage <= 0:
@@ -41,9 +38,7 @@ func _on_player_blocked(blocked_damage: float, attacker: Node2D):
 	# Try to damage the attacker
 	if attacker.has_method("take_damage"):
 		attacker.take_damage(reflected_damage)
-		print("[Yansıtıcı Kalkan] ⚡ Yansıtılan hasar: ", reflected_damage, " → ", attacker.name)
 	elif attacker.has_node("Hurtbox"):
 		var hurtbox = attacker.get_node("Hurtbox")
 		if hurtbox.has_method("take_damage"):
 			hurtbox.take_damage(reflected_damage)
-			print("[Yansıtıcı Kalkan] ⚡ Yansıtılan hasar (hurtbox): ", reflected_damage)

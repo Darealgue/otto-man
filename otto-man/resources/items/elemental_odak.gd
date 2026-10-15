@@ -13,7 +13,6 @@ func _init():
 	item_name = tr("item.elemental_odak.name")
 	description = tr("item.elemental_odak.description")
 	flavor_text = "Büyücü ruhu"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["elemental_focus"]
 
@@ -22,7 +21,6 @@ func activate(player: CharacterBody2D):
 	_player = player
 	_player.physical_damage_mult = PHYSICAL_MULT
 	_player.elemental_damage_mult = ELEMENTAL_MULT
-	print("[Elemental Odak] Elemental 4x, fiziksel 0.25x")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)

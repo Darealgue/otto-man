@@ -19,7 +19,6 @@ func _init():
 	item_name = tr("item.simsek_parmagi.name")
 	description = tr("item.simsek_parmagi.description")
 	flavor_text = "Elektrikli parmaklar"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.LIGHT_ATTACK
 	tags = ["elemental_lightning"]
 	affected_stats = ["lightning_chain"]
@@ -30,7 +29,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("player_attack_landed"):
 		if not player.is_connected("player_attack_landed", _on_player_attack_landed):
 			player.connect("player_attack_landed", _on_player_attack_landed)
-		print("[Şimşek Parmak] ✅ Light attack şimşek sıçratır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -38,7 +36,6 @@ func deactivate(player: CharacterBody2D):
 		if _player.is_connected("player_attack_landed", _on_player_attack_landed):
 			_player.disconnect("player_attack_landed", _on_player_attack_landed)
 	_player = null
-	print("[Şimşek Parmak] ❌ Kaldırıldı")
 
 func _get_enemy_node(target: Node) -> Node:
 	if not is_instance_valid(target):

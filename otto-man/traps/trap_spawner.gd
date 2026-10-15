@@ -42,7 +42,6 @@ func _ready() -> void:
 	if spawn_marker:
 		spawn_marker.visible = false
 	
-	print("[TrapSpawner] Initialized - Category: %s, Level: %d" % [TrapConfig.TrapCategory.keys()[trap_category], current_level])
 	
 	if auto_spawn and not spawn_on_level_start:
 		# Don't spawn immediately, wait for activation
@@ -56,19 +55,15 @@ func activate() -> bool:
 	if auto_spawn:
 		if randf() <= spawn_chance:
 			_spawn_trap()
-			print("[TrapSpawner] Activated")
 			return true
 		else:
-			print("[TrapSpawner] Deactivated")
 			_is_active = false
 			return false
-	print("[TrapSpawner] Activated")
 	return true
 
 func deactivate() -> void:
 	_is_active = false
 	clear_trap()
-	print("[TrapSpawner] Deactivated")
 
 func _on_level_started() -> void:
 	if _is_active:
@@ -77,7 +72,6 @@ func _on_level_started() -> void:
 func _spawn_trap() -> bool:
 	var trap_types = TrapConfig.get_traps_for_category(trap_category)
 	if trap_types.is_empty():
-		print("[TrapSpawner] No traps available for category: %s" % TrapConfig.TrapCategory.keys()[trap_category])
 		return false
 	
 	# Select trap type (for now, random selection)
@@ -100,12 +94,10 @@ func _spawn_trap() -> bool:
 			trap_scene = preload("res://traps/wall/cannon_trap.tscn")
 		"rotating_saw":
 			# Will implement later
-			print("[TrapSpawner] Rotating saw not implemented yet")
 			return false
 		"pendulum_axe":
 			trap_scene = preload("res://traps/ceiling/pendulum_axe.tscn")
 		_:
-			print("[TrapSpawner] Unknown trap type: %s" % trap_type)
 			return false
 	
 	if not trap_scene:
@@ -120,13 +112,11 @@ func _spawn_trap() -> bool:
 	
 	# Set direction properties for directional traps BEFORE adding to scene
 	if trap_type == "arrow_shooter":
-		print("[TrapSpawner] Setting arrow shooter directions: R=%s L=%s U=%s D=%s" % [shoot_right, shoot_left, shoot_up, shoot_down])
 		trap_instance.shoot_right = shoot_right
 		trap_instance.shoot_left = shoot_left
 		trap_instance.shoot_up = shoot_up
 		trap_instance.shoot_down = shoot_down
 	elif trap_type == "cannon_trap":
-		print("[TrapSpawner] Setting cannon trap directions: R=%s L=%s U=%s D=%s" % [shoot_right, shoot_left, shoot_up, shoot_down])
 		trap_instance.shoot_right = shoot_right
 		trap_instance.shoot_left = shoot_left
 		trap_instance.shoot_up = shoot_up
@@ -143,8 +133,6 @@ func _spawn_trap() -> bool:
 	_spawned_trap = trap_instance
 	_is_active = true
 	
-	print("[TrapSpawner] Spawned %s at position %s" % [trap_type, spawn_pos])
-	print("[TrapSpawner] Activated")
 	
 	return true
 
@@ -213,7 +201,6 @@ func _create_placeholder_trap(trap_type: String) -> void:
 	# Store reference
 	_spawned_trap = trap
 	
-	print("[TrapSpawner] Created placeholder %s at position %s" % [trap_type, spawn_position])
 
 func get_spawned_trap() -> BaseTrap:
 	return _spawned_trap

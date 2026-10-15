@@ -64,9 +64,9 @@ func _build_ui() -> void:
 	_panel.anchor_top = 0.5
 	_panel.anchor_right = 0.5
 	_panel.anchor_bottom = 0.5
-	_panel.offset_left = -400
+	_panel.offset_left = -520
 	_panel.offset_top = -540
-	_panel.offset_right = 400
+	_panel.offset_right = 520
 	_panel.offset_bottom = 540
 	_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
@@ -80,13 +80,13 @@ func _build_ui() -> void:
 	var title := Label.new()
 	title.text = tr("plot_build.title")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 30)
+	title.add_theme_font_size_override("font_size", 36)
 	root.add_child(title)
 
 	var subtitle := Label.new()
 	subtitle.text = tr("plot_build.subtitle")
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 17)
+	subtitle.add_theme_font_size_override("font_size", 20)
 	subtitle.modulate = Color(1, 1, 1, 0.75)
 	root.add_child(subtitle)
 
@@ -140,7 +140,7 @@ func _build_ui() -> void:
 	_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_info_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_info_label.add_theme_font_size_override("font_size", 16)
+	_info_label.add_theme_font_size_override("font_size", 19)
 	_info_label.modulate = Color(1, 0.55, 0.5, 1)
 	bottom.add_child(_info_label)
 
@@ -151,7 +151,8 @@ func _build_ui() -> void:
 		btn.text = _Categories.get_category_label(cat)
 		btn.toggle_mode = true
 		btn.focus_mode = Control.FOCUS_NONE
-		btn.custom_minimum_size = Vector2(150, 46)
+		btn.custom_minimum_size = Vector2(170, 50)
+		btn.add_theme_font_size_override("font_size", 21)
 		btn.set_meta("category", int(cat))
 		btn.pressed.connect(_on_category_pressed.bind(int(cat)))
 		_category_tabs.add_child(btn)
@@ -469,12 +470,46 @@ func _make_building_row(scene_path: String) -> Control:
 	text_col.add_theme_constant_override("separation", 2)
 	row.add_child(text_col)
 
+	var name_row := HBoxContainer.new()
+	name_row.add_theme_constant_override("separation", 12)
+	text_col.add_child(name_row)
 	var name_lbl := Label.new()
 	name_lbl.text = LocaleManager.get_building_name(scene_path)
-	name_lbl.add_theme_font_size_override("font_size", 21)
+	name_lbl.add_theme_font_size_override("font_size", 25)
 	if not can_build:
-		name_lbl.modulate = Color(1, 1, 1, 0.55)
-	text_col.add_child(name_lbl)
+		name_lbl.modulate = Color(1, 1, 1, 0.7)
+	name_row.add_child(name_lbl)
+	var tag_text: String = _state_tag(scene_path)
+	if not tag_text.is_empty():
+		var tag := Label.new()
+		tag.text = tag_text
+		tag.add_theme_font_size_override("font_size", 17)
+		tag.add_theme_color_override("font_color", Color(0.96, 0.78, 0.36))
+		name_row.add_child(tag)
+
+	# Ne işe yarar + ne üretir / ne ister + önce hangi bina gerekir
+	var info: Dictionary = BuildingInfo.INFO.get(scene_path, {})
+	var info_id: String = String(info.get("id", ""))
+	if not info_id.is_empty():
+		var desc := Label.new()
+		desc.text = tr("build.info.%s" % info_id)
+		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		desc.add_theme_font_size_override("font_size", 18)
+		desc.add_theme_color_override("font_color", Color(0.86, 0.84, 0.78))
+		text_col.add_child(desc)
+		var chain_text: String = _chain_bbcode(scene_path, info)
+		if not chain_text.is_empty():
+			var chain := RichTextLabel.new()
+			chain.bbcode_enabled = true
+			chain.fit_content = true
+			chain.scroll_active = false
+			chain.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			chain.add_theme_font_size_override("normal_font_size", 17)
+			chain.add_theme_font_override("normal_font", TextOutline.get_game_font())
+			chain.add_theme_color_override("default_color", TextOutline.FONT_COLOR)
+			chain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			chain.text = chain_text
+			text_col.add_child(chain)
 
 	var cost_row := HBoxContainer.new()
 	cost_row.add_theme_constant_override("separation", 8)
@@ -484,7 +519,7 @@ func _make_building_row(scene_path: String) -> Control:
 	if not can_build:
 		var reason := Label.new()
 		reason.text = _format_lock_reason(scene_path)
-		reason.add_theme_font_size_override("font_size", 15)
+		reason.add_theme_font_size_override("font_size", 18)
 		reason.modulate = Color(1, 0.55, 0.5, 0.9)
 		reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		text_col.add_child(reason)
@@ -502,6 +537,65 @@ func _make_building_row(scene_path: String) -> Control:
 	_build_button_paths.append(scene_path)
 
 	return card
+
+
+## Önerilen sıradaki, henüz kurulmamış ilk bina ("" = hepsi kurulu)
+func _recommended_scene() -> String:
+	for scene_path in BuildingInfo.RECOMMENDED_ORDER:
+		if not VillageManager.does_building_exist(scene_path):
+			return scene_path
+	return ""
+
+
+func _state_tag(scene_path: String) -> String:
+	if scene_path != VillageManager.HOUSE_SCENE_PATH and VillageManager.does_building_exist(scene_path):
+		return "✔ " + tr("build.state.built")
+	if scene_path == _recommended_scene():
+		return "★ " + tr("build.state.recommended")
+	return ""
+
+
+## "Üretir: Kereste ← 1 Odun" ve "Önce: ✔ Odun Kampı ✘ Fırın" satırları (BBCode, renkli).
+func _chain_bbcode(scene_path: String, info: Dictionary) -> String:
+	var lines: PackedStringArray = PackedStringArray()
+	var out_res: String = String(info.get("out", ""))
+	var in_res: Dictionary = info.get("in", {})
+	if not out_res.is_empty():
+		var out_text: String = LocaleManager.get_resource_name(out_res)
+		var in_text: String = ""
+		if in_res.is_empty():
+			in_text = tr("build.ui.from_map")
+		else:
+			var parts: PackedStringArray = PackedStringArray()
+			for k in in_res.keys():
+				parts.append("%d %s" % [int(in_res[k]), LocaleManager.get_resource_name(String(k))])
+			in_text = ", ".join(parts)
+		if scene_path.ends_with("Gunsmith.tscn"):
+			out_text = tr("build.info.gunsmith_out")
+			in_text = tr("build.info.gunsmith_in")
+		lines.append("[color=#b9b4a8]%s[/color] [color=#8fdc7a]%s[/color]   [color=#b9b4a8]%s[/color] %s" % [
+			tr("build.ui.produces"), out_text, tr("build.ui.from"), in_text])
+	# Zincir: girdilerin ve ara mal isteyen inşa bedelinin üreticileri
+	var keys: Array = []
+	for k2 in in_res.keys():
+		keys.append(String(k2))
+	var cost: Dictionary = VillageManager.get_effective_build_cost(scene_path)
+	for ck in cost.keys():
+		if String(ck) != "gold" and int(cost[ck]) > 0 and not keys.has(String(ck)):
+			keys.append(String(ck))
+	var producers: Array[String] = []
+	for key in keys:
+		var p: String = String(BuildingInfo.RESOURCE_PRODUCER.get(key, ""))
+		if p.is_empty() or p == scene_path or producers.has(p):
+			continue
+		producers.append(p)
+	if not producers.is_empty():
+		var parts2: PackedStringArray = PackedStringArray()
+		for p2 in producers:
+			var ok: bool = VillageManager.does_building_exist(p2)
+			parts2.append("[color=%s]%s%s[/color]" % ["#8fdc7a" if ok else "#ff7b6b", "✔ " if ok else "✘ ", LocaleManager.get_building_name(p2)])
+		lines.append("[color=#b9b4a8]%s[/color] %s" % [tr("build.ui.needs_buildings"), "   ".join(parts2)])
+	return "\n".join(lines)
 
 
 func _on_build_button_focus_entered(index: int) -> void:
@@ -528,7 +622,7 @@ func _populate_cost_row(cost_row: HBoxContainer, scene_path: String, can_build: 
 	if not has_any_positive_amount:
 		var free_lbl := Label.new()
 		free_lbl.text = tr("plot_build.free")
-		free_lbl.add_theme_font_size_override("font_size", 16)
+		free_lbl.add_theme_font_size_override("font_size", 20)
 		free_lbl.modulate = Color(0.6, 1.0, 0.6, 1.0) if can_build else Color(1, 1, 1, 0.5)
 		cost_row.add_child(free_lbl)
 		return
@@ -541,13 +635,13 @@ func _populate_cost_row(cost_row: HBoxContainer, scene_path: String, can_build: 
 		var icon_path := _resource_icon_path(key_str)
 		if not icon_path.is_empty():
 			var icon := TextureRect.new()
-			icon.custom_minimum_size = Vector2(21, 21)
+			icon.custom_minimum_size = Vector2(26, 26)
 			icon.texture = load(icon_path)
 			icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			cost_row.add_child(icon)
 		var amt_lbl := Label.new()
 		amt_lbl.text = str(amount)
-		amt_lbl.add_theme_font_size_override("font_size", 16)
+		amt_lbl.add_theme_font_size_override("font_size", 20)
 		if not can_build:
 			amt_lbl.modulate = Color(1, 1, 1, 0.5)
 		cost_row.add_child(amt_lbl)

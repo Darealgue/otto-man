@@ -19,19 +19,16 @@ func _init():
 	item_name = tr("item.golge_bagi.name")
 	description = tr("item.golge_bagi.description")
 	flavor_text = "Gölge tutar, sen vurursun"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["shadow_mark"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Gölge Bağı] ✅ Gölgenin vurduğu düşman işaretlenir")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Gölge Bağı] ❌ Kaldırıldı")
 
 # player_decoy.gd -> ItemManager.notify_item_event
 func _on_decoy_hit_enemy(enemy: Node, _decoy_pos: Vector2) -> void:

@@ -33,7 +33,6 @@ func activate(player: CharacterBody2D) -> void:
 		if !player.is_connected("fall_attack_performed", _on_fall_attack_performed):
 			player.connect("fall_attack_performed", _on_fall_attack_performed)
 	
-	print("[Triple Strike] Activated - 3 fall attacks for area damage")
 
 func _on_fall_attack_performed() -> void:
 	if !current_player or !is_instance_valid(current_player):
@@ -66,10 +65,8 @@ func _perform_area_attack() -> void:
 				var area_damage = base_damage * damage_multiplier
 				enemy.take_damage(area_damage)
 				var synergy_text = " (Aerial Warrior synergy)" if synergy_active else ""
-				print("[Triple Strike] Area damage dealt: " + str(area_damage) + synergy_text)
 	
 	var synergy_text = " (Aerial Warrior synergy)" if synergy_active else ""
-	print("[Triple Strike] Area attack performed!" + synergy_text)
 
 func _on_synergy_activated(synergy_id: String) -> void:
 	if synergy_id == "aerial_warrior":
@@ -85,7 +82,6 @@ func _check_aerial_warrior_synergy() -> void:
 	
 	if new_synergy_active != synergy_active:
 		synergy_active = new_synergy_active
-		print("[Triple Strike] Aerial Warrior synergy " + ("activated" if synergy_active else "deactivated"))
 
 func deactivate(player: CharacterBody2D) -> void:
 	if is_instance_valid(player):
@@ -101,5 +97,4 @@ func deactivate(player: CharacterBody2D) -> void:
 	current_player = null
 	fall_attack_count = 0
 	
-	print("[Triple Strike] Deactivated")
 	super.deactivate(player)

@@ -20,7 +20,6 @@ func _init():
 	item_name = tr("item.perde_arkasi.name")
 	description = tr("item.perde_arkasi.description")
 	flavor_text = "Perdenin arkasındakini kimse görmez"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.DODGE
 	affected_stats = ["return_stealth"]
 
@@ -28,13 +27,11 @@ func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
 	_time_left = 0.0
-	print("[Perde Arkası] ✅ Gölge dönüşü sonrası gizlilik + güçlü vuruş")
 
 func deactivate(player: CharacterBody2D):
 	_end_effect()
 	super.deactivate(player)
 	_player = null
-	print("[Perde Arkası] ❌ Kaldırıldı")
 
 # golge_donusu.gd -> ItemManager.notify_item_event
 func _on_shadow_return(_from_pos: Vector2, _to_pos: Vector2) -> void:

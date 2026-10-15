@@ -196,6 +196,8 @@ func physics_update(delta: float):
 			return
 		elif player.can_double_jump and not player.has_double_jumped:
 			player.has_double_jumped = true
+			if player.has_meta("kus_kanadi_active"):
+				player.set_meta("kus_kanadi_jump_count", maxi(int(player.get_meta("kus_kanadi_jump_count", 0)), 1) + 1)
 			is_double_jumping = true
 			# Use player's double jump function instead of setting velocity directly
 			player.start_double_jump()
@@ -205,6 +207,14 @@ func physics_update(delta: float):
 			# Wallslide'den geldiğinde double jump'ı zorla etkinleştir
 			player.enable_double_jump()
 			player.has_double_jumped = true
+			is_double_jumping = true
+			player.start_double_jump()
+			animation_player.play("double_jump")
+			return
+		elif player.has_double_jumped and player.has_meta("kus_kanadi_active") \
+				and int(player.get_meta("kus_kanadi_jump_count", 0)) == 2 and _spend_kus_kanadi_stamina():
+			# Kuş Kanadı bonus (3.) zıplaması: 2 stamina hücresi (jump_state ile aynı kural)
+			player.set_meta("kus_kanadi_jump_count", 3)
 			is_double_jumping = true
 			player.start_double_jump()
 			animation_player.play("double_jump")
@@ -339,6 +349,17 @@ func physics_update(delta: float):
 # dodge'u boşluğa savurmanın küçük bir zaman bedeli olur.
 # Takla saldırı/zıplama/yön tuşuyla kesilirse buraya hiç gelinmez - ceza da olmaz.
 # Düz zemindeki dodge bu yoldan geçmez; onun taklası Dodge state'inin içinde bitiyor.
+## Kuş Kanadı 3. zıplama: 2 hücre ya da hiç (jump_state._consume_kus_kanadi_bonus_jump_stamina ile aynı).
+func _spend_kus_kanadi_stamina() -> bool:
+	var bar = player.get_tree().get_first_node_in_group("stamina_bar")
+	if bar == null or not bar.use_charge():
+		return false
+	if not bar.use_charge():
+		bar.restore_partial_charge(1.0)
+		return false
+	return true
+
+
 func _finish_dodge_landing() -> void:
 	var crouch = state_machine.get_node_or_null("Crouch")
 	if crouch == null or not crouch.has_method("force_crouch") or not player.is_on_floor():

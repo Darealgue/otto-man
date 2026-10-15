@@ -7,7 +7,6 @@ const _MentorPopupScript := preload("res://ui/MentorBriefPopupUI.gd")
 const _ConcubinePopupScript := preload("res://ui/ConcubineMissionPopupUI.gd")
 const _TraderPopupScript := preload("res://ui/TraderTradePopupUI.gd")
 const _CardDraftPopupScript := preload("res://ui/VillageCardDraftUI.gd")
-const _TradeMissionPopupScript := preload("res://ui/TradeMissionPopupUI.gd")
 const _FalciPopupScript := preload("res://ui/FalciPopupUI.gd")
 const _OzanPopupScript := preload("res://ui/OzanPopupUI.gd")
 
@@ -16,7 +15,6 @@ var _mentor_popup: MentorBriefPopupUI
 var _concubine_popup: ConcubineMissionPopupUI
 var _trader_popup: TraderTradePopupUI
 var _card_draft_popup: VillageCardDraftUI
-var _trade_mission_popup: TradeMissionPopupUI
 var _falci_popup: FalciPopupUI
 var _ozan_popup: OzanPopupUI
 
@@ -44,10 +42,6 @@ func setup(village_scene: Node2D) -> void:
 		_card_draft_popup = _CardDraftPopupScript.new()
 		_card_draft_popup.name = "VillageCardDraftPopup"
 		canvas.add_child(_card_draft_popup)
-	if not is_instance_valid(_trade_mission_popup):
-		_trade_mission_popup = _TradeMissionPopupScript.new()
-		_trade_mission_popup.name = "TradeMissionPopup"
-		canvas.add_child(_trade_mission_popup)
 	if not is_instance_valid(_falci_popup):
 		_falci_popup = _FalciPopupScript.new()
 		_falci_popup.name = "FalciPopup"
@@ -116,11 +110,6 @@ func open_ozan() -> void:
 		_ozan_popup.show_popup()
 
 
-func open_trade_mission(concubine: Concubine) -> void:
-	if is_instance_valid(_trade_mission_popup) and concubine != null:
-		_trade_mission_popup.show_for_concubine(concubine)
-
-
 func is_any_popup_open() -> bool:
 	if is_instance_valid(_rest_popup) and _rest_popup._is_open:
 		return true
@@ -138,8 +127,6 @@ func is_any_popup_open() -> bool:
 	if is_instance_valid(_ozan_popup) and _ozan_popup._is_open:
 		return true
 	if is_instance_valid(_card_draft_popup) and _card_draft_popup._is_open:
-		return true
-	if is_instance_valid(_trade_mission_popup) and _trade_mission_popup._is_open:
 		return true
 	return false
 

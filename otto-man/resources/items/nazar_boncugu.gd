@@ -18,7 +18,6 @@ func _init():
 	item_name = tr("item.nazar_boncugu.name")
 	description = tr("item.nazar_boncugu.description")
 	flavor_text = "Kötü nazara karşı"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.BLOCK
 	affected_stats = ["nazar_shield"]
 
@@ -29,7 +28,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("nazar_shield_consumed"):
 		if not player.is_connected("nazar_shield_consumed", _on_nazar_shield_consumed):
 			player.connect("nazar_shield_consumed", _on_nazar_shield_consumed)
-	print("[Nazar Boncuğu] Kalkan aktif, 10 sn cooldown")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)

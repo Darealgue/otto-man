@@ -41,7 +41,7 @@ func _ready() -> void:
 		add_to_group("dungeon_key_drop")  # zindan anahtar imleci bu grubu tarar
 	gravity_scale = 1.2
 	freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC
-	linear_damp = 1.0
+	linear_damp = 0.25
 	angular_damp = 1.0
 	continuous_cd = RigidBody2D.CCD_MODE_CAST_RAY
 	contact_monitor = true
@@ -49,8 +49,8 @@ func _ready() -> void:
 	collision_layer = CollisionLayers.ITEM
 	collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
 	var pm := PhysicsMaterial.new()
-	pm.bounce = 0.05
-	pm.friction = 1.2
+	pm.bounce = 0.5
+	pm.friction = 0.8
 	physics_material_override = pm
 	_build_physics()
 	_build_visual()

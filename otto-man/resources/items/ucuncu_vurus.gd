@@ -10,7 +10,6 @@ func _init():
 	item_name = tr("item.ucuncu_vurus.name")
 	description = tr("item.ucuncu_vurus.description")
 	flavor_text = "Üçün bir gücü"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["light_attack_third"]
 
@@ -18,12 +17,10 @@ func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
 	_light_attack_count = 0
-	print("[Üçüncü Vuruş] ✅ Her 3. vuruş ek hasar")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Üçüncü Vuruş] ❌ Kaldırıldı")
 
 func _on_player_attack_landed(attack_type: String, damage: float, targets: Array, position: Vector2, effect_filter: String = "all") -> void:
 	if effect_filter == "elemental_only":

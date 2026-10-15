@@ -6,7 +6,6 @@ func _init():
 	item_name = tr("item.barut_zirhi.name")
 	description = tr("item.barut_zirhi.description")
 	flavor_text = "Kendi ateşin seni yakmaz"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["explosion_immunity"]
 
@@ -15,8 +14,6 @@ func _init():
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Barut Zırhı] ✅ Patlamalara bağışıklık")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Barut Zırhı] ❌ Kaldırıldı")

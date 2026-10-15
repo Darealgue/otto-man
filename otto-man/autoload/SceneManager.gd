@@ -46,7 +46,6 @@ var _wm_overlay_departure_snapshot_done: bool = false
 
 func _ready() -> void:
 	current_scene_path = _detect_initial_scene()
-	print("[SceneManager] ready, current=", current_scene_path)
 
 func start_new_game(play_tutorial: bool = false) -> void:
 	current_payload = {}
@@ -81,7 +80,6 @@ func start_new_game(play_tutorial: bool = false) -> void:
 	if is_instance_valid(WeatherManager):
 		if WeatherManager.storm_active:
 			WeatherManager.reset_storm_completely()
-		print("[SceneManager] WeatherManager reset for new game")
 	# 7) Oyuncu istatistikleri (can, sefer debuff'ları, world supplies)
 	var ps_new: Node = get_node_or_null("/root/PlayerStats")
 	if ps_new and ps_new.has_method("reset_world_expedition_supplies"):
@@ -804,8 +802,13 @@ func _restore_cameras_after_world_map_overlay(village_root: Node, world_map_root
 		wm_cam.enabled = false
 	var restore_current: Camera2D = null
 	for entry in _wm_overlay_cam_backup:
-		var cam: Camera2D = entry.get("cam") as Camera2D
-		if not is_instance_valid(cam):
+		# Kamera yedeklendikten sonra silinmiş olabilir (örn. cariye portre çizicisinin geçici kamerası):
+		# serbest bırakılmış nesneyi `as` ile dönüştürmek hata verir, önce ham değeri doğrula.
+		var cam_raw: Variant = entry.get("cam")
+		if cam_raw == null or not is_instance_valid(cam_raw):
+			continue
+		var cam: Camera2D = cam_raw as Camera2D
+		if cam == null:
 			continue
 		var was_en: bool = bool(entry.get("enabled", false))
 		cam.enabled = was_en
@@ -837,7 +840,6 @@ func _handle_travel_time_out_only(payload: Dictionary) -> void:
 		push_error("[SceneManager] ❌ TimeManager not found!")
 		return
 	
-	print("[SceneManager] _handle_travel_time_out_only: out=%.1f hours (no production simulation)" % out_hours)
 	
 	# Just advance time, no production simulation
 	if time_manager.has_method("advance_hours"):
@@ -909,7 +911,6 @@ func _handle_travel_time(payload: Dictionary) -> void:
 			start_day = int(snapshot_time.get("day", 0))
 			start_hour = int(snapshot_time.get("hour", 0))
 			start_minute = int(snapshot_time.get("minute", 0))
-			print("[SceneManager] Using snapshot time for simulation: Day %d, %02d:%02d" % [start_day, start_hour, start_minute])
 		else:
 			# Fallback to current time if snapshot time not available
 			if time_manager.has_method("get_day"):
@@ -918,7 +919,6 @@ func _handle_travel_time(payload: Dictionary) -> void:
 				start_hour = time_manager.get_hour()
 			if time_manager.has_method("get_minute"):
 				start_minute = time_manager.get_minute()
-			print("[SceneManager] No snapshot time found, using current time: Day %d, %02d:%02d" % [start_day, start_hour, start_minute])
 	else:
 		# Fallback if VillageManager not available
 		if time_manager.has_method("get_day"):
@@ -928,8 +928,6 @@ func _handle_travel_time(payload: Dictionary) -> void:
 		if time_manager.has_method("get_minute"):
 			start_minute = time_manager.get_minute()
 	
-	print("[SceneManager] _handle_travel_time (RETURN): out=%.1f, back=%.1f, spent=%.1f" % [out_hours, back_hours, time_spent])
-	print("[SceneManager] Will advance time: %.1f hours, simulate production: %.1f hours (total_minutes=%d)" % [time_to_advance, time_to_simulate, total_minutes])
 	
 	# Check if VillageManager's time_advanced signal is connected BEFORE advancing time
 	var signal_connected: bool = false
@@ -947,7 +945,6 @@ func _handle_travel_time(payload: Dictionary) -> void:
 		var saved_resources = village_manager.get("_saved_resource_levels")
 		var saved_progress = village_manager.get("_saved_base_production_progress")
 		if saved_resources is Dictionary and not saved_resources.is_empty():
-			print("[SceneManager] Restoring resources before simulation: ", saved_resources)
 			village_manager.resource_levels = (saved_resources as Dictionary).duplicate(true)
 		if saved_progress is Dictionary and not saved_progress.is_empty():
 			village_manager.base_production_progress = (saved_progress as Dictionary).duplicate(true)
@@ -965,7 +962,6 @@ func _handle_travel_time(payload: Dictionary) -> void:
 			end_day = time_manager.get_day()
 		if time_manager.has_method("get_hour"):
 			end_hour = time_manager.get_hour()
-		print("[SceneManager] End time after advance: Day %d, %02d:%02d" % [end_day, end_hour, time_manager.get_minute() if time_manager.has_method("get_minute") else 0])
 	
 	# Safety net / overlay dönüşü: Süre haritada zaten ilerlediyse advance_hours=0 olabilir; time_advanced tetiklenmez.
 	var need_manual_sim: bool = false
@@ -976,9 +972,9 @@ func _handle_travel_time(payload: Dictionary) -> void:
 			need_manual_sim = true
 	if need_manual_sim and village_manager.has_method("_simulate_time_skip"):
 		if not signal_connected:
-			print("[SceneManager] ⚠️ Time_advanced signal not connected, calling simulation directly")
+			pass
 		else:
-			print("[SceneManager] Overlay/kayıtlı süre: zaman zaten ilerledi, üretim simülasyonu doğrudan uygulanıyor")
+			pass
 		village_manager.call("_simulate_time_skip", total_minutes, start_day, start_hour, start_minute)
 	elif village_manager and total_minutes > 0 and not village_manager.has_method("_simulate_time_skip"):
 		print("[SceneManager] ⚠️ VillageManager._simulate_time_skip method not found!")
@@ -1004,7 +1000,6 @@ func _change_scene(target_path: String, force_reload: bool = false) -> void:
 		return
 	var same_scene := current_scene_path == target_path
 	if same_scene and not force_reload:
-		print("[SceneManager] same scene request, ignoring", target_path)
 		_dismiss_world_map_overlay_if_present()
 		return
 
@@ -1086,7 +1081,6 @@ func _perform_scene_change(target_path: String, is_reload: bool) -> void:
 	var same_scene := current_scene_path == target_path
 	
 	if same_scene and is_reload:
-		print("[SceneManager] reloading current scene ->", target_path)
 		var vm_reload := get_node_or_null("/root/VillageManager")
 		if is_instance_valid(vm_reload) and vm_reload.has_method("schedule_skip_next_snapshot"):
 			vm_reload.schedule_skip_next_snapshot()
@@ -1128,7 +1122,6 @@ func _perform_scene_change(target_path: String, is_reload: bool) -> void:
 		_apply_scene_ambient_async(target_path)
 		return
 	
-	print("[SceneManager] changing scene ->", target_path)
 	scene_change_started.emit(target_path)
 	previous_scene_path = current_scene_path
 	current_scene_path = target_path
@@ -1194,7 +1187,6 @@ func _update_ui_visibility(scene_path: String) -> void:
 	)
 	var should_show_ui = is_combat_scene
 	
-	print("[SceneManager] 🎮 Updating UI visibility for scene: %s (show UI: %s)" % [scene_path, should_show_ui])
 	
 	# Wait a frame for scene to be fully loaded
 	await get_tree().process_frame
@@ -1344,7 +1336,6 @@ func _update_ui_visibility(scene_path: String) -> void:
 				else:
 					dgd.hide()
 	
-	print("[SceneManager] ✅ UI visibility updated")
 
 func _get_scene_name(scene_path: String) -> String:
 	if scene_path == MAIN_MENU_SCENE:
@@ -1373,7 +1364,6 @@ func _apply_selected_tier_to_level_generator(tier: int) -> void:
 		level_gen = current_scene.find_child("LevelGenerator", true, false)
 	if level_gen and "current_level" in level_gen:
 		level_gen.set("current_level", tier)
-		print("[SceneManager] Applied selected tier %d to LevelGenerator.current_level" % tier)
 
 func _detect_initial_scene() -> String:
 	var scene := get_tree().current_scene
@@ -1394,7 +1384,6 @@ func _record_level_entry_time(scene_path: String) -> void:
 	if time_manager.has_method("get_minute"):
 		entry_time["minute"] = time_manager.get_minute()
 	_level_entry_time[scene_path] = entry_time
-	print("[SceneManager] Recorded entry time for %s: Day %d, %02d:%02d" % [scene_path, entry_time.get("day", 0), entry_time.get("hour", 0), entry_time.get("minute", 0)])
 
 func _calculate_time_spent_in_level() -> float:
 	"""Calculate hours spent in the current runtime level (forest/dungeon/world_map)."""
@@ -1451,7 +1440,6 @@ func _calculate_time_spent_in_level() -> float:
 		return 0.0
 	
 	var time_spent_hours: float = float(diff_minutes) / float(minutes_per_hour)
-	print("[SceneManager] Time spent in level: %.2f hours (from Day %d %02d:%02d to Day %d %02d:%02d)" % [time_spent_hours, entry_day, entry_hour, entry_minute, exit_day, exit_hour, exit_minute])
 	return time_spent_hours
 
 func _clear_level_entry_time() -> void:

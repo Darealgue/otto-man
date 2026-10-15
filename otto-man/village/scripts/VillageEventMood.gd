@@ -14,6 +14,8 @@ const EVENT_BUBBLE_KEYS: Dictionary = {
 	"disease": "village.event.bubble.disease",
 	"plague": "village.event.bubble.disease",
 	"bandit_activity": "village.event.bubble.bandit",
+	"gather_bandits": "village.event.bubble.gather_bandits",
+	"gather_birds": "village.event.bubble.gather_birds",
 	"rebellion": "village.event.bubble.strike",
 }
 const _BUBBLE_MIN_SEC := 25.0

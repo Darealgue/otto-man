@@ -6,7 +6,6 @@ func _init():
 	item_name = tr("item.sekme_tabanligi.name")
 	description = tr("item.sekme_tabanligi.description")
 	flavor_text = "Yer, senin için bir yaydır"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.FALL_ATTACK
 	affected_stats = ["fall_attack_pogo"]
 
@@ -14,8 +13,6 @@ func _init():
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Sekme Tabanlığı] ✅ Düşüş saldırısı zeminde sekiyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Sekme Tabanlığı] ❌ Kaldırıldı")

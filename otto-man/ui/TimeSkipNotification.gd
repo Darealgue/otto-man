@@ -40,8 +40,6 @@ func _ready() -> void:
 	modulate.a = 0.0
 
 func show_time_skip_notification(total_hours: float, produced_resources: Dictionary, construction_footnote: String = "") -> void:
-	print("[TimeSkipNotification] show_time_skip_notification called: %.1f hours, resources: %s" % [total_hours, produced_resources])
-	print("[TimeSkipNotification] Node state - visible: %s, modulate.a: %.2f" % [visible, modulate.a])
 	
 	if not notification_label:
 		print("[TimeSkipNotification] ⚠️ notification_label is null!")
@@ -89,7 +87,6 @@ func show_time_skip_notification(total_hours: float, produced_resources: Diction
 	# Ensure proper size constraints
 	notification_label.custom_minimum_size = Vector2(400, 200)
 	
-	print("[TimeSkipNotification] Text set: ", text.substr(0, min(100, text.length())))
 	
 	# Show with fade-in animation
 	visible = true
@@ -100,12 +97,10 @@ func show_time_skip_notification(total_hours: float, produced_resources: Diction
 	# Bring to front
 	if get_parent():
 		move_to_front()
-	print("[TimeSkipNotification] ✅ Set visible=true, modulate.a=1.0, process_mode=ALWAYS")
 	
 	# Start fade-out timer
 	if fade_timer:
 		fade_timer.start(display_duration)
-		print("[TimeSkipNotification] ✅ Fade timer started (%.1f seconds)" % display_duration)
 	else:
 		print("[TimeSkipNotification] ⚠️ Fade timer is null!")
 

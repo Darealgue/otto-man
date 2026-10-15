@@ -11,14 +11,11 @@ func _init():
 	item_name = tr("item.kesintisiz_zincir.name")
 	description = tr("item.kesintisiz_zincir.description")
 	flavor_text = "Zincir hiç kopmaz"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["light_attack_streak_window"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Kesintisiz Zincir] ✅ Streak penceresi uzar (Artan Güç ile birlikte)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Kesintisiz Zincir] ❌ Kaldırıldı")

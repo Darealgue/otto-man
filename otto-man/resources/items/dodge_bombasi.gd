@@ -12,7 +12,6 @@ func _init():
 	item_name = tr("item.dodge_bombasi.name")
 	description = tr("item.dodge_bombasi.description")
 	flavor_text = "Patlayıcı kaçış"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.DODGE
 	affected_stats = ["dodge_bomb"]
 
@@ -26,7 +25,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("player_dodged"):
 		if not player.is_connected("player_dodged", _on_player_dodged):
 			player.connect("player_dodged", _on_player_dodged)
-		print("[Dodge Bombası] ✅ Dodge/dash sonrası bomba bırakır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -36,7 +34,6 @@ func deactivate(player: CharacterBody2D):
 		if _player.has_signal("player_dodged") and _player.is_connected("player_dodged", _on_player_dodged):
 			_player.disconnect("player_dodged", _on_player_dodged)
 	_player = null
-	print("[Dodge Bombası] ❌ Dodge Bombası kaldırıldı")
 
 func _on_player_dodged(direction: int, start_pos: Vector2, end_pos: Vector2):
 	if not _player:
@@ -104,6 +101,6 @@ func _explode_bomb(entry: Dictionary):
 	ExplosionModifiers.announce(bomb_position, BOMB_RADIUS * ExplosionModifiers.radius_mult())
 	
 	if hit_count > 0:
-		print("[Dodge Bombası] ✅ Bomba patladı! ", hit_count, " düşmana ", BOMB_DAMAGE, " hasar verildi")
+		pass
 	else:
-		print("[Dodge Bombası] Bomba patladı ama yakında düşman yok")
+		pass

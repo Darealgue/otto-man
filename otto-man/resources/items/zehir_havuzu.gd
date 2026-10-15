@@ -14,7 +14,6 @@ func _init():
 	item_name = tr("item.zehir_havuzu.name")
 	description = tr("item.zehir_havuzu.description")
 	flavor_text = "Düştüğü yer zehir olur"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.FALL_ATTACK
 	affected_stats = ["fall_poison_pool"]
 

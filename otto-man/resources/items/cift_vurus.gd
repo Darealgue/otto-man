@@ -10,7 +10,6 @@ func _init():
 	item_name = tr("item.cift_vurus.name")
 	description = tr("item.cift_vurus.description")
 	flavor_text = "İkili vuruş"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["light_attack_double"]
 
@@ -31,7 +30,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("player_attack_landed"):
 		if not player.is_connected("player_attack_landed", _on_player_attack_landed):
 			player.connect("player_attack_landed", _on_player_attack_landed)
-		print("[Çift Vuruş] ✅ Light attack'lar 2 kez vurur (%60 hasar)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -43,7 +41,6 @@ func deactivate(player: CharacterBody2D):
 		if _player.is_connected("player_attack_landed", _on_player_attack_landed):
 			_player.disconnect("player_attack_landed", _on_player_attack_landed)
 	_player = null
-	print("[Çift Vuruş] ❌ Çift Vuruş kaldırıldı")
 
 func _on_player_attack_landed(attack_type: String, damage: float, targets: Array, position: Vector2, effect_filter: String = "all"):
 	if effect_filter == "elemental_only":

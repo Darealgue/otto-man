@@ -33,32 +33,14 @@ func setup(scene: PackedScene) -> void:
 	if item is ItemEffect:
 		var item_name = item.item_name
 		var description = item.description
-		var rarity = item.rarity
 
-		# Get rarity color
-		var rarity_color = Color.WHITE
-		match rarity:
-			ItemEffect.ItemRarity.COMMON:
-				rarity_color = Color(0.7, 0.7, 0.7)  # Gray
-			ItemEffect.ItemRarity.UNCOMMON:
-				rarity_color = Color(0.0, 0.5, 1.0)  # Blue
-			ItemEffect.ItemRarity.RARE:
-				rarity_color = Color(0.6, 0.0, 1.0)  # Purple
-			ItemEffect.ItemRarity.LEGENDARY:
-				rarity_color = Color(1.0, 0.5, 0.0)  # Orange
-
-		# Rarity artık isme karışmıyor, ayrı küçük bir rozet olarak gösteriliyor
-		var rarity_text = ""
-		match rarity:
-			ItemEffect.ItemRarity.COMMON:
-				rarity_text = "Common"
-			ItemEffect.ItemRarity.UNCOMMON:
-				rarity_text = "Uncommon"
-			ItemEffect.ItemRarity.RARE:
-				rarity_text = "Rare"
-			ItemEffect.ItemRarity.LEGENDARY:
-				rarity_text = "Legendary"
-		_apply_card_tint(rarity_color)
+		# Rarity yok: kart rengi item'ın ait olduğu elemente/temaya göre (bkz. ItemManager.get_item_color)
+		var tint_color: Color = Color.WHITE
+		var tag_text: String = ""
+		var im0: Node = _item_manager()
+		if im0 and im0.has_method("get_item_color"):
+			tint_color = im0.call("get_item_color", item.item_id)
+		_apply_card_tint(tint_color)
 
 		var desc_full: String = description
 		# setup() buton daha ağaca EKLENMEDEN çağrılıyor; has_node("/root/...") burada
@@ -73,7 +55,7 @@ func setup(scene: PackedScene) -> void:
 			var synergy: String = im.call("get_synergy_hint", item.item_id)
 			if not synergy.is_empty():
 				desc_full += "\n" + synergy
-		_set_card_text(item_name, desc_full, rarity_text, rarity_color)
+		_set_card_text(item_name, desc_full, tag_text, tint_color)
 	else:
 		_set_card_text("Unknown Item", "", "", Color.WHITE)
 

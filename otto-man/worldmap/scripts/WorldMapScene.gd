@@ -38,6 +38,8 @@ const EXP_HUD_COUNT_FONT_SIZE := 20
 const EXP_HUD_SURVIVAL_FONT_SIZE := 16
 ## Akışın sarma genişliği; panel sayı değiştikçe zıplamasın diye taban genişlik.
 const EXP_HUD_MIN_WIDTH := 320.0
+## Açılış/kapanış bulut geçişi (bkz. MapCloudTransition.gd).
+const _CloudFx := preload("res://worldmap/scripts/MapCloudTransition.gd")
 const ZOOM_STEP: float = 0.1
 ## Godot 4 Camera2D.zoom: BUYUK deger = yakin (buyuk karolar), KUCUK = uzak (genis alan).
 ## En uzaga (haritayi kucuk goster); onceki varsayilan giris ~0.6 bundan oteye inilmez.
@@ -86,6 +88,8 @@ const StaminaBarScene = preload("res://ui/stamina_bar.tscn")
 const XpBarScene = preload("res://ui/xp_bar.tscn")
 
 var _world_manager: Node = null
+## Göreve yolla seçim modu (köydeki cariye penceresi `select_mission_concubine_id` ile açar).
+var _directed_mission_ctrl: DirectedMissionController = null
 var _cursor_q: int = 0
 var _cursor_r: int = 0
 var _status_label: Label = null
@@ -104,6 +108,9 @@ var _supply_flow: HFlowContainer = null
 var _carried_resource_chips: Dictionary = {}
 var _carried_loot_chips: Dictionary = {}
 var _camera: Camera2D = null
+## Bulut geçişi sürerken girdi kilitli (açılışta bulutlar açılana, çıkışta sahne değişene kadar).
+var _transition_locked: bool = false
+var _exit_started: bool = false
 var _camera_follow_target: Vector2 = Vector2.ZERO
 var _camera_follow_vel: Vector2 = Vector2.ZERO
 var _world_map_font_cached: Font = null
@@ -135,8 +142,8 @@ var _preview_incident_risk: float = 0.0
 var _preview_risk_label: String = "Dusuk"
 var _active_unit_markers: Array[Dictionary] = []
 var _mission_objective_markers: Array[Dictionary] = []
-var _travel_event_dialog: AcceptDialog = null
-var _travel_outcome_dialog: AcceptDialog = null
+var _travel_event_dialog: MapPopup = null
+var _travel_outcome_dialog: MapPopup = null
 var _pending_travel_event_data: Dictionary = {}
 var _travel_event_intro_text: String = ""
 var _travel_dice_animating: bool = false
@@ -150,10 +157,11 @@ var _hex_tooltip_layer: CanvasLayer = null
 var _hex_tooltip_panel: Control = null
 var _hex_tooltip_label: Label = null
 var _hex_tooltip_title: Label = null
-var _high_risk_move_dialog: ConfirmationDialog = null
-var _settlement_aid_confirm_dialog: ConfirmationDialog = null
+const ROUTE_RISK_PROMPT_ENABLED := false
+var _high_risk_move_dialog: MapPopup = null
+var _settlement_aid_confirm_dialog: MapPopup = null
 var _settlement_action_menu: PopupMenu = null
-var _player_map_mission_window: Window = null
+var _player_map_mission_window: MapPopup = null
 var _player_map_mission_vbox: VBoxContainer = null
 var _player_map_mission_pending_q: int = 0
 var _player_map_mission_pending_r: int = 0
@@ -336,9 +344,67 @@ func _ready() -> void:
 		tm.village_dungeon_guide_changed.connect(_refresh_tutorial_map_marker)
 	call_deferred("_ensure_world_map_hud_visible")
 	call_deferred("_ensure_world_map_hud_visible_late")
+	call_deferred("_init_directed_mission_mode")
 	var lm := get_node_or_null("/root/LocaleManager")
 	if lm and lm.has_signal("locale_changed") and not lm.locale_changed.is_connected(_refresh_world_map_locale):
 		lm.locale_changed.connect(_refresh_world_map_locale)
+	queue_redraw()
+	_play_open_transition()
+
+
+## Harita açılışı: bulutlar ekranı kaplar, iki yana açılırken kamera oyuncuya yaklaşır.
+func _play_open_transition() -> void:
+	if _camera == null or get_tree() == null:
+		return
+	var fx: Node = _CloudFx.new()
+	get_tree().root.add_child(fx)
+	_transition_locked = true
+	fx.finished.connect(_on_open_transition_finished, CONNECT_ONE_SHOT)
+	fx.call("play_open", _camera, ZOOM_FARTHEST, ZOOM_CLOSEST)
+
+
+func _on_open_transition_finished() -> void:
+	_transition_locked = false
+
+
+## Haritadan çıkış: bulutlar kapanır, `exit_call` çalışır (sahne/overlay değişir), bulutlar yeni sahneyi açar.
+## Çağrı bulut düğümü tarafından yapılır çünkü harita düğümü çıkışla birlikte silinir.
+func _exit_with_clouds(exit_call: Callable) -> void:
+	if _exit_started:
+		return
+	_exit_started = true
+	_transition_locked = true
+	if _camera == null or get_tree() == null:
+		exit_call.call()
+		return
+	var fx: Node = _CloudFx.new()
+	get_tree().root.add_child(fx)
+	fx.call("play_exit", _camera, ZOOM_FARTHEST, exit_call, self)
+
+
+## Çıkış gerçekleşmediyse (hata/engel) bulut düğümü haritayı geri verir.
+func _on_exit_transition_aborted() -> void:
+	_exit_started = false
+	_transition_locked = false
+
+
+## SceneManager overlay'de payload'ı sahne eklendikten SONRA yazar; bu yüzden _ready'den ertelenir.
+func _init_directed_mission_mode() -> void:
+	if _directed_mission_ctrl != null:
+		return
+	var sm: Node = get_node_or_null("/root/SceneManager")
+	if sm == null or not sm.has_method("get_current_payload"):
+		return
+	var payload: Dictionary = sm.get_current_payload()
+	if not payload.has("select_mission_concubine_id"):
+		return
+	var ctrl := DirectedMissionController.new()
+	ctrl.name = "DirectedMissionController"
+	add_child(ctrl)
+	if not ctrl.setup(self, int(payload["select_mission_concubine_id"])):
+		ctrl.queue_free()
+		return
+	_directed_mission_ctrl = ctrl
 	queue_redraw()
 
 
@@ -590,6 +656,13 @@ func _input(event: InputEvent) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	# Bulut geçişi sürerken harita girdisi kilitli (bkz. _play_open_transition / _exit_with_clouds)
+	if _transition_locked:
+		get_viewport().set_input_as_handled()
+		return
+	# Göreve yolla seçim modu: panel açıkken girdi tamamen ona ait.
+	if _directed_mission_ctrl != null and _directed_mission_ctrl.handle_input(event):
+		return
 	if _expedition_pack_modal and _expedition_pack_modal.visible:
 		if event.is_action_pressed("ui_cancel"):
 			_expedition_pack_modal.hide()
@@ -795,6 +868,8 @@ func _draw() -> void:
 	_draw_active_unit_markers()
 	_draw_mission_objective_markers()
 	_draw_path_preview()
+	if _directed_mission_ctrl != null:
+		_directed_mission_ctrl.draw_overlay(self, Callable(self, "_axial_to_pixel"), Callable(self, "_hex_top_surface_points"))
 	# Oyuncunun kendisi artik PlayerPawn (AnimatedSprite2D) olarak ciziliyor; buradaki
 	# turkuaz daire onun yerini tutuyordu, kaldirildi. Konum hesabi yuk ikonu icin duruyor.
 	var player_center: Vector2 = _get_player_visual_pixel_pos()
@@ -832,7 +907,15 @@ func _redraw_cursor_tile_poi(cursor_center: Vector2) -> void:
 		_draw_settlement_incident_marker(cursor_center, tile)
 
 
+## Yürüyüş animasyonu sürerken her hex adımı world_map_updated yayar; her seferinde bütün harita
+## durumunu (deep duplicate), yol önizlemesini ve etiketleri yenilemek karelerde takılma yaratıyordu.
+## Yürüyüş boyunca yenileme ertelenir, durunca tek seferde yapılır.
+var _travel_map_refresh_pending: bool = false
+
 func _on_world_map_updated() -> void:
+	if _travel_anim_active:
+		_travel_map_refresh_pending = true
+		return
 	_invalidate_world_map_state_cache()
 	_flush_path_preview_now()
 	_refresh_active_unit_markers()
@@ -861,6 +944,10 @@ func _player_on_own_village_hex() -> bool:
 
 ## Köyden overlay ile açıldıysa sahneyi yenilemeden kapat; aksi tam sahne geçişi (change_to_village).
 func _try_close_overlay_or_go_to_village() -> void:
+	_exit_with_clouds(_do_close_overlay_or_go_to_village)
+
+
+func _do_close_overlay_or_go_to_village() -> void:
 	var sm: Node = get_node_or_null("/root/SceneManager")
 	if sm != null and sm.has_method("try_close_world_map_overlay_village_return"):
 		if sm.try_close_world_map_overlay_village_return():
@@ -909,6 +996,10 @@ func _try_enter_hex_at_player_pos() -> bool:
 
 
 func _enter_player_village_from_world_map() -> void:
+	_exit_with_clouds(_do_enter_player_village_from_world_map)
+
+
+func _do_enter_player_village_from_world_map() -> void:
 	var scene_manager: Node = get_node_or_null("/root/SceneManager")
 	if scene_manager != null and scene_manager.has_method("try_close_world_map_overlay_village_return"):
 		if scene_manager.try_close_world_map_overlay_village_return():
@@ -918,7 +1009,7 @@ func _enter_player_village_from_world_map() -> void:
 
 
 ## Challenge odasına gir: etkinlik tek kullanımlık, girilince haritadan kalkar (kazan/kaybet fark etmez).
-var _challenge_dialog: ConfirmationDialog = null
+var _challenge_dialog: MapPopup = null
 
 func _enter_challenge_from_world_map(q: int, r: int) -> void:
 	if _world_manager == null or not _world_manager.has_method("get_challenge_at"):
@@ -928,27 +1019,94 @@ func _enter_challenge_from_world_map(q: int, r: int) -> void:
 		return
 	if is_instance_valid(_challenge_dialog):
 		return
-	# Kabul ekranı: ne olduğu, nerede/ne zorlukta geçtiği ve riski gösterilir; onaylanırsa girilir
+	# Kabul ekranı: ne olduğu, ödül, mekân/zorluk/süre ve risk gösterilir; onaylanırsa girilir
 	var kind: String = String(ch.get("kind", "koruma"))
 	var kind_key: String = String(ChallengeRoomRegistry.KINDS.get(kind, "challenge.kind.koruma"))
-	var dlg := ConfirmationDialog.new()
-	dlg.theme = MEDIEVAL_THEME
+	var dlg := MapPopup.new()
 	dlg.title = tr(kind_key)
-	dlg.dialog_text = "%s\n\n%s\n%s\n\n%s" % [
-		tr("challenge.desc.%s" % kind),
-		tr("challenge.tooltip.meta") % [tr("challenge.biome.%s" % String(ch.get("biome", "orman"))), int(ch.get("difficulty", 1))],
-		tr("challenge.tooltip.days") % int(ch.get("days_left", 0)),
-		tr("challenge.accept.warning"),
-	]
-	dlg.ok_button_text = tr("challenge.accept.enter")
-	dlg.cancel_button_text = tr("challenge.accept.cancel")
+	dlg.panel_width = 820
+	dlg.add_content(_build_challenge_card(ch, kind))
+	dlg.set_ok_text(tr("challenge.accept.enter"))
+	dlg.set_cancel_text(tr("challenge.accept.cancel"))
 	dlg.confirmed.connect(_start_challenge.bind(q, r))
 	dlg.visibility_changed.connect(func() -> void:
 		if not dlg.visible:
 			dlg.queue_free())
 	_challenge_dialog = dlg
-	add_child(dlg)
-	dlg.popup_centered(Vector2i(720, 360))
+	_add_map_popup(dlg)
+	dlg.popup_centered()
+
+
+## Etkinlik kartı: açıklama, ödül satırı, bilgi çipleri (mekân / zorluk / süre) ve tek satır uyarı.
+func _build_challenge_card(ch: Dictionary, kind: String) -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 14)
+
+	var is_blockade: bool = bool(ch.get("blockade", false))
+	var res_name: String = LocaleManager.get_resource_name(String(ch.get("blockade_resource", "wood"))) if is_blockade else ""
+
+	# Açıklama metninin sonundaki "Ödül: ..." / "Reward: ..." cümlesini ayrı satıra çıkar.
+	var desc: String = tr("challenge.desc.%s" % kind)
+	var reward_head: String = ""
+	var reward_text: String = ""
+	if is_blockade:
+		# Toplama engeli: ödül item değil, köylülerin toplamaya dönmesi
+		desc = tr("challenge.blockade.desc.%s" % kind)
+		reward_head = tr("challenge.reward.head")
+		reward_text = tr("challenge.blockade.reward") % res_name
+	else:
+		for marker in ["Ödül:", "Reward:"]:
+			var idx: int = desc.find(marker)
+			if idx >= 0:
+				reward_head = marker.trim_suffix(":")
+				reward_text = desc.substr(idx + marker.length()).strip_edges()
+				desc = desc.substr(0, idx).strip_edges()
+				break
+
+	var desc_label := Label.new()
+	desc_label.text = desc
+	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc_label.add_theme_font_size_override("font_size", MapPopup.BODY_FONT_SIZE)
+	desc_label.add_theme_color_override("font_color", MapPopup.COLOR_TEXT)
+	box.add_child(desc_label)
+
+	if not reward_text.is_empty():
+		var reward := VBoxContainer.new()
+		reward.add_theme_constant_override("separation", 2)
+		var head := Label.new()
+		head.text = reward_head
+		head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		head.add_theme_font_size_override("font_size", 18)
+		head.add_theme_color_override("font_color", MapPopup.COLOR_MUTED)
+		reward.add_child(head)
+		var body := Label.new()
+		body.text = reward_text.substr(0, 1).to_upper() + reward_text.substr(1)
+		body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		body.add_theme_font_size_override("font_size", MapPopup.BODY_FONT_SIZE)
+		body.add_theme_color_override("font_color", MapPopup.COLOR_TITLE)
+		reward.add_child(body)
+		box.add_child(reward)
+
+	var chips := HBoxContainer.new()
+	chips.alignment = BoxContainer.ALIGNMENT_CENTER
+	chips.add_theme_constant_override("separation", 12)
+	chips.add_child(MapPopup.make_chip(tr("challenge.biome.%s" % String(ch.get("biome", "orman")))))
+	chips.add_child(MapPopup.make_chip(tr("challenge.chip.difficulty") % int(ch.get("difficulty", 1))))
+	chips.add_child(MapPopup.make_chip(tr("challenge.chip.days") % int(ch.get("days_left", 0))))
+	if is_blockade:
+		chips.add_child(MapPopup.make_chip(tr("challenge.chip.blocked") % res_name))
+	box.add_child(chips)
+
+	var warn := Label.new()
+	warn.text = tr("challenge.accept.warning_blockade" if is_blockade else "challenge.accept.warning_short")
+	warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	warn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	warn.add_theme_font_size_override("font_size", 20)
+	warn.add_theme_color_override("font_color", MapPopup.COLOR_WARNING)
+	box.add_child(warn)
+	return box
 
 
 func _start_challenge(q: int, r: int) -> void:
@@ -958,13 +1116,19 @@ func _start_challenge(q: int, r: int) -> void:
 	var scene_manager: Node = get_node_or_null("/root/SceneManager")
 	if scene_manager == null or not scene_manager.has_method("change_to_challenge_room"):
 		return
-	_world_manager.call("remove_challenge_at", q, r)
-	scene_manager.change_to_challenge_room({
+	var payload: Dictionary = {
 		"source": "world_map",
 		"kind": String(ch.get("kind", "koruma")),
 		"biome": String(ch.get("biome", "orman")),
 		"difficulty": int(ch.get("difficulty", 1)),
-	})
+	}
+	if bool(ch.get("blockade", false)):
+		# Toplama engeli tek kullanımlık değil: karo yalnız kazanınca (olay bitince) kalkar, kaybedersen yerinde durur
+		payload["blockade_event"] = String(ch.get("blockade_event", ""))
+		payload["blockade_resource"] = String(ch.get("blockade_resource", ""))
+	else:
+		_world_manager.call("remove_challenge_at", q, r)
+	_exit_with_clouds(func(): scene_manager.change_to_challenge_room(payload))
 
 
 func _enter_dungeon_from_world_map() -> void:
@@ -983,7 +1147,7 @@ func _enter_dungeon_from_world_map() -> void:
 		var payload: Dictionary = {"source": "world_map"}
 		if not dungeon_id.is_empty():
 			payload["dungeon_id"] = dungeon_id
-		scene_manager.change_to_dungeon(payload)
+		_exit_with_clouds(func(): scene_manager.change_to_dungeon(payload))
 
 
 func _visit_landmark_at(q: int, r: int) -> void:
@@ -1019,11 +1183,12 @@ func _try_enter_biome_at_hex(pq: int, pr: int, tile: Dictionary) -> bool:
 		return false
 	var scene_manager: Node = get_node_or_null("/root/SceneManager")
 	if scene_manager and scene_manager.has_method("change_to_forest"):
-		scene_manager.change_to_forest({
+		var forest_payload: Dictionary = {
 			"source": "world_map",
 			"biome_type": biome_type,
 			"from_terrain": terrain,
-		})
+		}
+		_exit_with_clouds(func(): scene_manager.change_to_forest(forest_payload))
 		return true
 	return false
 
@@ -1054,11 +1219,15 @@ func _return_to_village_after_expedition_collapse(collapse: Dictionary) -> void:
 		"travel_hours_back": return_hours,
 		"collapse_cause": cause,
 	}
-	sm.change_to_village(payload, true)
+	_exit_with_clouds(func(): sm.change_to_village(payload, true))
 
 
 func _confirm_move_to_cursor() -> void:
 	if _travel_anim_active:
+		return
+	# Göreve yolla seçim modu: onay hedef seçer, oyuncuyu yürütmez / köye girmez.
+	if _directed_mission_ctrl != null:
+		_directed_mission_ctrl.on_confirm(_cursor_q, _cursor_r)
 		return
 	_flush_path_preview_now()
 	if _try_enter_hex_at_player_pos():
@@ -1159,7 +1328,8 @@ func _get_player_visual_pixel_pos() -> Vector2:
 		var fr: int = int(from_n.get("r", 0))
 		var tq: int = int(to_n.get("q", 0))
 		var tr: int = int(to_n.get("r", 0))
-		var u: float = smoothstep(0.0, 1.0, clampf(_travel_anim_t, 0.0, 1.0))
+		# Doğrusal: smoothstep her hex'te peyzı durdurup yeniden hızlandırıyordu (takılıyor gibi görünüyordu)
+		var u: float = clampf(_travel_anim_t, 0.0, 1.0)
 		var a: Vector2 = _axial_to_pixel(fq, fr)
 		var b: Vector2 = _axial_to_pixel(tq, tr)
 		return a.lerp(b, u)
@@ -1169,6 +1339,9 @@ func _get_player_visual_pixel_pos() -> Vector2:
 
 func _travel_anim_stop() -> void:
 	_travel_anim_active = false
+	if _travel_map_refresh_pending:
+		_travel_map_refresh_pending = false
+		_on_world_map_updated()
 	_travel_anim_path.clear()
 	_travel_anim_dest_index = 1
 	_travel_anim_t = 0.0
@@ -1258,6 +1431,10 @@ func _execute_travel_to_cursor() -> void:
 	queue_redraw()
 
 func _should_prompt_high_risk_departure() -> bool:
+	# Yol olayları rafa kalktığı için "riske girecek misin" sorusu şimdilik kapalı.
+	# Olaylar geri geldiğinde aşağıdaki kontrol için bu bayrağı true yap.
+	if not ROUTE_RISK_PROMPT_ENABLED:
+		return false
 	if _preview_path.size() < 2:
 		return false
 	if _preview_risk_label != "Yuksek":
@@ -1803,8 +1980,17 @@ func _build_hex_hover_tooltip_text(cq: int, cr: int) -> String:
 	var poi_lines: PackedStringArray = PackedStringArray()
 	if poi == "dungeon":
 		poi_lines = _build_dungeon_hex_tooltip_lines(tile, cq, cr)
+		# Cariye görevinden gelen süreli etkiler (Ajan sızması, Komutan temizliği).
+		if _world_manager != null and _world_manager.has_method("get_dungeon_directed_effects"):
+			var fx: Dictionary = _world_manager.call("get_dungeon_directed_effects", "%d,%d" % [cq, cr])
+			if int(fx.get("intel", 0)) > 0:
+				poi_lines.append(tr("wm.tooltip.dungeon.intel") % int(fx["intel"]))
+			if int(fx.get("cleared", 0)) > 0:
+				poi_lines.append(tr("wm.tooltip.dungeon.cleared") % int(fx["cleared"]))
 	elif poi == "challenge":
 		poi_lines = _build_challenge_hex_tooltip_lines(cq, cr)
+	elif poi == "bandit_camp":
+		poi_lines = PackedStringArray([tr("wm.tooltip.bandit_camp.title"), tr("wm.tooltip.bandit_camp.body2")])
 	elif poi == "neighbor_village":
 		poi_lines = _build_neighbor_village_hex_tooltip_lines(tile)
 	elif poi.begins_with("landmark_"):
@@ -1914,7 +2100,11 @@ func _build_challenge_hex_tooltip_lines(hex_q: int, hex_r: int) -> PackedStringA
 	var kind: String = String(ch.get("kind", "koruma"))
 	var kind_key: String = String(ChallengeRoomRegistry.KINDS.get(kind, "challenge.kind.koruma"))
 	lines.append("%s: %s" % [tr("challenge.tooltip.title"), tr(kind_key)])
-	lines.append(tr("challenge.desc.%s" % kind))
+	if bool(ch.get("blockade", false)):
+		lines.append(tr("challenge.blockade.desc.%s" % kind))
+		lines.append(tr("challenge.chip.blocked") % LocaleManager.get_resource_name(String(ch.get("blockade_resource", "wood"))))
+	else:
+		lines.append(tr("challenge.desc.%s" % kind))
 	lines.append(tr("challenge.tooltip.meta") % [tr("challenge.biome.%s" % String(ch.get("biome", "orman"))), int(ch.get("difficulty", 1))])
 	lines.append(tr("challenge.tooltip.days") % int(ch.get("days_left", 0)))
 	return lines
@@ -2034,6 +2224,11 @@ func _build_neighbor_village_hex_tooltip_lines(tile: Dictionary) -> PackedString
 		lines.append(" · ".join(stats))
 	# Bela VARSA yazılır. Eskiden "Kriz: yok" satırı da basılıyordu; balon söyleyecek bir şey
 	# olmadığında büyümesin diye kaldırıldı.
+	var mm_tip: Node = get_node_or_null("/root/MissionManager")
+	if mm_tip != null and mm_tip.has_method("is_settlement_intel_visible") and not sid.is_empty() and not bool(mm_tip.call("is_settlement_intel_visible", sid)):
+		# Ajan yok: bu köyün kriz/baskın durumunu bilmiyoruz.
+		lines.append(tr("wm.tooltip.neighbor.no_intel"))
+		return lines
 	if _world_manager != null and _world_manager.has_method("get_active_settlement_incident") and not sid.is_empty():
 		var inc_raw: Variant = _world_manager.call("get_active_settlement_incident", sid)
 		var inc: Dictionary = inc_raw as Dictionary if inc_raw is Dictionary else {}
@@ -2141,14 +2336,10 @@ func _build_role_buffs_status_line() -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	if float(mods.get("wolf_severity_mult", 1.0)) < 1.0:
 		parts.append("komutan")
-	if float(mods.get("incident_duration_mult", 1.0)) < 1.0:
-		parts.append("diplomat")
 	if float(mods.get("undiscovered_news_chance", 0.0)) > 0.0:
 		parts.append("ajan")
 	if int(mods.get("food_drift_bonus", 0)) > 0:
 		parts.append("tuccar")
-	if float(mods.get("harvest_failure_severity_mult", 1.0)) < 0.999:
-		parts.append("alim")
 	if float(mods.get("plague_population_loss_mult", 1.0)) < 0.999:
 		parts.append("tibbiyeci")
 	if parts.is_empty():
@@ -2592,6 +2783,11 @@ func _ensure_settlement_incident_draw_cache() -> void:
 		if not bool(tile.get("discovered", false)):
 			_settlement_incident_draw_cache[sid] = {}
 			continue
+		# Ajan yoksa uzak köylerin krizi haritada görünmez (MissionManager.is_settlement_intel_visible).
+		var mm_intel: Node = get_node_or_null("/root/MissionManager")
+		if mm_intel != null and mm_intel.has_method("is_settlement_intel_visible") and not bool(mm_intel.call("is_settlement_intel_visible", sid)):
+			_settlement_incident_draw_cache[sid] = {}
+			continue
 		var incident: Dictionary = _world_manager.call("get_active_settlement_incident", sid)
 		if incident.is_empty():
 			_settlement_incident_draw_cache[sid] = {}
@@ -2680,7 +2876,11 @@ func _is_blocking_world_map_ui_open() -> bool:
 		return true
 	if _player_map_mission_window and _player_map_mission_window.visible:
 		return true
+	if is_instance_valid(_challenge_dialog) and _challenge_dialog.visible:
+		return true
 	if _expedition_pack_modal and _expedition_pack_modal.visible:
+		return true
+	if _directed_mission_ctrl != null and _directed_mission_ctrl.is_panel_open():
 		return true
 	return false
 
@@ -3050,11 +3250,19 @@ func _load_terrain_textures() -> void:
 
 func _load_poi_textures() -> void:
 	_poi_textures.clear()
-	_poi_textures["player_village"] = load("res://Tile set/Hex Tiles/hex_camp.png")
-	_poi_textures["neighbor_village"] = load("res://Tile set/Hex Tiles/hex_village.png")
-	_poi_textures["dungeon"] = load("res://Tile set/Hex Tiles/hex_dungeon.png")
+	# Bu karo sprite'ları henüz çizilmedi: dosya yoksa null kalır (kodla çizilen yedek simge kullanılır)
+	# ve her açılışta "Resource file not found" hatası basılmaz. Dosya eklenince kendiliğinden devreye girer.
+	for poi_key in ["player_village", "neighbor_village", "dungeon"]:
+		var tex_path: String = {
+			"player_village": "res://Tile set/Hex Tiles/hex_camp.png",
+			"neighbor_village": "res://Tile set/Hex Tiles/hex_village.png",
+			"dungeon": "res://Tile set/Hex Tiles/hex_dungeon.png",
+		}[poi_key]
+		_poi_textures[poi_key] = load(tex_path) if ResourceLoader.exists(tex_path) else null
 	# Challenge (geçici etkinlik): kendi simgesi yok; null değer koda çizilen yedek işaretçiyi kullanır
 	_poi_textures["challenge"] = null
+	# Haydut kampı: kendi simgesi yok, koda çizilen yedek işaretçi (kırmızı çarpı).
+	_poi_textures["bandit_camp"] = null
 
 ## Yerleşim / zindan simgesi. Arazi karosuyla AYNI çizim konumunu kullanıyor: ikisi de 64x64 ve
 ## POI sprite'ının içeriği tuvalin ortasında duruyor, dolayısıyla simge karonun üst yüzeyine
@@ -3076,6 +3284,16 @@ func _draw_challenge_marker(center: Vector2, tint: Color) -> void:
 		draw_string(font, center + Vector2(-3.0, 5.0), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, dark)
 
 
+## GEÇİCİ haydut kampı işaretçisi: koyu zemin üstünde kırmızı çarpı (sprite gelince silinir).
+func _draw_bandit_camp_marker(center: Vector2, tint: Color) -> void:
+	var red := Color(0.92, 0.25, 0.2, 1.0) * tint
+	var dark := Color(0.14, 0.05, 0.04, 1.0)
+	draw_circle(center, 10.0, Color(red.r, red.g, red.b, 0.28))
+	draw_circle(center, 7.5, dark)
+	draw_line(center + Vector2(-4.5, -4.5), center + Vector2(4.5, 4.5), red, 2.6)
+	draw_line(center + Vector2(-4.5, 4.5), center + Vector2(4.5, -4.5), red, 2.6)
+
+
 func _draw_poi_marker(center: Vector2, tile: Dictionary, poi: String) -> void:
 	var tint: Color = Color(1, 1, 1, 1)
 	if not bool(tile.get("visible", false)):
@@ -3083,6 +3301,9 @@ func _draw_poi_marker(center: Vector2, tile: Dictionary, poi: String) -> void:
 	var tex: Texture2D = _poi_textures.get(poi, null)
 	if tex == null and poi == "challenge":
 		_draw_challenge_marker(center, tint)
+		return
+	if tex == null and poi == "bandit_camp":
+		_draw_bandit_camp_marker(center, tint)
 		return
 	if tex == null:
 		# Sanat eksikse eski renkli daireye düşülür (_draw_terrain_tile ile aynı yaklaşım).
@@ -3149,13 +3370,17 @@ func _draw_path_preview() -> void:
 			var q: int = int(node.get("q", 0))
 			var r: int = int(node.get("r", 0))
 			points.append(_axial_to_pixel(q, r))
-	_draw_dotted_path(points)
+	# Göreve yolla seçim modunda önizleme rol renginde: bu oyuncunun değil cariyenin yolu.
+	if _directed_mission_ctrl != null:
+		_draw_dotted_path(points, _directed_mission_ctrl.route_color())
+	else:
+		_draw_dotted_path(points)
 
 
 ## Rota önizlemesi düz çizgi yerine eşit aralıklı noktalarla çiziliyor. Noktalar yol boyunca
 ## yay uzunluğuna göre yerleştiriliyor, köşe düğümlerine göre değil; böylece aralık yolun
 ## kıvrımlarından bağımsız olarak sabit kalıyor.
-func _draw_dotted_path(points: PackedVector2Array) -> void:
+func _draw_dotted_path(points: PackedVector2Array, color: Color = PATH_DOT_COLOR) -> void:
 	if points.size() < 2:
 		return
 	var carry: float = PATH_DOT_SPACING * 0.5  # ilk nokta oyuncunun tam üstüne gelmesin
@@ -3168,17 +3393,55 @@ func _draw_dotted_path(points: PackedVector2Array) -> void:
 		var dir: Vector2 = (b - a) / seg
 		var travelled: float = PATH_DOT_SPACING - carry
 		while travelled <= seg:
-			_draw_path_dot(a + dir * travelled)
+			_draw_path_dot(a + dir * travelled, PATH_DOT_RADIUS, color)
 			travelled += PATH_DOT_SPACING
 		carry = fmod(carry + seg, PATH_DOT_SPACING)
 	# Hedef her zaman işaretlensin: son nokta biraz daha büyük.
-	_draw_path_dot(points[points.size() - 1], PATH_DOT_RADIUS_END)
+	_draw_path_dot(points[points.size() - 1], PATH_DOT_RADIUS_END, color)
 
 
-func _draw_path_dot(at: Vector2, radius: float = PATH_DOT_RADIUS) -> void:
+## Görevdeki cariyenin rotası: oyuncunun yolu gibi noktalarla, ama rol renginde. Yürünen kısım
+## soluk, kalan kısım dolu; dönüş ayağı daha silik ve küçük noktalıdır.
+func _draw_unit_route(path: Array, color: Color, progress: float, returning: bool, emphasized: bool) -> void:
+	var radius: float = HEX_SIZE - 1.0
+	var points: PackedVector2Array = PackedVector2Array()
+	for i in range(path.size() - 1):
+		var na: Dictionary = path[i]
+		var nb: Dictionary = path[i + 1]
+		points.append(_shared_hex_edge_midpoint_between(
+			int(na.get("q", 0)), int(na.get("r", 0)), int(nb.get("q", 0)), int(nb.get("r", 0)), radius))
+	if points.size() < 2:
+		return
+	var walked_segments: float = clampf(progress, 0.0, 1.0) * float(points.size() - 1)
+	var base_alpha: float = 0.5 if returning else 0.95
+	var dot_r: float = 2.0 if returning else (3.0 if emphasized else 2.5)
+	var spacing: float = 15.0
+	var carry: float = spacing * 0.5
+	for i in range(points.size() - 1):
+		var a: Vector2 = points[i]
+		var b: Vector2 = points[i + 1]
+		var seg: float = a.distance_to(b)
+		if seg <= 0.001:
+			continue
+		var dir: Vector2 = (b - a) / seg
+		var alpha: float = base_alpha * (0.3 if float(i) + 1.0 <= walked_segments else 1.0)
+		var dot_col := Color(color.r, color.g, color.b, alpha)
+		var travelled: float = spacing - carry
+		while travelled <= seg:
+			var at: Vector2 = a + dir * travelled
+			draw_circle(at, dot_r + 1.0, Color(0.05, 0.04, 0.03, 0.5 * alpha))
+			draw_circle(at, dot_r, dot_col)
+			travelled += spacing
+		carry = fmod(carry + seg, spacing)
+	var end_pt: Vector2 = points[points.size() - 1]
+	draw_circle(end_pt, dot_r + 2.4, Color(0.05, 0.04, 0.03, 0.6 * base_alpha))
+	draw_circle(end_pt, dot_r + 1.4, Color(color.r, color.g, color.b, base_alpha))
+
+
+func _draw_path_dot(at: Vector2, radius: float = PATH_DOT_RADIUS, color: Color = PATH_DOT_COLOR) -> void:
 	# Açık arazide (kum, çayır) beyaz nokta kaybolmasın diye ince koyu bir taban.
 	draw_circle(at, radius + 1.0, PATH_DOT_OUTLINE_COLOR)
-	draw_circle(at, radius, PATH_DOT_COLOR)
+	draw_circle(at, radius, color)
 
 func _get_preview_risk_color() -> Color:
 	match _preview_risk_label:
@@ -3312,11 +3575,20 @@ func _draw_active_unit_markers() -> void:
 			line_color = Color(0.65, 1.0, 0.65, 0.35)
 			unit_color = Color(0.25, 0.95, 0.45, 1.0)
 			arrow_color = Color(0.85, 1.0, 0.85, 1.0)
-		draw_line(origin_pos, target_pos, line_color, 2.4 if is_selected_marker else 1.2)
+		# Rol rengi: cariye rotası oyuncunun beyaz noktalarından ayrışsın.
+		var role_col: Color = DirectedMissionCatalog.role_color(int(marker.get("role", -1)), unit_color)
+		unit_color = role_col
+		var route_path: Array = marker.get("path", [])
+		if route_path.size() >= 2:
+			_draw_unit_route(route_path, role_col, float(marker.get("progress", 0.0)), unit_type == "returning_team", is_selected_marker)
+		else:
+			draw_line(origin_pos, target_pos, line_color, 2.4 if is_selected_marker else 1.2)
 		# Distinct marker body for outbound/returning teams.
 		if unit_type == "returning_team":
+			draw_rect(Rect2(current_pos - Vector2(5.0, 5.0), Vector2(10.0, 10.0)), Color(0.05, 0.04, 0.03, 0.9), true)
 			draw_rect(Rect2(current_pos - Vector2(4.0, 4.0), Vector2(8.0, 8.0)), unit_color, true)
 		else:
+			draw_circle(current_pos, 6.5, Color(0.05, 0.04, 0.03, 0.9))
 			draw_circle(current_pos, 5.0, unit_color)
 		if is_selected_marker:
 			draw_circle(current_pos, 8.0, Color(1.0, 1.0, 0.75, 0.25))
@@ -3462,45 +3734,32 @@ func _focus_selected_unit() -> void:
 	_cursor_status_label_throttle = 0.0
 	queue_redraw()
 
-## AcceptDialog "popup_window=false" embedded modda gösteriliyor; arka planı Godot'un
-## varsayılan gri "embedded_border" stiliyle geliyor — projenin siyah temasıyla eşleştir.
-func _apply_black_window_style(dialog: AcceptDialog) -> void:
-	if dialog == null:
-		return
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.03, 0.03, 0.03, 1.0)
-	sb.border_color = Color(0.42, 0.4, 0.36, 1.0)
-	sb.set_border_width_all(2)
-	sb.set_content_margin_all(16)
-	dialog.add_theme_stylebox_override("embedded_border", sb)
-	dialog.add_theme_stylebox_override("panel", sb)
+## Harita diyaloglarının ortak kutusunu (MapPopup) CanvasLayer'a ekler; kamera zoom'undan etkilenmesin.
+func _add_map_popup(popup: MapPopup) -> void:
+	var layer: CanvasLayer = get_node_or_null("CanvasLayer")
+	if layer:
+		layer.add_child(popup)
+	else:
+		add_child(popup)
 
 
 func _setup_travel_event_dialog() -> void:
 	if _travel_event_dialog != null:
 		return
-	_travel_event_dialog = AcceptDialog.new()
-	if MEDIEVAL_THEME:
-		_travel_event_dialog.theme = MEDIEVAL_THEME
-	_travel_event_dialog.dialog_hide_on_ok = false
-	_travel_event_dialog.popup_window = false
-	_travel_event_dialog.borderless = true
-	_travel_event_dialog.unresizable = true
-	_travel_event_dialog.exclusive = true
-	_travel_event_dialog.min_size = Vector2i(560, 340)
-	_travel_event_dialog.size = Vector2i(560, 340)
+	_travel_event_dialog = MapPopup.new()
+	_travel_event_dialog.hide_on_ok = false
 	_travel_event_dialog.title = tr("wm.travel_event.title")
-	_travel_event_dialog.dialog_text = ""
-	_travel_event_dialog.get_ok_button().text = tr("wm.roll_dice")
+	_travel_event_dialog.set_ok_text(tr("wm.roll_dice"))
 	_travel_event_dialog.confirmed.connect(_on_travel_event_roll_dice)
-	_apply_black_window_style(_travel_event_dialog)
 	var content := VBoxContainer.new()
 	content.name = "TravelDiceContent"
-	content.add_theme_constant_override("separation", 8)
-	content.custom_minimum_size = Vector2(500, 140)
-	_travel_event_dialog.add_child(content)
+	content.add_theme_constant_override("separation", 12)
+	_travel_event_dialog.add_content(content)
 	_travel_event_info_label = Label.new()
 	_travel_event_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_travel_event_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_travel_event_info_label.add_theme_font_size_override("font_size", MapPopup.BODY_FONT_SIZE)
+	_travel_event_info_label.add_theme_color_override("font_color", MapPopup.COLOR_TEXT)
 	_travel_event_info_label.max_lines_visible = 4
 	content.add_child(_travel_event_info_label)
 	var row := HBoxContainer.new()
@@ -3542,31 +3801,22 @@ func _setup_travel_event_dialog() -> void:
 	rp.add_child(_travel_dice_right_label)
 	_travel_event_result_label = Label.new()
 	_travel_event_result_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_travel_event_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_travel_event_result_label.add_theme_font_size_override("font_size", MapPopup.BODY_FONT_SIZE)
+	_travel_event_result_label.add_theme_color_override("font_color", MapPopup.COLOR_TITLE)
 	_travel_event_result_label.max_lines_visible = 4
 	content.add_child(_travel_event_result_label)
-	var layer: CanvasLayer = get_node_or_null("CanvasLayer")
-	if layer:
-		layer.add_child(_travel_event_dialog)
-	else:
-		add_child(_travel_event_dialog)
+	_add_map_popup(_travel_event_dialog)
 
 func _setup_travel_outcome_dialog() -> void:
 	if _travel_outcome_dialog != null:
 		return
-	_travel_outcome_dialog = AcceptDialog.new()
-	if MEDIEVAL_THEME:
-		_travel_outcome_dialog.theme = MEDIEVAL_THEME
+	_travel_outcome_dialog = MapPopup.new()
 	_travel_outcome_dialog.title = tr("wm.travel_outcome.title")
-	_travel_outcome_dialog.dialog_text = ""
-	_travel_outcome_dialog.get_ok_button().text = tr("wm.ok")
-	_apply_black_window_style(_travel_outcome_dialog)
+	_travel_outcome_dialog.set_ok_text(tr("wm.ok"))
 	if not _travel_outcome_dialog.visibility_changed.is_connected(_on_travel_outcome_visibility_changed):
 		_travel_outcome_dialog.visibility_changed.connect(_on_travel_outcome_visibility_changed)
-	var layer_o: CanvasLayer = get_node_or_null("CanvasLayer")
-	if layer_o:
-		layer_o.add_child(_travel_outcome_dialog)
-	else:
-		add_child(_travel_outcome_dialog)
+	_add_map_popup(_travel_outcome_dialog)
 
 func _on_travel_outcome_visibility_changed() -> void:
 	if _travel_outcome_dialog == null or _travel_outcome_dialog.visible:
@@ -3585,7 +3835,7 @@ func _show_travel_outcome_popup(body: String, title: String = "", resume_travel_
 	_travel_resume_after_outcome_ack = resume_travel_after_ack
 	_travel_outcome_dialog.title = title if not title.is_empty() else tr("wm.travel_outcome.title")
 	_travel_outcome_dialog.dialog_text = body.strip_edges()
-	_travel_outcome_dialog.popup_centered(Vector2i(540, 380))
+	_travel_outcome_dialog.popup_centered()
 
 func _show_travel_outcome_popup_or_resume_travel(body: String, title: String = "") -> void:
 	if body.strip_edges().is_empty():
@@ -3611,8 +3861,7 @@ func _on_world_map_travel_event(event_data: Dictionary) -> void:
 	_travel_event_result_ready = false
 	_pending_travel_event_data = event_data.duplicate(true)
 	_apply_travel_event_dialog_content(event_data)
-	_travel_event_dialog.size = Vector2i(560, 340)
-	_travel_event_dialog.popup_centered_clamped(Vector2i(560, 340))
+	_travel_event_dialog.popup_centered()
 	_focus_travel_event_primary_button()
 
 func _on_travel_event_roll_dice() -> void:
@@ -3892,20 +4141,14 @@ func _open_settlement_actions_at(pq: int, pr: int, tile: Dictionary) -> void:
 func _setup_high_risk_move_dialog() -> void:
 	if _high_risk_move_dialog != null:
 		return
-	_high_risk_move_dialog = ConfirmationDialog.new()
-	if MEDIEVAL_THEME:
-		_high_risk_move_dialog.theme = MEDIEVAL_THEME
+	_high_risk_move_dialog = MapPopup.new()
 	_high_risk_move_dialog.title = tr("wm.high_risk.title")
 	_high_risk_move_dialog.dialog_text = tr("wm.high_risk.body")
-	_high_risk_move_dialog.get_ok_button().text = tr("wm.take_risk")
-	_high_risk_move_dialog.get_cancel_button().text = tr("wm.wait")
+	_high_risk_move_dialog.set_ok_text(tr("wm.take_risk"))
+	_high_risk_move_dialog.set_cancel_text(tr("wm.wait"))
 	_high_risk_move_dialog.confirmed.connect(_on_high_risk_move_confirmed)
 	_high_risk_move_dialog.canceled.connect(_on_high_risk_move_canceled)
-	var layer: CanvasLayer = get_node_or_null("CanvasLayer")
-	if layer:
-		layer.add_child(_high_risk_move_dialog)
-	else:
-		add_child(_high_risk_move_dialog)
+	_add_map_popup(_high_risk_move_dialog)
 
 func _on_high_risk_move_confirmed() -> void:
 	_execute_travel_to_cursor()
@@ -4308,54 +4551,30 @@ func _perform_settlement_aid_now() -> void:
 func _setup_settlement_aid_confirm_dialog() -> void:
 	if _settlement_aid_confirm_dialog != null:
 		return
-	_settlement_aid_confirm_dialog = ConfirmationDialog.new()
-	if MEDIEVAL_THEME:
-		_settlement_aid_confirm_dialog.theme = MEDIEVAL_THEME
+	_settlement_aid_confirm_dialog = MapPopup.new()
 	_settlement_aid_confirm_dialog.title = tr("wm.aid_confirm.title")
 	_settlement_aid_confirm_dialog.dialog_text = tr("wm.aid_confirm.body")
-	_settlement_aid_confirm_dialog.get_ok_button().text = tr("wm.send_aid")
-	_settlement_aid_confirm_dialog.get_cancel_button().text = tr("wm.cancel")
+	_settlement_aid_confirm_dialog.set_ok_text(tr("wm.send_aid"))
+	_settlement_aid_confirm_dialog.set_cancel_text(tr("wm.cancel"))
 	_settlement_aid_confirm_dialog.confirmed.connect(_on_settlement_aid_confirmed)
 	_settlement_aid_confirm_dialog.canceled.connect(_on_settlement_aid_canceled)
-	var layer: CanvasLayer = get_node_or_null("CanvasLayer")
-	if layer:
-		layer.add_child(_settlement_aid_confirm_dialog)
-	else:
-		add_child(_settlement_aid_confirm_dialog)
+	_add_map_popup(_settlement_aid_confirm_dialog)
 
 func _setup_player_map_mission_window() -> void:
 	if _player_map_mission_window != null:
 		return
-	var w := Window.new()
+	var w := MapPopup.new()
 	w.title = tr("wm.mission_player.title")
-	w.unresizable = true
-	w.size = Vector2i(560, 440)
-	w.transient = true
-	w.exclusive = true
-	w.unfocusable = false
-	if MEDIEVAL_THEME:
-		w.theme = MEDIEVAL_THEME
-	w.close_requested.connect(_on_player_map_mission_cancel_pressed)
+	w.panel_width = 760
+	# Strateji butonları içeriğin kendisi; ortak OK/İptal satırı gerekmiyor.
+	w.set_buttons_visible(false)
+	w.canceled.connect(_on_player_map_mission_cancel_pressed)
 	w.visibility_changed.connect(_on_player_map_mission_window_visibility_changed)
-	var scroll := ScrollContainer.new()
-	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 14)
-	margin.add_theme_constant_override("margin_right", 14)
-	margin.add_theme_constant_override("margin_top", 12)
-	margin.add_theme_constant_override("margin_bottom", 12)
 	var vbox := VBoxContainer.new()
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_theme_constant_override("separation", 10)
-	margin.add_child(vbox)
-	scroll.add_child(margin)
-	w.add_child(scroll)
-	var layer_pm: CanvasLayer = get_node_or_null("CanvasLayer")
-	if layer_pm:
-		layer_pm.add_child(w)
-	else:
-		add_child(w)
+	vbox.add_theme_constant_override("separation", 12)
+	w.add_content(vbox)
+	_add_map_popup(w)
 	_player_map_mission_window = w
 	_player_map_mission_vbox = vbox
 	w.hide()
@@ -4400,12 +4619,17 @@ func _fill_player_map_mission_window(entry: Variant) -> void:
 	var title := Label.new()
 	title.text = _resolve_mission_name_from_entry(ed)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 26)
+	title.add_theme_color_override("font_color", MapPopup.COLOR_TEXT)
 	title.focus_mode = Control.FOCUS_NONE
 	_player_map_mission_vbox.add_child(title)
 	var sub := Label.new()
 	sub.text = tr("wm.mission_player.subtitle")
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	sub.modulate = Color(0.85, 0.9, 0.95, 1.0)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.add_theme_font_size_override("font_size", 19)
+	sub.add_theme_color_override("font_color", MapPopup.COLOR_MUTED)
 	sub.focus_mode = Control.FOCUS_NONE
 	_player_map_mission_vbox.add_child(sub)
 	var mission_id: String = str(ed.get("mission_id", ""))
@@ -4418,12 +4642,16 @@ func _fill_player_map_mission_window(entry: Variant) -> void:
 		btn.text = _format_mission_strategy_button_label(rd)
 		btn.disabled = not bool(rd.get("affordable", false))
 		btn.focus_mode = Control.FOCUS_ALL
+		btn.custom_minimum_size = Vector2(0, 52)
+		btn.add_theme_font_size_override("font_size", 20)
 		var idx: int = int(rd.get("index", -1))
 		btn.pressed.connect(_on_player_map_mission_strategy_chosen.bind(mission_id, idx))
 		_player_map_mission_vbox.add_child(btn)
 	var cancel_btn := Button.new()
 	cancel_btn.text = tr("wm.mission_player.cancel")
 	cancel_btn.focus_mode = Control.FOCUS_ALL
+	cancel_btn.custom_minimum_size = Vector2(0, 52)
+	cancel_btn.add_theme_font_size_override("font_size", 20)
 	cancel_btn.pressed.connect(_on_player_map_mission_cancel_pressed)
 	_player_map_mission_vbox.add_child(cancel_btn)
 	var mission_buttons: Array[Button] = []
@@ -5271,7 +5499,7 @@ func _create_input_hints_bar() -> void:
 	_wm_input_hints_label.offset_right = 0.0
 	_wm_input_hints_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_wm_input_hints_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_wm_input_hints_label.add_theme_font_size_override("font_size", 16)
+	_wm_input_hints_label.add_theme_font_size_override("font_size", 21)
 	_wm_input_hints_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
 	_wm_input_hints_label.add_theme_color_override("font_outline_color", Color(0.1, 0.05, 0.0, 1.0))
 	_wm_input_hints_label.add_theme_constant_override("outline_size", 5)

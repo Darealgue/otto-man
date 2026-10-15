@@ -21,11 +21,7 @@ const DEBUG_TRAP: bool = false
 func _ready() -> void:
 	add_to_group("TileTrapSpawner")
 	if DEBUG_TRAP:
-		print("[TileTrapSpawner] Ready at %s — type: %s, surface: %s" % [
-			global_position,
-			TrapConfigV2.TrapType.keys()[trap_type],
-			TrapConfigV2.SurfaceType.keys()[surface_type]
-		])
+		pass
 
 func activate() -> bool:
 	_is_active = true
@@ -66,11 +62,7 @@ func _spawn_trap() -> bool:
 
 	_spawned_trap = trap
 	if DEBUG_TRAP:
-		print("[TileTrapSpawner] Spawned %s at %s (surface: %s)" % [
-			TrapConfigV2.TrapType.keys()[trap_type],
-			global_position,
-			TrapConfigV2.SurfaceType.keys()[surface_type]
-		])
+		pass
 	return true
 
 func clear_trap() -> void:

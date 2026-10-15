@@ -14,7 +14,6 @@ func _init():
 	item_name = tr("item.serbetci.name")
 	description = tr("item.serbetci.description")
 	flavor_text = "Bir tas şerbet, elden ele"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	tags = ["elemental_poison"]
 	affected_stats = ["poison_transfer"]
@@ -54,4 +53,3 @@ func on_enemy_killed(enemy: Node2D) -> void:
 	var im = get_node_or_null("/root/ItemManager")
 	if im and im.has_method("spawn_element_hit_flash"):
 		im.spawn_element_hit_flash(nearest, "poison")
-	print("[Şerbetçi] ☠ %d zehir stack'i devredildi" % carried)

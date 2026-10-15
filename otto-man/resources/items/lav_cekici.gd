@@ -12,7 +12,6 @@ func _init():
 	item_name = tr("item.lav_cekici.name")
 	description = tr("item.lav_cekici.description")
 	flavor_text = "Ateşli top"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.HEAVY_ATTACK
 	tags = ["elemental_fire"]
 	affected_stats = ["heavy_fire"]
@@ -20,12 +19,10 @@ func _init():
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Lav Çekici] ✅ Heavy attack alev topu fırlatır (1 stamina hücresi)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Lav Çekici] ❌ Kaldırıldı")
 
 func _on_heavy_attack_impact(attack_name: String) -> void:
 	if not _player or not is_instance_valid(_player):

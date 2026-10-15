@@ -8,7 +8,6 @@ func _init():
 	item_name = tr("item.buzlu_kilic.name")
 	description = tr("item.buzlu_kilic.description")
 	flavor_text = "Buzlu dokunuş"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK
 	tags = ["elemental_ice"]
 	affected_stats = ["frost_slow"]
@@ -21,7 +20,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("player_attack_landed"):
 		if not player.is_connected("player_attack_landed", _on_player_attack_landed):
 			player.connect("player_attack_landed", _on_player_attack_landed)
-		print("[Buzlu Kılıç] ✅ Light attack'lar yavaşlatır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -29,7 +27,6 @@ func deactivate(player: CharacterBody2D):
 		if _player.is_connected("player_attack_landed", _on_player_attack_landed):
 			_player.disconnect("player_attack_landed", _on_player_attack_landed)
 	_player = null
-	print("[Buzlu Kılıç] ❌ Kaldırıldı")
 
 func _on_player_attack_landed(attack_type: String, damage: float, targets: Array, position: Vector2, effect_filter: String = "all"):
 	if effect_filter == "physical_only":

@@ -16,7 +16,6 @@ func _init():
 	item_name = tr("item.alan_parrysi.name")
 	description = tr("item.alan_parrysi.description")
 	flavor_text = "Parry tek bir düşmanla sınırlı değil"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.PARRY
 	affected_stats = ["parry_area"]
 
@@ -26,7 +25,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("perfect_parry"):
 		if not player.is_connected("perfect_parry", _on_perfect_parry):
 			player.connect("perfect_parry", _on_perfect_parry)
-	print("[Alan Parry'si] ✅ Perfect parry alan etkili oldu")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -34,7 +32,6 @@ func deactivate(player: CharacterBody2D):
 		if _player.is_connected("perfect_parry", _on_perfect_parry):
 			_player.disconnect("perfect_parry", _on_perfect_parry)
 	_player = null
-	print("[Alan Parry'si] ❌ Kaldırıldı")
 
 func _on_perfect_parry() -> void:
 	if not is_instance_valid(_player):

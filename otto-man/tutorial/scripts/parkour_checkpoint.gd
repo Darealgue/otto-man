@@ -88,9 +88,9 @@ func _startup_msg(ok: bool, detail: String) -> void:
 	if not startup_log:
 		return
 	if ok:
-		print("[ParkourCheckpoint] READY ", detail)
+		pass
 	else:
-		print("[ParkourCheckpoint] FAILED ", detail)
+		pass
 
 
 func _resolve_death_zone() -> Area2D:
@@ -250,10 +250,6 @@ func _physics_process(_delta: float) -> void:
 		_dbg_frame += 1
 		if _dbg_frame % 90 == 0:
 			var ob := _area.get_overlapping_bodies().size()
-			print(
-				"[ParkourCheckpoint] tick pl=%s pos=%s overlaps=%s ob_count=%d"
-				% [pl.name, str(pl.global_position), str(in_zone), ob]
-			)
 	if in_zone or in_pit_y:
 		_do_respawn(pl)
 
@@ -278,7 +274,7 @@ func _on_death_zone_body_entered(body: Node2D) -> void:
 	if not _is_player(body):
 		return
 	if debug_log:
-		print("[ParkourCheckpoint] body_entered ", body.name)
+		pass
 	_do_respawn(pl)
 
 
@@ -294,7 +290,7 @@ func _do_respawn(pl: CharacterBody2D) -> void:
 	_last_respawn_ms = now
 
 	if debug_log:
-		print("[ParkourCheckpoint] RESPAWN ", pl.name, " -> ", _marker.global_position)
+		pass
 
 	pl.global_position = _marker.global_position
 	pl.velocity = Vector2.ZERO

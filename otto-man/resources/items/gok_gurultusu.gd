@@ -14,7 +14,6 @@ func _init():
 	item_name = tr("item.gok_gurultusu.name")
 	description = tr("item.gok_gurultusu.description")
 	flavor_text = "Gök gürültüsü"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.HEAVY_ATTACK
 	tags = ["elemental_lightning"]
 	affected_stats = ["heavy_lightning"]
@@ -22,12 +21,10 @@ func _init():
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Gök Gürültüsü] ✅ Heavy attack şimşek (1 stamina hücresi)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Gök Gürültüsü] ❌ Kaldırıldı")
 
 func _on_heavy_attack_impact(_attack_name: String = "") -> void:
 	if not _player or not is_instance_valid(_player):

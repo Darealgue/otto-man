@@ -14,14 +14,11 @@ func _init():
 	item_name = tr("item.tasan_kaynak.name")
 	description = tr("item.tasan_kaynak.description")
 	flavor_text = "Kaynak taştığında da boşa akmaz"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["fountain_overheal"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Taşan Kaynak] ✅ Çeşme fazla can iyileştiriyor, fazlası taşan can olarak kalıyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Taşan Kaynak] ❌ Kaldırıldı")

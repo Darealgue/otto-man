@@ -11,7 +11,6 @@ func _init():
 	item_name = tr("item.zehirli_sekme.name")
 	description = tr("item.zehirli_sekme.description")
 	flavor_text = "Değdiği yerde çürüme başlar"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.DODGE
 	affected_stats = ["dodge_contact_damage"]
 
@@ -19,8 +18,6 @@ func _init():
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Zehirli Sekme] ✅ Dodge düşmanlara temas hasarı + aktif element(ler) verir")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Zehirli Sekme] ❌ Kaldırıldı")

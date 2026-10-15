@@ -6,7 +6,6 @@ func _init():
 	item_name = tr("item.firlatma_parry.name")
 	description = tr("item.firlatma_parry.description")
 	flavor_text = "Yere değil, göğe savur"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.PARRY
 	affected_stats = ["parry_launch"]
 
@@ -14,8 +13,6 @@ func _init():
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Fırlatma Parry] ✅ Parry sonrası zıplama = düşman havaya fırlar")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Fırlatma Parry] ❌ Kaldırıldı")

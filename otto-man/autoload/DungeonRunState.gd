@@ -105,6 +105,14 @@ func start_run_from_village() -> void:
 			enemy_count_offset += int(dp.call("consume_stealth_skip_penalty", dungeon_id))
 		if dp.has_method("apply_run_start_bonuses"):
 			dp.call("apply_run_start_bonuses", self)
+		# Cariye görevlerinden gelen süreli etkiler (Ajan sızması, Komutan temizliği).
+		var wm_fx: Node = get_node_or_null("/root/WorldManager")
+		if wm_fx != null and wm_fx.has_method("get_dungeon_directed_effects") and not dungeon_id.is_empty():
+			var fx: Dictionary = wm_fx.call("get_dungeon_directed_effects", dungeon_id)
+			if int(fx.get("intel", 0)) > 0:
+				guaranteed_rescue_next = true
+			if int(fx.get("cleared", 0)) > 0:
+				enemy_count_offset -= 2
 	else:
 		dungeon_id = ""
 		run_base_difficulty = 0
@@ -112,13 +120,6 @@ func start_run_from_village() -> void:
 	if is_instance_valid(stealth_mgr) and stealth_mgr.has_method("reset_for_run"):
 		stealth_mgr.call("reset_for_run")
 	sync_warmup_limits()
-	print("[DungeonRunState] Run başladı: zindan=%s alıştırma=%s tamamlanan=%d/%d (warmup_kayıt=%d)" % [
-		dungeon_id,
-		is_warmup_run,
-		run_segments_completed,
-		run_max_segments,
-		_get_warmup_completions_for_log(),
-	])
 
 
 ## Kamp / bölüm bitişi öncesi: DungeonProgress'ten alıştırma limitlerini yenile.
@@ -190,7 +191,6 @@ func add_dungeon_key(key_id: String) -> bool:
 	if collected_keys.has(id):
 		return false
 	collected_keys.append(id)
-	print("[DungeonRunState] Anahtar eklendi: %s (toplam %d)" % [id, collected_keys.size()])
 	collectibles_changed.emit()
 	return true
 
@@ -287,9 +287,6 @@ func _snapshot_segment_enemy_quota() -> void:
 			sm.call("notify_key_location_revealed")
 	else:
 		segment_key_reveal_threshold = KEY_ARROW_REVEAL_KILL_COUNT
-	print("[DungeonRunState] Alarm düşman kotası: %d (canlı=%d, öldürülen=%d)" % [
-		segment_alarm_enemy_total, living, segment_combat_enemies_defeated
-	])
 
 
 func _count_placed_enemies_fallback() -> int:
@@ -458,7 +455,6 @@ func try_spawn_key_drop_from_enemy(enemy: Node) -> bool:
 		if players.size() > 0 and players[0] is Node2D and pos.length_squared() < 160000.0:
 			pos = (players[0] as Node2D).global_position + Vector2(0, -40)
 	_DungeonLootDropSpawner.spawn_dungeon_key(pos, SEGMENT_EXIT_KEY_ID)
-	print("[DungeonRunState] Anahtar düşürüldü @ %s" % pos)
 	collectibles_changed.emit()
 	return true
 
@@ -472,9 +468,6 @@ func on_segment_completed() -> void:
 	if not run_started:
 		return
 	run_segments_completed += 1
-	print("[DungeonRunState] Bölüm tamamlandı: %d/%d (alıştırma=%s)" % [
-		run_segments_completed, run_max_segments, is_warmup_run
-	])
 
 
 func is_run_complete() -> bool:
@@ -522,7 +515,6 @@ func apply_stealth_exit_partial_boss_gold() -> int:
 	if is_instance_valid(gpd) and gpd.has_method("add_dungeon_gold"):
 		gpd.call("add_dungeon_gold", partial)
 	stealth_exit_partial_gold_applied = partial
-	print("[DungeonRunState] Stealth çıkış boss altını (kısmi): %d / %d" % [partial, total])
 	return partial
 
 ## Challenge kapısından seçim yapıldığında çağrılır

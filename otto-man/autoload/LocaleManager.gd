@@ -212,7 +212,7 @@ func _load_imported_translations() -> bool:
 		TranslationServer.add_translation(translation)
 		loaded_any = true
 	if loaded_any:
-		print("LocaleManager: imported .translation resources loaded.")
+		pass
 	return loaded_any
 
 

@@ -14,7 +14,6 @@ func _init():
 	item_name = tr("item.element_degisimi.name")
 	description = tr("item.element_degisimi.description")
 	flavor_text = "Hiçbir element yalnız kalmaz"
-	rarity = ItemRarity.LEGENDARY
 	category = ItemCategory.SYNERGY
 	affected_stats = ["element_combo_burst"]
 
@@ -22,12 +21,10 @@ func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
 	_hit_counter = 0
-	print("[Element Değişimi] ✅ Her 4. vuruşta element patlaması")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Element Değişimi] ❌ Kaldırıldı")
 
 func _on_player_attack_landed(_attack_type: String, damage: float, _targets: Array, position: Vector2, effect_filter: String = "all") -> void:
 	if effect_filter == "physical_only" or not is_instance_valid(_player):

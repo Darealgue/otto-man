@@ -12,7 +12,6 @@ func _init():
 	item_name = tr("item.buzlu_kayma.name")
 	description = tr("item.buzlu_kayma.description")
 	flavor_text = "Kaydığın yer donar"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SLIDE
 	tags = ["elemental_ice"]
 	affected_stats = ["slide_trail_ice"]
@@ -21,12 +20,10 @@ func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
 	_slide_spawn_timer = 0.0
-	print("[Buzlu Kayma] ✅ Kayarken buz izi bırakır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Buzlu Kayma] ❌ Kaldırıldı")
 
 func process(player: CharacterBody2D, delta: float) -> void:
 	if not is_instance_valid(player):

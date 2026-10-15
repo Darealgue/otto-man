@@ -83,7 +83,7 @@ func enter():
 	if hurtbox:
 		hurtbox.monitoring = false
 		if DEBUG_DODGE:
-			print("[Dodge] Hurtbox disabled for invincibility")
+			pass
 	
 	# Karşı Atılım: parry sonrası ilk dodge bedava ve 2x uzun
 	_speed_mult = player.consume_counter_dash()
@@ -92,7 +92,7 @@ func enter():
 	if stamina_bar and _speed_mult <= 1.0:
 		if stamina_bar.use_charge():
 			if DEBUG_DODGE:
-				print("[Dodge] Stamina consumed for dodge")
+				pass
 		else:
 			if DEBUG_DODGE:
 				print("[Dodge] ERROR: No stamina available!")
@@ -116,16 +116,15 @@ func enter():
 			anim_player.play("dodge_start")
 			_play_dash_sfx()
 			if DEBUG_DODGE:
-				print("[Dodge] Playing dodge_start animation - SUCCESS")
+				pass
 		elif anim_player.has_animation("dodge"):
 			anim_player.play("dodge")
 			_play_dash_sfx()
 			if DEBUG_DODGE:
-				print("[Dodge] Fallback: playing legacy 'dodge' animation")
+				pass
 		else:
 			if DEBUG_DODGE:
 				print("[Dodge] ERROR: 'dodge_start' animation not found in AnimationPlayer!")
-				print("[Dodge] Available animations: ", anim_player.get_animation_list())
 	else:
 		if DEBUG_DODGE:
 			print("[Dodge] ERROR: AnimationPlayer not found!")
@@ -172,13 +171,13 @@ func physics_update(delta: float):
 
 	# Debug: Dodge state info
 	if DEBUG_DODGE:
-		print("[DODGE_DEBUG] Progress: ", dodge_progress, " Timer: ", dodge_timer, " is_on_floor: ", player.is_on_floor(), " velocity: ", player.velocity, " gravity_active: ", dodge_timer < (DODGE_DURATION - 0.1), " block_blocked_timer: ", player.block_input_blocked_timer)
+		pass
 	
 	# Block input'u engelle - sadece just_pressed ile (sürekli basılı kalmasını engelle)
 	# Özellikle yerçekimi devreye girdiği son 0.1 saniyede engelle
 	if Input.is_action_just_pressed("block"):
 		if DEBUG_DODGE:
-			print("[Dodge] Block input blocked during dodge - progress: ", dodge_progress)
+			pass
 		# Input'u tamamen tüket - diğer state'lerin görmesini engelle
 		get_viewport().set_input_as_handled()
 		return
@@ -186,13 +185,13 @@ func physics_update(delta: float):
 	# Zıplama input kontrolü - EN YÜKSEK ÖNCELİK
 	if Input.is_action_just_pressed("jump"):
 		if DEBUG_DODGE:
-			print("[Dodge] Jump input detected - progress: ", dodge_progress, " can_jump: ", can_jump_during_dodge, " on_floor: ", player.is_on_floor())
+			pass
 		if can_jump_during_dodge and player.is_on_floor():
 			# Son yarıda zıplama yapılabilir - flag'i kaldır
 			player.jump_input_blocked = false
 			player.jump_block_timer = 0.0  # Timer'ı da sıfırla
 			if DEBUG_DODGE:
-				print("[Dodge] Jump allowed in second half - progress: ", dodge_progress)
+				pass
 			# Dodge'u iptal etmeden zıplama yap - dodge devam etsin
 			player.start_jump()
 			# Zıplandığı için havada uçuş loop'una geçilmesin, eski davranış korunsun
@@ -202,7 +201,7 @@ func physics_update(delta: float):
 		else:
 			# İlk yarıda zıplama engellensin
 			if DEBUG_DODGE:
-				print("[Dodge] Jump blocked - progress: ", dodge_progress, " can_jump: ", can_jump_during_dodge)
+				pass
 			# Input'u "tüket" - diğer state'lerin görmesini engelle
 			# Bu input'u hiçbir şekilde işleme
 			# Input'u tamamen engellemek için return yap
@@ -228,7 +227,7 @@ func physics_update(delta: float):
 			var dodge_dir = -1 if player.sprite.flip_h else 1
 			if player.has_signal("player_dodged"):
 				if DEBUG_DODGE:
-					print("[Dodge] Emitting player_dodged signal: dir=", dodge_dir, " start=", dodge_start_position, " end=", end_pos)
+					pass
 				player.emit_signal("player_dodged", dodge_dir, dodge_start_position, end_pos)
 			else:
 				if DEBUG_DODGE:
@@ -278,7 +277,7 @@ func physics_update(delta: float):
 		# Transition to appropriate state based on player state
 		if player.is_on_floor():
 			if DEBUG_DODGE:
-				print("[Dodge] Transitioning to Idle state")
+				pass
 			state_machine.transition_to("Idle")
 		elif will_carry_flight:
 			# Dodge penceresi bitti ama oyuncu hâlâ havada: mekanik olarak normal
@@ -288,11 +287,11 @@ func physics_update(delta: float):
 			player.dodge_air_carry = true
 			player.dodge_air_carry_dir = _dodge_dir
 			if DEBUG_DODGE:
-				print("[Dodge] Handing flight animation over to Fall state")
+				pass
 			state_machine.transition_to("Fall")
 		else:
 			if DEBUG_DODGE:
-				print("[Dodge] Transitioning to Fall state")
+				pass
 			state_machine.transition_to("Fall")
 		return
 	
@@ -306,18 +305,18 @@ func exit():
 	# Input buffering sorununu çözmek için 0.05 saniye daha engelle
 	player.jump_block_timer = 0.05
 	if DEBUG_DODGE:
-		print("[Dodge] Jump input will be unblocked after 0.05s timer")
+		pass
 	
 	# Block input'unu da kısa bir süre engelle (0.3 saniye) - global timer kullan
 	# Yerçekimi devreye girdiği son 0.1 saniye + ekstra güvenlik için 0.3 saniye
 	player.block_input_blocked_timer = 0.3
 	if DEBUG_DODGE:
-		print("[Dodge] Block input will be blocked for 0.3s after dodge")
+		pass
 	
 	# Eğer block tuşu hala basılıysa, input'u tüket
 	if Input.is_action_pressed("block"):
 		if DEBUG_DODGE:
-			print("[Dodge] Consuming block input on exit")
+			pass
 		get_viewport().set_input_as_handled()
 	
 	# Ensure collision settings are restored when exiting state
@@ -329,7 +328,7 @@ func exit():
 	if hurtbox:
 		hurtbox.monitoring = true
 		if DEBUG_DODGE:
-			print("[Dodge] Hurtbox re-enabled")
+			pass
 
 func cooldown_update(delta: float):
 	# Cooldown kaldırıldı - sadece stamina kontrolü
@@ -349,14 +348,13 @@ func set_dodge_charges(charges: int) -> void:
 	max_dodge_charges = charges
 	dodge_charges = charges
 	can_dodge = dodge_charges > 0
-	print("[Dodge State] Set dodge charges: " + str(charges))
 
 func _on_animation_finished(anim_name: String):
 	# Not: bu sinyal bağlantısı state'ten çıkınca da açık kalıyor, bu yüzden burada
 	# state geçişi YAPMIYORUZ. Bütün geçişler physics_update'te dodge_timer ile sürüyor.
 	if anim_name == "dodge" or anim_name == "dodge_start" or anim_name == "dodge_roll":
 		if DEBUG_DODGE:
-			print("[Dodge] Animation finished: ", anim_name)
+			pass
 
 
 # Animasyonu üç faza böler: dodge_start (kare 0-3) -> dodge_air (kare 9-12 loop) ya da dodge_roll (kare 4-8).

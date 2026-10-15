@@ -12,19 +12,16 @@ func _init():
 	item_name = tr("item.genis_darbe.name")
 	description = tr("item.genis_darbe.description")
 	flavor_text = "Geniş kavis"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["light_attack_cleave"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Geniş Darbe] ✅ Light attack cleave")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Geniş Darbe] ❌ Kaldırıldı")
 
 func _on_player_attack_landed(attack_type: String, damage: float, targets: Array, position: Vector2, effect_filter: String = "all") -> void:
 	if effect_filter == "elemental_only":

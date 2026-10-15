@@ -8,6 +8,34 @@
   village_festival, traveler, minor_accident, immigration_wave.
 - **Dünya eventleri** (WorldManager.active_events): trade_boom, famine, plague, war_declaration, rebellion.
 
+## Köy özeti satırları / "posta kutusu" (v0.27.1-0.27.2)
+- `autoload/VillageDigest.gd`: kısa, BBCode'lu, tonlu (INFO/GOOD/WARN/BAD) satırları biriktirir (en çok 40).
+  Kaynaklar: (1) **her haber**: `MissionManager.news_posted` (başlık renkli + içerik, sayılar +yeşil/-kırmızı/düz sarı; içerik 150 karaktere kesilir);
+  `flags.digest_skip` / haber `digest_skip` true ise atlanır (savunma haberleri, çünkü aşağıdaki yapılandırılmış satır var);
+  (2) `WorldManager.defense_outcome_report` (baskın: başlık + kayıp satırı); (3) `MissionManager.mission_completed` (ticaret görevleri hariç, haber var);
+  (4) `VillageManager.time_skip_completed` (yokluk üretimi); (5) `construction_completed`; (6) olay bitişi (`_digest_report_event`; çözüm görevi ile
+  bitenlerde haber geldiği için bastırılır). Olay başlangıcı haber olarak gelir (haber gövdesine etkilenen kaynak eklenir).
+- `ui/VillageDigestTicker.gd`: köy sahnesi `_ready` içinde eklenir; ÜST ORTADA (olay şeridinin altı, y=58) dizilir. Kuyruktaki her şey aynı anda
+  (14 satıra kadar) düşer; önem sırasıyla (kırmızı, sarı, yeşil, bilgi). Satır 5 sn + fazladan her satır için 0.4 sn (en çok 12 sn) kalır.
+- `VillageScene.USE_DIGEST_TICKER` true iken eski ortadaki özet kutusu ve inşaat toast'ı kapalıdır.
+- Yeni kaynak eklemek: `VillageDigest.report(bbcode, VillageDigest.Tone.X, "ikon")`; sayılar için `good()/bad()/warn()/delta()`.
+- Bekleyen kuyruk kaydedilmez (en çok 14 satır, en önemsiz/eski atılır); dedupe aynı metni tekrar eklemez.
+
+## Toplama alanı engelleri (v0.27)
+`gather_bandits` (haydutlar) ve `gather_birds` (kuş sürüsü) süreli köy olaylarıdır; havuzda diğerleriyle birlikte seçilir
+ve yalnız o kaynakta en az bir toplayıcı çalışıyorsa doğar (`VillageManager._setup_gather_blockade_event`).
+- **Etki:** olay kaydındaki `blocked_resource` (wood/stone/food) için toplama seferleri %100 eli boş döner
+  (`_is_gather_blockaded`, `_get_gather_trip_modifiers` içinde üst sınırdan sonra uygulanır).
+- **Üç çözüm yolu:** (1) görev merkezinden cariye/asker: `MissionManager.EVENT_RELIEF_TEMPLATES["gather_bandits"|"gather_birds"]`,
+  başarıyla biterse olay kapanır; (2) haritada toplama alanına konan challenge'ı kendin yap: haydutlar `dalga`, kuşlar `kovalamaca`;
+  (3) olayın süresi dolar (sessizce biter).
+- **Harita:** `WorldManager.place_gather_blockade_poi` köye en yakın boş orman (odun/yiyecek) ya da dağ (taş) karosuna
+  `poi_type = "challenge"` + `challenge_blockade*` alanlarını yazar. Normal etkinlik gibi tek kullanımlık DEĞİL: karo giriş
+  sırasında silinmez, yalnız olay bitince kalkar; `purge_expired_challenges` ve `CHALLENGE_MAX_ACTIVE` sayımı bunu atlar.
+- **Challenge odası:** payload `blockade_event` / `blockade_resource` taşır; zaferde `VillageManager.clear_event(tür)`
+  çağrılır (görev + karo birlikte kalkar), ödül item yerine `15 + 10*zorluk` altındır. Başarısızlık = ölüm kuralı aynıdır, engel yerinde kalır.
+- Dev: `trigger_world_event gather_bandits|gather_birds` toplayıcı şartı aramaz (hemen görülsün).
+
 ## Oyuncuya yansıma
 | Parça | Dosya | Not |
 |---|---|---|

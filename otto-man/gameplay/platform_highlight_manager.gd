@@ -17,7 +17,6 @@ func _ready() -> void:
 	# Wait one frame to ensure all platforms are ready
 	await get_tree().process_frame
 	
-	print("[PlatformHighlightManager] Starting initialization...")
 	
 	# Find the player
 	player = get_tree().get_first_node_in_group("player")
@@ -25,7 +24,7 @@ func _ready() -> void:
 		push_error("[PlatformHighlightManager] Player not found!")
 		return
 	else:
-		print("[PlatformHighlightManager] Found player at:", player.global_position)
+		pass
 	
 	# Find all one-way collision shapes in the scene
 	_setup_platform_highlights()
@@ -33,16 +32,14 @@ func _ready() -> void:
 func _setup_platform_highlights() -> void:
 	# Start search from the chunk root (parent of this node)
 	var chunk_root = get_parent()
-	print("[PlatformHighlightManager] Searching for platforms in chunk:", chunk_root.name)
 	
 	# Find all CollisionShape2D nodes that might be platforms
 	var platforms = _find_platform_collisions(chunk_root)
-	print("[PlatformHighlightManager] Found", platforms.size(), "platforms in chunk")
 	
 	# Create highlights for each platform
 	for platform in platforms:
 		if platform.shape is SegmentShape2D:
-			print("  Found line platform:", platform.shape.a, " to ", platform.shape.b)
+			pass
 		_create_highlight_for_platform(platform)
 
 func _find_platform_collisions(node: Node) -> Array:
@@ -52,20 +49,14 @@ func _find_platform_collisions(node: Node) -> Array:
 	if node is CollisionShape2D:
 		var parent = node.get_parent()
 		if parent is StaticBody2D:
-			print("  Found StaticBody2D:", parent.name)
-			print("    Collision Layer:", parent.collision_layer)
 			
 			# For SegmentShape2D (collision lines), check one_way_collision property
 			if node.shape is SegmentShape2D:
 				# Get the one_way_collision property directly from the CollisionShape2D
 				var is_one_way = node.one_way_collision
 				
-				print("    Found line segment from", node.shape.a, "to", node.shape.b)
-				print("    Shape Type:", node.shape.get_class())
-				print("    One Way Collision:", is_one_way)
 				
 				if is_one_way:
-					print("    Added as platform!")
 					platforms.append(node)
 	
 	# Recursively check all children

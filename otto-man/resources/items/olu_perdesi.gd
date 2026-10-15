@@ -11,17 +11,14 @@ func _init():
 	item_name = tr("item.olu_perdesi.name")
 	description = tr("item.olu_perdesi.description")
 	flavor_text = "Ölünün gölgesi nefes de zehirler"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["harvest_cloud"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Ölü Perdesi] ✅ Hasat gölgesi zehir bulutu bırakır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Ölü Perdesi] ❌ Kaldırıldı")
 
 # golge_hasadi.gd -> ItemManager.notify_item_event
 func _on_harvest_shadow_spawned(pos: Vector2) -> void:

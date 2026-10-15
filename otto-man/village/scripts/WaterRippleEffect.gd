@@ -50,7 +50,6 @@ func _ready() -> void:
 			scaled_size.x,
 			scaled_size.y
 		)
-		print("[WaterRippleEffect] Water area: ", water_area)
 	
 	# 4 karelik splash texture atanmamışsa varsayılan yolu dene (rain_drop.png)
 	if splash_frames_texture == null:
@@ -186,12 +185,13 @@ func _update_splash_frames(delta: float) -> void:
 			d["time"] = 0.0
 			d["frame"] = d["frame"] + 1
 			var spr: Sprite2D = d["node"]
-			if is_instance_valid(spr):
-				spr.frame = d["frame"]
+			# Sheet 7 kare (0-6): 7. kareye geçince animasyon biter, o kareyi sprite'a verme
 			if d["frame"] >= 7:
 				if is_instance_valid(spr):
 					spr.queue_free()
 				_splash_frames.remove_at(i)
+			elif is_instance_valid(spr):
+				spr.frame = d["frame"]
 		i -= 1
 
 func _spawn_ripple() -> void:

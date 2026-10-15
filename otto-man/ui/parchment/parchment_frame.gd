@@ -182,7 +182,6 @@ func _log_layout() -> void:
 			if stretch_y > 1.35:
 				lines.append("UYARI: Dikey gerilme — daha kisa texture veya panel yuksekligini azalt.")
 	lines.append("==========================================")
-	print("\n".join(lines))
 
 
 func _draw() -> void:

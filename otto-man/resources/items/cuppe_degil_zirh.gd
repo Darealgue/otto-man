@@ -18,7 +18,6 @@ func _init():
 	item_name = tr("item.cuppe_degil_zirh.name")
 	description = tr("item.cuppe_degil_zirh.description")
 	flavor_text = "Büyücü de zırh giyer"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["element_shield"]
 
@@ -26,14 +25,12 @@ func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
 	_no_hit_timer = 0.0
-	print("[Cüppe Değil Zırh] ✅ Element vuruşları kalkan biriktiriyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	if is_instance_valid(_player):
 		_player.element_shield = 0.0
 	_player = null
-	print("[Cüppe Değil Zırh] ❌ Kaldırıldı")
 
 func process(player: CharacterBody2D, delta: float) -> void:
 	if not is_instance_valid(player):

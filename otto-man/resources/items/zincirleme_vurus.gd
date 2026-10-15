@@ -16,19 +16,16 @@ func _init():
 	item_name = tr("item.zincirleme_vurus.name")
 	description = tr("item.zincirleme_vurus.description")
 	flavor_text = "Biri düşerse yanındaki de düşer"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["kill_chain_target"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Zincirleme Vuruş] ✅ Öldürme yakındaki düşmana da sıçrar")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Zincirleme Vuruş] ❌ Kaldırıldı")
 
 func on_enemy_killed(enemy: Node2D) -> void:
 	if not is_instance_valid(enemy):

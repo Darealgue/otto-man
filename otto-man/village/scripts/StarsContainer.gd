@@ -13,7 +13,6 @@ var last_debug_hour = -1 # Debug için önceki saati kaydet
 
 func _ready():
 	randomize()
-	print("StarsContainer _ready başladı")
 	for i in range(num_stars):
 		var star = Sprite2D.new()
 		star.texture = star_texture
@@ -32,7 +31,6 @@ func _ready():
 			"twinkle_speed": twinkle_speed,
 			"twinkle_offset": twinkle_offset
 		})
-	print("StarsContainer: ", num_stars, " yıldız oluşturuldu")
 
 func _process(delta):
 	var hour = 0.0
@@ -53,7 +51,6 @@ func _process(delta):
 	
 	# DEBUG: Sadece saat değiştiğinde yazdır
 	if int(hour) != last_debug_hour:
-		print("SAAT DEĞİŞTİ - Hour:", hour, " Base Alpha:", base_alpha)
 		last_debug_hour = int(hour)
 
 	var t = Time.get_ticks_msec() / 1000.0
@@ -68,4 +65,4 @@ func _process(delta):
 		star["node"].modulate = Color(5.0, 5.0, 8.0, base_alpha * twinkle)
 		# Sadece ilk yıldız için, sadece saat değiştiğinde debug
 		if idx == 0 and int(hour) != last_debug_hour:
-			print("Yıldız Alpha:", base_alpha * twinkle)
+			pass

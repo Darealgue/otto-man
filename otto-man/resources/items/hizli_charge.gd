@@ -17,7 +17,6 @@ func _init():
 	item_name = tr("item.hizli_charge.name")
 	description = tr("item.hizli_charge.description")
 	flavor_text = "Kor yürür"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.HEAVY_ATTACK
 	tags = ["elemental_fire"]
 	affected_stats = ["heavy_flame_wave"]

@@ -16,7 +16,6 @@ func _init():
 	item_name = tr("item.kan_tadi.name")
 	description = tr("item.kan_tadi.description")
 	flavor_text = "Kan döktükçe açılır"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["attack_speed", "movement_speed"]
 
@@ -32,7 +31,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("heavy_attack_hit"):
 		if not player.is_connected("heavy_attack_hit", _on_heavy_hit):
 			player.connect("heavy_attack_hit", _on_heavy_hit)
-	print("[Kan Tadı] Vuruşta stack, +%10 hız (max 3)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)

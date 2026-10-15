@@ -10,17 +10,14 @@ func _init():
 	item_name = tr("item.yansiyan_irade.name")
 	description = tr("item.yansiyan_irade.description")
 	flavor_text = "İrade kırılmaz, yansır"
-	rarity = ItemRarity.LEGENDARY
 	category = ItemCategory.PARRY
 	affected_stats = ["parry_stamina_refund"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Yansıyan İrade] ✅ Perfect parry stamina iade eder")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Yansıyan İrade] ❌ Kaldırıldı")
 
 func _on_perfect_parry() -> void:
 	var stamina_bar = get_tree().get_first_node_in_group("stamina_bar")

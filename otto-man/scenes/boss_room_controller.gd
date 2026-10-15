@@ -279,7 +279,6 @@ func _on_boss_defeated() -> void:
 		return
 	_entrance_door.unlock_door()
 	_entrance_door.close_door_now()
-	print("[BossRoom] Boss yenildi — giriş kapısından çıkabilirsin")
 	# Boss ödülü: kapı açıldıktan sonra göster, böylece UI kapanınca çıkış hazır.
 	var im: Node = get_node_or_null("/root/ItemManager")
 	if is_instance_valid(im) and im.has_method("has_pending_unlock_offers") and bool(im.call("has_pending_unlock_offers")):
@@ -307,11 +306,7 @@ func _scatter_boss_gold(drs: Node) -> void:
 	var origin: Vector2 = _boss.global_position
 	spawner.call_deferred("spawn_boss_gold_burst", origin, total)
 	if is_instance_valid(drs):
-		print("[BossRoom] Boss altını saçıldı: %d (gold_mult=%.2f, segment=%d)" % [
-			total,
-			float(drs.get("gold_multiplier_accumulated")),
-			int(drs.get("run_segment_count")),
-		])
+		pass
 
 
 func _get_loot_spawner() -> DecorationSpawner:

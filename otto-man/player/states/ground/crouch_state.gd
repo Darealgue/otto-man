@@ -63,7 +63,7 @@ func enter():
 		player.remove_meta("hurt_recovery_use_slide_exit")
 		force_crouch(POST_SLIDE_CROUCH_DURATION)
 		if DEBUG_HURT_RECOVERY_CROUCH:
-			print("[CrouchDebug] enter from hurt recovery (force_crouch mode) | post_ledgegrab=", post_ledgegrab_timer)
+			pass
 	_debug_enter_elapsed = 0.0
 		
 	# Initialize dimensions if not done yet
@@ -94,7 +94,7 @@ func enter():
 	# Play initial crouch animation
 	animation_player.play("crouch")
 	if DEBUG_HURT_RECOVERY_CROUCH:
-		print("[CrouchDebug] enter complete | prev=", state_machine.previous_state.name if state_machine and state_machine.previous_state else "<none>", " current_anim=", animation_player.current_animation)
+		pass
 
 func exit():
 	if !player:
@@ -231,12 +231,12 @@ func physics_update(delta: float):
 	# Don't allow standing up during post-slide or post-ledgegrab crouch periods
 	var can_stand := can_stand_up()
 	if DEBUG_HURT_RECOVERY_CROUCH and _debug_enter_elapsed <= 0.35:
-		print("[CrouchDebug] tick t=", snapped(_debug_enter_elapsed, 0.001), " anim=", animation_player.current_animation, " post_slide=", snapped(post_slide_timer, 0.001), " post_ledgegrab=", snapped(post_ledgegrab_timer, 0.001), " can_stand=", can_stand, " crouch_pressed=", Input.is_action_pressed("crouch"), " vel=", player.velocity)
+		pass
 	if not Input.is_action_pressed("crouch") and can_stand and post_slide_timer <= 0 and post_ledgegrab_timer <= 0:
 		# Debug print disabled to reduce console spam
 		# print("[Crouch] Standing up to Idle. can_stand=", can_stand, " timers slide=", post_slide_timer, " ledge=", post_ledgegrab_timer)
 		if DEBUG_HURT_RECOVERY_CROUCH and entered_from_ledgegrab:
-			print("[CrouchDebug] transition to Idle | can_stand=", can_stand, " post_slide=", post_slide_timer, " post_ledgegrab=", post_ledgegrab_timer, " crouch_pressed=", Input.is_action_pressed("crouch"))
+			pass
 		state_machine.transition_to("Idle")
 		return
 	else:

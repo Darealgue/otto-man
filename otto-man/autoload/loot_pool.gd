@@ -23,7 +23,7 @@ func _ready() -> void:
 
 func loot_log(msg: String) -> void:
 	if debug_loot_lifecycle:
-		print("[LootLifecycle] ", msg)
+		pass
 
 
 ## Havuzdan çıkan / iade edilen loot üzerinde kalan Timer'lar (despawn, ground_sleep, enable vb.)
@@ -206,7 +206,6 @@ func _enforce_cap() -> void:
 	
 	for victim in to_release:
 		if is_instance_valid(victim):
-			print("[LootPool] _enforce_cap releasing old loot at ", victim.global_position)
 			release(victim, "enforce_cap")
 
 func _make_loot(is_pouch: bool) -> RigidBody2D:
@@ -216,7 +215,7 @@ func _make_loot(is_pouch: bool) -> RigidBody2D:
 	# Slightly stronger gravity to ensure falling
 	rb.gravity_scale = 1.2
 	rb.freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC
-	rb.linear_damp = 1.0
+	rb.linear_damp = 0.0  # Havada yatay momentum kaybolmasın, paralar saçılsın
 	rb.angular_damp = 1.0
 	# Prevent tunneling when launched fast
 	rb.continuous_cd = RigidBody2D.CCD_MODE_CAST_RAY
@@ -228,8 +227,8 @@ func _make_loot(is_pouch: bool) -> RigidBody2D:
 	rb.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
 
 	var pm := PhysicsMaterial.new()
-	pm.bounce = 0.05
-	pm.friction = 1.2
+	pm.bounce = 0.5  # top gibi sek
+	pm.friction = 0.5
 	rb.physics_material_override = pm
 
 	var rb_shape := CollisionShape2D.new()

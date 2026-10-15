@@ -86,7 +86,7 @@ func _ready() -> void:
 		spawn_marker.visible = false
 	
 	if DEBUG_ENEMY:
-		print("[TileEnemySpawner] Initialized - Level: %d, Chunk: %s" % [current_level, chunk_type])
+		pass
 
 func activate() -> bool:
 	_is_active = true
@@ -94,7 +94,7 @@ func activate() -> bool:
 		if randf() <= spawn_chance:
 			_spawn_enemy()
 			if DEBUG_ENEMY:
-				print("[TileEnemySpawner] Activated and spawned")
+				pass
 			return true
 		else:
 			if DEBUG_ENEMY:
@@ -102,14 +102,14 @@ func activate() -> bool:
 			_is_active = false
 			return false
 	if DEBUG_ENEMY:
-		print("[TileEnemySpawner] Activated")
+		pass
 	return true
 
 func deactivate() -> void:
 	_is_active = false
 	clear_enemies()
 	if DEBUG_ENEMY:
-		print("[TileEnemySpawner] Deactivated")
+		pass
 
 func _min_level_required(enemy_key: String) -> int:
 	# Forest uses distance-based scaling; allow all roster types from the first chunk so weights stay honest.
@@ -125,7 +125,7 @@ func _spawn_enemy() -> bool:
 	var selected_enemy_type = enemy_type if not enemy_type.is_empty() else _spawn_config.select_enemy_type(current_level, chunk_type)
 	
 	if DEBUG_ENEMY:
-		print("[TileEnemySpawner] Selected enemy type: %s" % selected_enemy_type)
+		pass
 	
 	# Check if enemy type exists
 	if not ENEMY_TYPES.has(selected_enemy_type):
@@ -137,7 +137,7 @@ func _spawn_enemy() -> bool:
 	var min_lv := _min_level_required(selected_enemy_type)
 	if min_lv > current_level:
 		if DEBUG_ENEMY:
-			print("[TileEnemySpawner] Enemy type '%s' requires level %d, current level %d" % [selected_enemy_type, min_lv, current_level])
+			pass
 		return false
 	
 	# Create enemy instance - load scene at runtime for export compatibility
@@ -174,9 +174,7 @@ func _spawn_enemy() -> bool:
 	# Set initial position (spawner tile center)
 	enemy.global_position = global_position
 	if DEBUG_ENEMY:
-		print("[TileEnemySpawner] Spawn DEBUG -> level=%d chunk_type=%s spawner_pos=%s" % [
-			current_level, chunk_type, global_position
-		])
+		pass
 	
 	# Ensure enemy is on the floor by raycasting down (like EnemySpawner does)
 	var space_state = get_world_2d().direct_space_state
@@ -188,9 +186,7 @@ func _spawn_enemy() -> bool:
 	
 	if result:
 		if DEBUG_ENEMY:
-			print("[TileEnemySpawner] Raycast hit at %s (from=%s to=%s, collider=%s normal=%s)" % [
-				result.position, ray_from, ray_to, str(result.collider), str(result.normal)
-			])
+			pass
 		# Ignore hits that are not mostly floor (avoid snapping into walls/ceilings)
 		var normal: Vector2 = result.normal
 		if normal.y > 0.5:
@@ -209,7 +205,7 @@ func _spawn_enemy() -> bool:
 			var snapped_pos: Vector2 = result.position - Vector2(0, feet_offset)
 			enemy.global_position = snapped_pos
 			if DEBUG_ENEMY:
-				print("[TileEnemySpawner] Adjusted enemy position to floor: %s (offset=%.1f)" % [snapped_pos, feet_offset])
+				pass
 		
 		# Force an immediate physics update to ensure floor detection
 		enemy.call_deferred("move_and_slide")
@@ -219,7 +215,7 @@ func _spawn_enemy() -> bool:
 	
 	# DETAILED DEBUG (Reduced)
 	if DEBUG_ENEMY:
-		print("[TileEnemySpawner] Spawned %s at: %s" % [selected_enemy_type, enemy.global_position])
+		pass
 	
 	# Set z-index
 	enemy.z_index = ENEMY_Z_INDEX
@@ -259,7 +255,7 @@ func _spawn_enemy() -> bool:
 			enemy.apply_shield_affix(shield_hp)
 
 	if DEBUG_ENEMY:
-		print("[TileEnemySpawner] Enemy spawn complete at: %s" % enemy.global_position)
+		pass
 	
 	return true
 
@@ -272,9 +268,9 @@ func clear_enemies() -> void:
 			enemy.queue_free()
 	_spawned_enemies.clear()
 	if DEBUG_ENEMY:
-		print("[TileEnemySpawner] Cleared all enemies")
+		pass
 
 func set_level(level: int) -> void:
 	current_level = level
 	if DEBUG_ENEMY:
-		print("[TileEnemySpawner] Level set to: %d" % level)
+		pass

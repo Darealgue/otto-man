@@ -534,6 +534,7 @@ func toggle_camera() -> void:
 	if is_overview_active:
 		_update_overview_camera_fit()
 		if overview_camera:
+			overview_camera.enabled = true
 			overview_camera.make_current()
 	elif player and player.has_node("Camera2D"):
 		var cam = player.get_node("Camera2D")
@@ -1035,7 +1036,7 @@ func _forest_on_resource_spawn_chunk(chunk: Node2D) -> void:
 		return
 	_resource_spawn_timer -= 1
 	if debug_enabled:
-		print("[ForestGenerator] resource chunks until spawn: ", _resource_spawn_timer)
+		pass
 	if _resource_spawn_timer > 0:
 		return
 	var lo := mini(forest_resource_spawn_min_chunks, forest_resource_spawn_max_chunks)
@@ -1113,9 +1114,7 @@ func _forest_collect_resource_floor_cells(
 
 
 func _spawn_random_resource(chunk: Node2D) -> bool:
-	print("[ForestGenerator] Attempting to spawn random resource in chunk: ", chunk.name)
 	if _resource_scenes.is_empty():
-		print("[ForestGenerator] FAIL: _resource_scenes is empty")
 		return false
 	
 	# Get TileMap and TileSet to scan used cells (decoration style)
@@ -1150,7 +1149,6 @@ func _spawn_random_resource(chunk: Node2D) -> bool:
 		)
 
 	if valid_floor_cells.is_empty():
-		print("[ForestGenerator] FAIL: No valid floor cells found in chunk via tag scan")
 		return false
 
 	# Pick a random valid cell
@@ -1177,29 +1175,23 @@ func _spawn_random_resource(chunk: Node2D) -> bool:
 	spawn_pos.y += 5.0
 	resource_node.position = spawn_pos
 	
-	print("[ForestGenerator] SUCCESS: Spawned resource ", resource_node.name, " in chunk ", chunk.name, " at local ", resource_node.position)
 	return true
 
 
 func _spawn_debug_resource_nodes(start_chunk: Node2D) -> void:
-	print("[ForestDebug] 🔧 _spawn_debug_resource_nodes called")
 	if start_chunk == null:
 		print("[ForestDebug] ❌ ERROR: start_chunk is null!")
 		return
-	print("[ForestDebug] ✅ start_chunk found: ", start_chunk.name, " at ", start_chunk.global_position)
 	if Engine.is_editor_hint():
-		print("[ForestDebug] ⚠️ Skipping spawn in editor")
 		return
 	
 	# Find tile map to get proper Y positions
 	var tile_map = start_chunk.find_child("TileMapLayer", true, false)
 	var tile_size := Vector2(64, 64)  # Default tile size
 	if tile_map != null:
-		print("[ForestDebug] ✅ TileMapLayer found")
 		var tile_set = tile_map.get("tile_set") as TileSet
 		if tile_set:
 			tile_size = tile_set.tile_size
-			print("[ForestDebug] Tile size: ", tile_size)
 	else:
 		print("[ForestDebug] ⚠️ TileMapLayer not found, using default tile size")
 	
@@ -1231,24 +1223,20 @@ func _spawn_debug_resource_nodes(start_chunk: Node2D) -> void:
 			var tile_center: Vector2 = tile_map.to_global(tile_map.map_to_local(floor_cell)) + tile_size * 0.5
 			# Decorations spawn at center - 30, but we'll use center - 25 (like decoration code does)
 			floor_y = tile_center.y - 25.0
-			print("[ForestDebug] ✅ Calculated floor_y: ", floor_y, " from floor tile at cell ", floor_cell, " center ", tile_center)
 		else:
 			# Fallback: use first tile if no floor tag found
 			if used_cells.size() > 0:
 				var sample_cell := used_cells[0]
 				var tile_center: Vector2 = tile_map.to_global(tile_map.map_to_local(sample_cell)) + tile_size * 0.5
 				floor_y = tile_center.y - 25.0
-				print("[ForestDebug] ⚠️ No floor tag found, using first tile. floor_y: ", floor_y)
 			else:
-				print("[ForestDebug] ⚠️ No used cells found in TileMapLayer")
+				pass
 	else:
-		print("[ForestDebug] ⚠️ Using default floor_y: 0.0")
+		pass
 	
 	var holder := Node2D.new()
 	holder.name = "ResourceDebugNodes"
 	start_chunk.add_child(holder)
-	print("[ForestDebug] ✅ Created holder node: ", holder.name, " as child of ", start_chunk.name)
-	print("[ForestDebug] Holder global position: ", holder.global_position)
 	
 	var placements := [
 		{"scene_path": "res://interactables/forest/TreeInteractable.tscn", "pos": Vector2(320, floor_y), "color": "brown"},
@@ -1257,14 +1245,12 @@ func _spawn_debug_resource_nodes(start_chunk: Node2D) -> void:
 		{"scene_path": "res://interactables/forest/BushInteractable.tscn", "pos": Vector2(1280, floor_y), "color": "green"},
 	]
 	
-	print("[ForestDebug] 📋 Spawning ", placements.size(), " placeholder interactables...")
 	for i in range(placements.size()):
 		var entry = placements[i]
 		var scene_path := String(entry.get("scene_path", ""))
 		var expected_pos: Vector2 = entry.get("pos", Vector2.ZERO)
 		var color_name: String = entry.get("color", "unknown")
 		
-		print("[ForestDebug] [", i+1, "/", placements.size(), "] Processing: ", scene_path)
 		
 		if scene_path.is_empty():
 			print("[ForestDebug] ❌ Missing path in placement: ", entry)
@@ -1272,71 +1258,54 @@ func _spawn_debug_resource_nodes(start_chunk: Node2D) -> void:
 		
 		var scene: PackedScene = ResourceLoader.load(scene_path, "PackedScene")
 		if scene == null:
-			print("[ForestDebug] ❌ Could not load scene: ", scene_path)
 			continue
-		print("[ForestDebug] ✅ Scene loaded: ", scene_path)
 		
 		var instance: Node = scene.instantiate()
 		if instance == null:
-			print("[ForestDebug] ❌ Could not instantiate scene: ", scene_path)
 			continue
-		print("[ForestDebug] ✅ Instance created: ", instance.name, " (class: ", instance.get_class(), ")")
 		
 		holder.add_child(instance)
-		print("[ForestDebug] ✅ Added to holder as child #", holder.get_child_count())
 		
 		# Position relative to start_chunk (local position)
 		var global_pos: Vector2 = expected_pos
 		instance.global_position = global_pos  # Set global position directly
-		print("[ForestDebug] ✅ Set global_position to: ", global_pos)
 		
 		# Verify position was set
 		var actual_pos: Vector2 = instance.global_position
 		if actual_pos.distance_to(global_pos) > 0.1:
 			print("[ForestDebug] ⚠️ Position mismatch! Expected: ", global_pos, " Actual: ", actual_pos)
 		else:
-			print("[ForestDebug] ✅ Position verified: ", actual_pos)
+			pass
 		
 		if instance is BaseInteractable:
-			print("[ForestDebug] ✅ Instance is BaseInteractable")
 			var interactable: BaseInteractable = instance as BaseInteractable
 			interactable.require_interact_press = true  # Etkileşim tuşu ile aktifleşsin
-			print("[ForestDebug] ✅ Set require_interact_press = true")
 			
 			if instance.has_method("set_placeholder_mode"):
 				instance.call("set_placeholder_mode", true)
-				print("[ForestDebug] ✅ Called set_placeholder_mode(true)")
 			else:
-				print("[ForestDebug] ⚠️ Instance does not have set_placeholder_mode method")
+				pass
 			
 			# Check if placeholder visual was applied
 			if instance.has_method("get") and instance.get("placeholder_mode"):
-				print("[ForestDebug] ✅ placeholder_mode is true")
+				pass
 			else:
-				print("[ForestDebug] ⚠️ placeholder_mode might not be set correctly")
+				pass
 		else:
-			print("[ForestDebug] ⚠️ Instance is NOT BaseInteractable! Class: ", instance.get_class())
+			pass
 		
 		# Check visibility
 		if instance is Node2D:
 			var node2d: Node2D = instance as Node2D
-			print("[ForestDebug] Instance visible: ", node2d.visible, " modulate: ", node2d.modulate)
 		
 		# Check for visual children
 		var sprite_nodes: Array[Node] = []
 		_find_visual_nodes_recursive(instance, sprite_nodes)
-		print("[ForestDebug] Found ", sprite_nodes.size(), " visual nodes:")
 		for vis_node in sprite_nodes:
 			if vis_node is Node2D:
 				var vis2d: Node2D = vis_node as Node2D
-				print("[ForestDebug]   - ", vis_node.name, " (", vis_node.get_class(), ") visible=", vis2d.visible, " pos=", vis2d.global_position)
 		
-		print("[ForestDebug] ✅ Completed spawn for ", color_name, " placeholder at ", actual_pos)
-		print("[ForestDebug] ---")
 	
-	print("[ForestDebug] 🎉 Finished spawning all debug resource nodes. Holder has ", holder.get_child_count(), " children")
-	print("[ForestDebug] Holder final global position: ", holder.global_position)
-	print("[ForestDebug] Start chunk final children count: ", start_chunk.get_child_count())
 
 func _find_visual_nodes_recursive(node: Node, result: Array[Node]) -> void:
 	if node is Sprite2D or node is AnimatedSprite2D or node is Polygon2D or node is ColorRect or node is TextureRect:
@@ -1350,7 +1319,6 @@ func _debug_dump_chunk_nodes(label: String, chunk: Node) -> void:
 	if chunk == null:
 		print("[ForestDebug] Chunk dump ", label, ": <null>")
 		return
-	print("[ForestDebug] Chunk dump ", label, ": ", chunk.name, " class=", chunk.get_class(), " children=", chunk.get_child_count())
 	_debug_dump_node_recursive(chunk, "", 0, 4)
 
 func _find_all_sprites_in_area(root: Node, min_pos: Vector2, max_pos: Vector2) -> void:
@@ -1410,7 +1378,6 @@ func _debug_dump_node_recursive(node: Node, prefix: String, depth: int, max_dept
 		if tr.texture:
 			tex_path = tr.texture.resource_path
 		visual_info = " [TextureRect texture=" + tex_path + "]"
-	print(indent, prefix, node.name, class_str, pos_str, global_str, visual_info)
 	for child: Node in node.get_children():
 		_debug_dump_node_recursive(child, "• ", depth + 1, max_depth)
 
@@ -1458,7 +1425,6 @@ func _debug_dump_tilemap_summary(chunk: Node, label: String) -> void:
 	keys.sort_custom(func(a, b) -> bool:
 		return int(counts.get(a, 0)) > int(counts.get(b, 0))
 	)
-	print("[ForestDebug] TileMap summary ", label, ": entries=", counts.size())
 	var limit: int = min(12, keys.size())
 	for i in range(limit):
 		var key: String = String(keys[i])
@@ -1470,21 +1436,17 @@ func _debug_dump_tilemap_summary(chunk: Node, label: String) -> void:
 		var texture_info: String = ""
 		if tile_textures.has(key):
 			texture_info = " texture=" + tile_textures[key]
-		print("  • ", key, " count=", count_value, " sample_cell=", cell_pos, texture_info, scene_info)
 	if keys.size() > limit:
-		print("  • ... (", keys.size() - limit, " more)")
+		pass
 	# Also check for any direct child nodes of TileMapLayer that might be scene instances
 	var tilemap_children: int = tm.get_child_count()
 	if tilemap_children > 0:
-		print("[ForestDebug] TileMapLayer has ", tilemap_children, " direct children (possible scene instances):")
 		for child: Node in tm.get_children():
 			var child_pos: Vector2 = Vector2.ZERO
 			if child is Node2D:
 				child_pos = (child as Node2D).global_position
-			print("  • ", child.name, " class=", child.get_class(), " global_pos=", child_pos)
 	# Also check for tiles in starter chunk area that might be trees
 	if label.contains("start"):
-		print("[ForestDebug] Checking for tree-like tiles in starter chunk area (x: -500 to 4500):")
 		var tree_tiles_found: int = 0
 		for cell in tm.get_used_cells():
 			var world_pos: Vector2 = tm.map_to_local(cell)
@@ -1501,10 +1463,9 @@ func _debug_dump_tilemap_summary(chunk: Node, label: String) -> void:
 					# But also check atlas coordinates - trees are usually in specific atlas positions
 					# Limit output to first 20 matches to avoid spam
 					if (texture_path.to_lower().contains("tree") or texture_path.to_lower().contains("forest")) and tree_tiles_found < 20:
-						print("  [FOUND TREE-LIKE TILE] cell=", cell, " global_pos=", global_pos, " atlas_coords=", atlas_coords, " texture=", texture_path)
 						tree_tiles_found += 1
 		if tree_tiles_found >= 20:
-			print("  [ForestDebug] ... (more tree-like tiles found, limiting output)")
+			pass
 
 func _remove_underground_tree_tiles(chunk: Node2D) -> void:
 	if chunk == null:
@@ -1543,7 +1504,7 @@ func _remove_underground_tree_tiles(chunk: Node2D) -> void:
 				if is_decoration:
 					decoration_nodes_to_remove.append(child)
 					if debug_enabled:
-						print("[ForestDebug] Found decoration node to remove: ", child.name, " at ", global_pos)
+						pass
 	
 	# 2b. Start chunk'ın içindeki decoration node'larını da kaldır
 	if chunk != null:
@@ -1579,7 +1540,7 @@ func _remove_underground_tree_tiles(chunk: Node2D) -> void:
 					if is_decoration:
 						decoration_nodes_to_remove.append(child)
 						if debug_enabled:
-							print("[ForestDebug] Found decoration node in start chunk to remove: ", child.name, " at ", global_pos)
+							pass
 			# Also check for direct Sprite2D/AnimatedSprite2D nodes in the chunk
 			elif child is Sprite2D or child is AnimatedSprite2D:
 				var sprite: Node2D = child as Node2D
@@ -1593,17 +1554,17 @@ func _remove_underground_tree_tiles(chunk: Node2D) -> void:
 							continue
 					decoration_nodes_to_remove.append(child)
 					if debug_enabled:
-						print("[ForestDebug] Found Sprite2D/AnimatedSprite2D in start chunk to remove: ", child.name, " at ", global_pos)
+						pass
 	
 	# Remove decoration nodes
 	for node in decoration_nodes_to_remove:
 		if is_instance_valid(node):
 			if debug_enabled:
-				print("[ForestDebug] Removing decoration node: ", node.name, " at ", (node as Node2D).global_position)
+				pass
 			node.queue_free()
 	
 	if decoration_nodes_to_remove.size() > 0:
-		print("[ForestDebug] Removed ", decoration_nodes_to_remove.size(), " decoration nodes from start chunk area (x: ", min_x, " to ", max_x, ")")
+		pass
 	
 	# 3. Queue'daki bu aralıktaki spawn job'larını temizle
 	var queue_filtered: Array = []
@@ -1615,10 +1576,10 @@ func _remove_underground_tree_tiles(chunk: Node2D) -> void:
 		else:
 			queue_removed += 1
 			if debug_enabled:
-				print("[ForestDebug] Removed queued decoration spawn: ", job.get("name", ""), " at ", pos)
+				pass
 	_decor_spawn_queue = queue_filtered
 	if queue_removed > 0:
-		print("[ForestDebug] Removed ", queue_removed, " queued decoration spawns from start chunk area")
+		pass
 
 func _collect_all_children_recursive(node: Node, result: Array[Node]) -> void:
 	for child: Node in node.get_children():
@@ -2565,7 +2526,6 @@ func _setup_day_night_system() -> void:
 			rain_effect.name = "RainEffect"
 			rain_effect.position = Vector2(0, -800)  # Köy sahnesindekiyle aynı pozisyon
 			add_child(rain_effect)
-			print("[ForestLevelGenerator] RainEffect added to forest scene")
 	
 	# Uçuşan yapraklar (rüzgar yönüne uygun; leaf_textures leaves klasöründen otomatik yüklenir)
 	var fl_script := load("res://village/scripts/FlyingLeavesController.gd") as GDScript
@@ -2772,19 +2732,15 @@ func _restore_right_once() -> bool:
 func _debug_dump_active_chunks(reason: String) -> void:
 	if not debug_enabled:
 		return
-	print("\n[ForestDebug] Dump due to:", reason)
 	var px := -1.0
 	if player != null and is_instance_valid(player):
 		px = player.global_position.x
-	print("  player.x=", px, " current_row=", current_row, " window L/R=", window_left_count, "/", window_right_count)
 	for i in range(active_chunks.size()):
 		var n: Node2D = active_chunks[i]
 		var key := _get_chunk_key(n)
 		var sz := _get_size(n)
 		var row := int(round(n.position.y / float(unit_size)))
 		var cons := _get_chunk_connections(n)
-		print("  [", i, "] key=", key, " pos=", n.position, " size=", sz, " row=", row, " cons=", cons)
-	print("  last_end_x=", last_end_x, " entries=", chunk_entries.size(), " first_active_index=", first_active_index, " last_active_index=", last_active_index)
 
 func _dbg(msg: String) -> void:
 	if not debug_enabled:
@@ -2794,7 +2750,6 @@ func _dbg(msg: String) -> void:
 		return
 	_last_dbg_text = msg
 	_last_dbg_ms = now
-	print(msg)
 
 func _get_chunk_key(n: Node2D) -> String:
 	if n.has_meta("entry_index"):
@@ -3374,19 +3329,11 @@ func _forest_tree_measure_and_fix(tree_node: Node2D, job: Dictionary, phase: Str
 	if DEBUG_FOREST_TREE_SPAWN:
 		var always_line: bool = (phase == "immediate") or (abs(delta_y) > 0.75)
 		if always_line:
-			print("[ForestTree] type=", decor_name, " seq=", seq, " phase=", phase,
-				" drift=", snapped(delta_y, 0.01),
-				" exp_y=", snapped(expected_floor_y, 0.01),
-				" bottom_y=", snapped(visual_bottom_y, 0.01),
-				" root_y=", snapped(tree_node.global_position.y, 0.01),
-				" chunk=", job.get("chunk_name", "?"),
-				" chunk_pos=", job.get("chunk_pos", Vector2.ZERO),
-				" anchor=", job.get("anchor_cell", Vector2i.ZERO))
+			pass
 	if abs(delta_y) > snap_threshold:
 		tree_node.global_position.y += delta_y
 		if DEBUG_FOREST_TREE_SPAWN:
-			print("[ForestTree] SNAP type=", decor_name, " seq=", seq, " phase=", phase, " applied_dy=", snapped(delta_y, 0.01),
-				" new_root_y=", snapped(tree_node.global_position.y, 0.01))
+			pass
 
 func _forest_tree_spawn_followup(tree_node: Node2D, job: Dictionary) -> void:
 	if tree_node == null or not is_instance_valid(tree_node):
@@ -3423,14 +3370,6 @@ func _report_underground_forest_decor_if_any(node: Node2D, job: Dictionary) -> v
 		var tex_path: String = ""
 		if spr.texture != null:
 			tex_path = spr.texture.resource_path
-		print("[ForestDecorSuspect] name=", node.name,
-			" buried_px=", snapped(buried_px, 0.01),
-			" expected_y=", snapped(expected_floor_y, 0.01),
-			" bottom_y=", snapped(visual_bottom_y, 0.01),
-			" root=", snapped(node.global_position.y, 0.01),
-			" tex=", tex_path,
-			" chunk=", job.get("chunk_name", "?"),
-			" anchor=", job.get("anchor_cell", Vector2i.ZERO))
 
 func _scan_nearby_for_buried_forest_decor() -> void:
 	if player == null or not is_instance_valid(player):
@@ -3463,13 +3402,6 @@ func _scan_nearby_for_buried_forest_decor() -> void:
 		var tex_path: String = ""
 		if spr.texture != null:
 			tex_path = spr.texture.resource_path
-		print("[ForestDecorSuspectLive] name=", d.name,
-			" buried_px=", snapped(buried_px, 0.01),
-			" tile_ground_y=", snapped(tile_ground_y, 0.01),
-			" bottom_y=", snapped(bottom_y, 0.01),
-			" node_pos=", d.global_position,
-			" z=", d.z_index,
-			" tex=", tex_path)
 
 func _collect_candidate_forest_decors() -> Array[Node2D]:
 	var out: Array[Node2D] = []
@@ -3506,7 +3438,6 @@ func _collect_candidate_forest_decors() -> Array[Node2D]:
 func _debug_dump_nearby_forest_decor_metrics() -> void:
 	if player == null or not is_instance_valid(player):
 		return
-	print("[ForestDecorDump] ===== START ===== player=", player.global_position)
 	var count: int = 0
 	for d in _collect_candidate_forest_decors():
 		if abs(d.global_position.x - player.global_position.x) > 2200.0:
@@ -3520,17 +3451,9 @@ func _debug_dump_nearby_forest_decor_metrics() -> void:
 		var tex_path: String = ""
 		if spr != null and spr.texture != null:
 			tex_path = spr.texture.resource_path
-		print("[ForestDecorDump] name=", d.name,
-			" x=", snapped(d.global_position.x, 0.01),
-			" y=", snapped(d.global_position.y, 0.01),
-			" bottom=", snapped(bottom_y, 0.01),
-			" tile_ground=", snapped(ground_y, 0.01),
-			" buried=", snapped(buried_px, 0.01),
-			" tex=", tex_path)
 		count += 1
 		if count >= 40:
 			break
-	print("[ForestDecorDump] ===== END count=", count, " =====")
 
 func _sample_floor_top_y_from_chunk_tilemap(node: Node2D) -> float:
 	var chunk: Node = node
@@ -3714,7 +3637,7 @@ func _populate_forest_enemies_for_chunk(chunk_node: Node2D) -> void:
 		spawned_count += 1
 
 	if DEBUG_FOREST_ENEMIES:
-		print("[ForestEnemy] Chunk ", chunk_node.name, " spawned ", spawned_count, " / ", target_count, " enemies")
+		pass
 
 	chunk_node.set_meta("forest_enemy_populated", true)
 

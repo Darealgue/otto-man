@@ -20,7 +20,6 @@ func _init():
 	item_name = tr("item.yere_cakis.name")
 	description = tr("item.yere_cakis.description")
 	flavor_text = "Havadan gelen, yeri sarsar"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["air_down_slam"]
 
@@ -31,7 +30,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("player_attack_landed"):
 		if not player.is_connected("player_attack_landed", _on_player_attack_landed):
 			player.connect("player_attack_landed", _on_player_attack_landed)
-	print("[Yere Çakış] ✅ Havadaki aşağı saldırı şok dalgası yayıyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -40,7 +38,6 @@ func deactivate(player: CharacterBody2D):
 			_player.disconnect("player_attack_landed", _on_player_attack_landed)
 	_player = null
 	_hitbox = null
-	print("[Yere Çakış] ❌ Kaldırıldı")
 
 func _on_player_attack_landed(attack_type: String, _damage: float, targets: Array, position: Vector2, effect_filter: String = "all") -> void:
 	if effect_filter == "physical_only" or attack_type != "normal":

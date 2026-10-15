@@ -38,10 +38,8 @@ func can_add_floor() -> bool:
 
 func add_floor() -> bool:
 	if not can_add_floor():
-		print("[ResidentialHousing] ⚠️ Kat eklenemedi: max=%d, current=%d (host=%s)" % [max_floors, current_floors, _describe_host()])
 		return false
 	current_floors += 1
-	print("[ResidentialHousing] 🏠 Kat eklendi: yeni kat sayısı=%d, kapasite=%d (host=%s)" % [current_floors, get_max_capacity(), _describe_host()])
 	_refresh_visual_state()
 	return true
 

@@ -73,7 +73,6 @@ var safe_vertical_start_y: float = 0.0
 var safe_vertical_end_y: float = 0.0
 
 func _ready() -> void:
-	print("Battle Scene Ready! Starting phased spawn...")
 	# Başlangıçta Game Over etiketini gizle
 	if game_over_label != null:
 		game_over_label.visible = false
@@ -100,15 +99,12 @@ func _ready() -> void:
 			printerr("ERROR: Ordered spawn enabled, but all specific unit counts are zero!")
 			is_spawning = false # Spawn'ı engelle
 		else:
-			print("Ordered spawn enabled. Generating spawn plan...")
 			_generate_ordered_spawn_plan()
 			# total_units_to_spawn'u plan boyutuna eşitlemek artık GEREKMİYOR
 			if spawn_plan.size() != total_units_to_spawn:
 				printerr("CRITICAL: Spawn plan size (%d) does not match calculated total units (%d)!" % [spawn_plan.size(), total_units_to_spawn])
-			print("...Spawn plan generated with %d units." % spawn_plan.size())
 	else:
 		# Rastgele spawn için hazırlık
-		print("Ordered spawn disabled. Using random type distribution.")
 		if total_units_to_spawn == 0:
 			printerr("ERROR: Random spawn selected, but unit counts result in zero total units!")
 			is_spawning = false # Spawn'ı engelle
@@ -121,7 +117,6 @@ func _ready() -> void:
 	var min_row_height = 20.0 # Tek sıra/derinlik için minimum yükseklik (sprite boyutuna göre ayarlanabilir)
 	
 	# <<< YENİ: formation_depth değerini logla >>>
-	print("Formation Depth read in _ready: ", formation_depth)
 	
 	if use_ordered_spawn:
 		# Sıralı mod: Yükseklik formation_depth'e göre belirlenir
@@ -152,26 +147,22 @@ func _ready() -> void:
 	if forbidden_areas.size() > 0:
 		# Üst kenar = position.y + size.y
 		forbidden_top_y = forbidden_areas[0].position.y + forbidden_areas[0].size.y
-		print("Using Forbidden Area Top Edge: ", forbidden_top_y)
 	
 	# Kullanılabilir dikey alanı hesapla (Savaş alanı alt sınırı - Yasak alan üst sınırı)
 	var margin = 1.0 # Yasak alan kenarından küçük bir boşluk
 	safe_vertical_start_y = max(battle_area.position.y, forbidden_top_y + margin) # Y'nin başlayabileceği en düşük güvenli nokta
 	safe_vertical_end_y = battle_area.end.y # Y'nin bitebileceği en yüksek nokta
 	var available_safe_height = max(0, safe_vertical_end_y - safe_vertical_start_y)
-	print("Safe Vertical Area: Y from %.1f to %.1f (Height: %.1f)" % [safe_vertical_start_y, safe_vertical_end_y, available_safe_height])
 	
 	# Oyuncu için
 	var player_margin_y = max(0, (available_safe_height - player_formation_height) / 2.0)
 	var player_centered_start_y = safe_vertical_start_y + player_margin_y # Güvenli alanın başlangıcına göre ortala
 	player_spawn_start.y = player_centered_start_y
-	print("Player Formation Height: %.1f, Centered Start Y: %.1f" % [player_formation_height, player_centered_start_y])
 
 	# Düşman için
 	var enemy_margin_y = max(0, (available_safe_height - enemy_formation_height) / 2.0)
 	var enemy_centered_start_y = safe_vertical_start_y + enemy_margin_y # Güvenli alanın başlangıcına göre ortala
 	enemy_spawn_start.y = enemy_centered_start_y 
-	print("Enemy Formation Height: %.1f, Centered Start Y: %.1f" % [enemy_formation_height, enemy_centered_start_y])
 	# <<< DİKEY KONUMLANDIRMA SONU >>>
 
 	# Yükleme Arayüzünü Ayarla
@@ -234,7 +225,6 @@ func _process(delta: float) -> void:
 			is_spawning = false
 			if is_instance_valid(loading_ui):
 				loading_ui.visible = false
-			print("...Phased spawn complete! Starting phased activation...")
 			# <<< DEĞİŞTİ: Hemen preparing_for_battle değil, aktivasyonu başlat >>>
 			# preparing_for_battle = true 
 			is_activating_units = true
@@ -270,7 +260,6 @@ func _process(delta: float) -> void:
 		# Aktivasyon bitti mi?
 		if activated_unit_count >= total_units_to_spawn:
 			is_activating_units = false
-			print("...Phased activation complete! Starting preparation phase.")
 			preparing_for_battle = true # Şimdi hazırlık başlayabilir
 			
 		return # Aktivasyon devam ediyorsa başka işlem yapma
@@ -311,7 +300,6 @@ func _physics_process(delta: float) -> void:
 					
 		# Herkes yerindeyse savaşı başlatmak için zamanlayıcıyı kur
 		if all_units_in_position:
-			print("*** Birimler Pozisyonda, Savaş Başlaması Bekleniyor... ***")
 			preparing_for_battle = false
 			waiting_for_battle_start = true # Zamanlayıcıyı bekliyoruz
 			
@@ -380,27 +368,18 @@ func _end_battle(winning_team: int) -> void:
 	var game_over_text = ""
 	if winner_team_id == 0:
 		game_over_text = tr("battle.player_won")
-		print("-------------------") # Konsol logları kalsın
-		print("  PLAYER KAZANDI!  ")
-		print("-------------------")
 		for unit in player_units:
 			# <<< GÜNCELLENDİ: Sadece aktifse zafer durumuna geç >>>
 			if is_instance_valid(unit) and unit.get_current_state() != Unit.State.DEAD and unit.get_current_state() != Unit.State.FAINTED:
 				unit.enter_victory_state()
 	elif winner_team_id == 1:
 		game_over_text = tr("battle.enemy_won")
-		print("-------------------")
-		print("  DÜŞMAN KAZANDI!  ")
-		print("-------------------")
 		for unit in enemy_units:
 			# <<< GÜNCELLENDİ: Sadece aktifse zafer durumuna geç >>>
 			if is_instance_valid(unit) and unit.get_current_state() != Unit.State.DEAD and unit.get_current_state() != Unit.State.FAINTED:
 				unit.enter_victory_state()
 	elif winner_team_id == -2: # Beraberlik durumu
 		game_over_text = tr("battle.draw")
-		print("-------------------")
-		print("     BERABERE!     ")
-		print("-------------------")
 	
 	# Game Over etiketini güncelle ve görünür yap
 	if game_over_label != null:
@@ -408,7 +387,6 @@ func _end_battle(winning_team: int) -> void:
 		game_over_label.visible = true
 
 func _on_unit_died(unit: Unit) -> void:
-	print("DEBUG: BattleScene received died signal from %s (Team %d)" % [unit.name, unit.team_id])
 	# <<< GÜNCELLENDİ: Artık listeden ÇIKARMIYORUZ >>>
 	# Sadece log yazdırabiliriz veya ileride ölüler listesine ekleyebiliriz
 	# if unit.team_id == 0:
@@ -426,7 +404,6 @@ func _on_unit_died(unit: Unit) -> void:
 
 # <<< YENİ: Bayılan Birim İçin Callback >>>
 func _on_unit_fainted(unit: Unit) -> void:
-	print("DEBUG: BattleScene received fainted signal from %s (Team %d)" % [unit.name, unit.team_id])
 	# <<< GÜNCELLENDİ: Artık listeden ÇIKARMIYORUZ >>>
 	# Sadece log yazdırabiliriz veya ileride baygınlar listesine ekleyebiliriz
 	# if unit.team_id == 0:
@@ -446,8 +423,6 @@ func _on_unit_fainted(unit: Unit) -> void:
 func _start_battle() -> void:
 	waiting_for_battle_start = false # Beklemeyi durdur
 	battle_started = true
-	print("*** SAVAŞ BAŞLADI! ***")
-	print("DEBUG: Starting battle. Player units: %d, Enemy units: %d" % [player_units.size(), enemy_units.size()]) # <<< YENİ DEBUG >>>
 	
 	# Tüm birimleri MOVING durumuna geçir (yeni setter ile)
 	for unit in player_units:

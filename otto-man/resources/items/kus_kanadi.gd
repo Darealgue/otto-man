@@ -12,7 +12,6 @@ func _init():
 	item_name = tr("item.kus_kanadi.name")
 	description = tr("item.kus_kanadi.description")
 	flavor_text = "Kuş gibi zıplama"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.JUMP
 	affected_stats = ["jump_count"]
 
@@ -24,7 +23,6 @@ func activate(player: CharacterBody2D):
 	# Set meta on player to enable triple jump
 	player.set_meta("kus_kanadi_active", true)
 	player.set_meta("kus_kanadi_jump_count", 0)
-	print("[Kuş Kanadı] ✅ Triple jump aktif (bonus zıplama 2 stamina hücresi)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -34,4 +32,3 @@ func deactivate(player: CharacterBody2D):
 		if _player.has_meta("kus_kanadi_jump_count"):
 			_player.remove_meta("kus_kanadi_jump_count")
 	_player = null
-	print("[Kuş Kanadı] ❌ Kuş Kanadı kaldırıldı")

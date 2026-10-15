@@ -13,7 +13,6 @@ func _init():
 	item_name = tr("item.tas_yurek.name")
 	description = tr("item.tas_yurek.description")
 	flavor_text = "Son direnç"
-	rarity = ItemRarity.LEGENDARY
 	category = ItemCategory.SPECIAL
 	affected_stats = ["low_hp_reduction"]
 
@@ -21,7 +20,6 @@ func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
 	_player.tas_yurek_reduction = DAMAGE_REDUCTION
-	print("[Taş Yürek] Can %25 altında %50 hasar azalması")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)

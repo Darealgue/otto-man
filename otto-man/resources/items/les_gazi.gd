@@ -6,7 +6,6 @@ func _init():
 	item_name = tr("item.les_gazi.name")
 	description = tr("item.les_gazi.description")
 	flavor_text = "Ölüm bile bir silahtır"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SPECIAL
 	affected_stats = ["corpse_gas"]
 
@@ -15,8 +14,6 @@ func _init():
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Leş Gazı] ✅ Elit cesetlere vuruş zehirli gaz çıkarır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Leş Gazı] ❌ Kaldırıldı")

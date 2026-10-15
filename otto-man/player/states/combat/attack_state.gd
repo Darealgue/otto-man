@@ -473,7 +473,6 @@ func _update_hitbox():
 			dmg_mult *= (1.0 + player.counter_damage_bonus)
 			kb_mult *= (1.0 + player.counter_knockback_bonus)
 			kb_up_mult *= (1.0 + player.counter_knockback_bonus)
-			print("[Counter] Light counter bonus applied")
 			player.consume_counter_window()
 		# Update the hitbox with the current attack type (hasar hesaplanır; uzun_menzilde melee açılmaz)
 		hitbox.enable_combo(current_attack, dmg_mult, kb_mult, kb_up_mult)

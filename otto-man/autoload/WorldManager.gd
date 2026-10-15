@@ -78,7 +78,6 @@ const LW_ROLE_KOMUTAN: int = 1
 const LW_ROLE_AJAN: int = 2
 const LW_ROLE_DIPLOMAT: int = 3
 const LW_ROLE_TUCCAR: int = 4
-const LW_ROLE_ALIM: int = 5
 const LW_ROLE_TIBBIYECI: int = 6
 const LW_SKILL_SAVAS: int = 0
 const LW_SKILL_DIPLOMASI: int = 1
@@ -202,7 +201,7 @@ func discover_tiles(center: Dictionary, radius: int, source: String = "player", 
 	var discovered_keys: Array = _reveal_tiles(center, max(0, radius), true)
 	if source == "player":
 		world_map_player_pos = {"q": int(center.get("q", 0)), "r": int(center.get("r", 0))}
-		_refresh_visible_tiles()
+		_refresh_visible_tiles_incremental()
 		if emit_update:
 			world_map_updated.emit()
 	elif not discovered_keys.is_empty():
@@ -732,6 +731,7 @@ func _generate_hex_tiles() -> void:
 	_place_player_village_on_coast(rng)
 	_place_dungeons_on_map(rng)
 	_place_landmarks_on_map(rng)
+	_place_bandit_camps_on_map(rng)
 
 func _pick_terrain(q: int, r: int, rng: RandomNumberGenerator) -> String:
 	var dist_norm: float = float(_hex_distance(0, 0, q, r)) / float(max(1, world_map_radius))
@@ -905,14 +905,48 @@ func _reveal_tiles(center: Dictionary, radius: int, persistent: bool) -> Array:
 			_mark_settlement_discovered_if_present(tile)
 	return discovered_now
 
+## Şu an "visible" işaretli anahtarlar (tam geçişte doldurulur; hızlı yenilemede sadece fark güncellenir).
+var _visible_tile_keys: Dictionary = {}
+
 func _refresh_visible_tiles() -> void:
 	var pq = int(world_map_player_pos.get("q", 0))
 	var pr = int(world_map_player_pos.get("r", 0))
+	_visible_tile_keys.clear()
 	for key in world_map_tiles.keys():
 		var tile = world_map_tiles[key]
 		var dist = _hex_distance(pq, pr, int(tile.get("q", 0)), int(tile.get("r", 0)))
-		tile["visible"] = dist <= STARTING_REVEAL_RADIUS
+		var vis: bool = dist <= STARTING_REVEAL_RADIUS
+		tile["visible"] = vis
+		if vis:
+			_visible_tile_keys[key] = true
 		world_map_tiles[key] = tile
+
+
+## Yürüyüş adımı için: tüm haritayı gezmek yerine yalnızca görünürlüğü değişen karoları günceller.
+func _refresh_visible_tiles_incremental() -> void:
+	if _visible_tile_keys.is_empty():
+		_refresh_visible_tiles()
+		return
+	var pq: int = int(world_map_player_pos.get("q", 0))
+	var pr: int = int(world_map_player_pos.get("r", 0))
+	var rad: int = STARTING_REVEAL_RADIUS
+	var fresh: Dictionary = {}
+	for dq in range(-rad, rad + 1):
+		for dr in range(maxi(-rad, -dq - rad), mini(rad, -dq + rad) + 1):
+			var key: String = _hex_key(pq + dq, pr + dr)
+			if world_map_tiles.has(key):
+				fresh[key] = true
+	for key in _visible_tile_keys.keys():
+		if not fresh.has(key) and world_map_tiles.has(key):
+			var old_tile: Dictionary = world_map_tiles[key]
+			old_tile["visible"] = false
+			world_map_tiles[key] = old_tile
+	for key in fresh.keys():
+		if not _visible_tile_keys.has(key):
+			var new_tile: Dictionary = world_map_tiles[key]
+			new_tile["visible"] = true
+			world_map_tiles[key] = new_tile
+	_visible_tile_keys = fresh
 
 func _mark_settlement_discovered_if_present(tile: Dictionary) -> void:
 	var settlement_id := String(tile.get("settlement_id", ""))
@@ -2157,7 +2191,9 @@ func maybe_spawn_challenge() -> Dictionary:
 		var tile: Dictionary = world_map_tiles[key]
 		var poi: String = String(tile.get("poi_type", ""))
 		if poi == "challenge":
-			active += 1
+			# Toplama engeli köy olayına bağlı; sıradan etkinlik kotasını doldurmasın
+			if not bool(tile.get("challenge_blockade", false)):
+				active += 1
 		elif poi == "player_village":
 			village_key = String(key)
 	if active >= CHALLENGE_MAX_ACTIVE or village_key.is_empty():
@@ -2186,7 +2222,16 @@ func get_challenge_at(q: int, r: int) -> Dictionary:
 		"difficulty": int(tile.get("challenge_difficulty", 1)),
 		"expires_day": int(tile.get("challenge_expires_day", 0)),
 		"days_left": maxi(0, int(tile.get("challenge_expires_day", 0)) - _current_day_for_challenges()),
+		"blockade": bool(tile.get("challenge_blockade", false)),
+		"blockade_resource": String(tile.get("challenge_blockade_resource", "")),
+		"blockade_event": String(tile.get("challenge_blockade_event", "")),
 	}
+
+
+const _CHALLENGE_TILE_KEYS: Array[String] = [
+	"challenge_kind", "challenge_biome", "challenge_difficulty", "challenge_expires_day",
+	"challenge_blockade", "challenge_blockade_resource", "challenge_blockade_event",
+]
 
 
 ## Challenge girilince veya süresi dolunca karodan kaldırır.
@@ -2198,7 +2243,7 @@ func remove_challenge_at(q: int, r: int) -> void:
 	if String(tile.get("poi_type", "")) != "challenge":
 		return
 	tile["poi_type"] = ""
-	for k in ["challenge_kind", "challenge_biome", "challenge_difficulty", "challenge_expires_day"]:
+	for k in _CHALLENGE_TILE_KEYS:
 		tile.erase(k)
 	world_map_tiles[key] = tile
 	world_map_updated.emit()
@@ -2208,11 +2253,63 @@ func purge_expired_challenges() -> void:
 	var today: int = _current_day_for_challenges()
 	for key in world_map_tiles.keys():
 		var tile: Dictionary = world_map_tiles[key]
+		# Toplama engeli challenge'ı köy olayına bağlıdır; olay bitince VillageManager kaldırır.
+		if bool(tile.get("challenge_blockade", false)):
+			continue
 		if String(tile.get("poi_type", "")) == "challenge" and int(tile.get("challenge_expires_day", 0)) <= today:
 			tile["poi_type"] = ""
-			for k in ["challenge_kind", "challenge_biome", "challenge_difficulty", "challenge_expires_day"]:
+			for k in _CHALLENGE_TILE_KEYS:
 				tile.erase(k)
 			world_map_tiles[key] = tile
+
+
+## Köylülerin o kaynak için gittiği alana (köye en yakın uygun arazi karosu) köy olayına bağlı bir challenge koyar.
+## Kaynak -> arazi eşlemesi compute_village_gather_round_trip_minutes ile aynıdır (odun/yiyecek orman, taş dağ).
+## Dönen {"ok", "q", "r"}; uygun boş karo yoksa {"ok": false}.
+func place_gather_blockade_poi(resource_type: String, kind: String, difficulty: int, event_type: String, ends_day: int) -> Dictionary:
+	var terrain: String = "dag" if resource_type == "stone" else "orman"
+	var pos: Dictionary = _get_player_village_position()
+	if pos.is_empty():
+		return {"ok": false}
+	var vq: int = int(pos.get("q", 0))
+	var vr: int = int(pos.get("r", 0))
+	var best_key: String = ""
+	var best_d: int = 999999
+	for key in world_map_tiles.keys():
+		var tile: Dictionary = world_map_tiles[key]
+		if String(tile.get("terrain_type", "")) != terrain:
+			continue
+		if not String(tile.get("poi_type", "")).is_empty() or bool(tile.get("contains_village", false)):
+			continue
+		var d: int = _hex_distance(vq, vr, int(tile.get("q", 0)), int(tile.get("r", 0)))
+		if d < best_d:
+			best_d = d
+			best_key = String(key)
+	if best_key.is_empty():
+		return {"ok": false}
+	var t: Dictionary = world_map_tiles[best_key]
+	t["poi_type"] = "challenge"
+	t["challenge_kind"] = kind
+	t["challenge_biome"] = "orman"
+	t["challenge_difficulty"] = clampi(difficulty, 1, 9)
+	t["challenge_expires_day"] = ends_day + 1
+	t["challenge_blockade"] = true
+	t["challenge_blockade_resource"] = resource_type
+	t["challenge_blockade_event"] = event_type
+	world_map_tiles[best_key] = t
+	var q: int = int(t.get("q", 0))
+	var r: int = int(t.get("r", 0))
+	# Oyuncu nerede olduğunu görebilsin: karo ve çevresi keşfedilir
+	discover_tiles({"q": q, "r": r}, 1, "gather_blockade", false)
+	world_map_updated.emit()
+	return {"ok": true, "q": q, "r": r}
+
+
+## Yalnız toplama engeli challenge'ını kaldırır (normal etkinliklere dokunmaz).
+func remove_gather_blockade_at(q: int, r: int) -> void:
+	var tile: Dictionary = world_map_tiles.get(_hex_key(q, r), {})
+	if bool(tile.get("challenge_blockade", false)):
+		remove_challenge_at(q, r)
 
 
 ## Tema kimliğinin oyuncuya gösterilen adı. Tek kaynak: hem dünya haritası balonu
@@ -2286,13 +2383,119 @@ func _count_landmarks_on_map() -> int:
 	return count
 
 
-func _ensure_map_content_extensions() -> void:
-	_ensure_settlement_factions_assigned()
-	if _count_landmarks_on_map() > 0:
+const BANDIT_CAMP_TARGET_COUNT: int = 4
+const BANDIT_CAMP_MIN_DIST_FROM_VILLAGE: int = 7
+const BANDIT_CAMP_MIN_DIST_BETWEEN: int = 9
+
+
+## Haydut kampı: komutan cariyenin saldırabileceği harita noktası (poi_type "bandit_camp").
+## Temizlenen kamp poi'sini kaybeder ve karoda `camp_cleared` izi kalır; böylece eski kayıtlarda
+## "hiç kamp yok" ile "hepsi temizlendi" ayırt edilir ve temizlenenler yeniden tohumlanmaz.
+func _place_bandit_camps_on_map(rng: RandomNumberGenerator) -> void:
+	var vq: int = int(world_map_player_pos.get("q", 0))
+	var vr: int = int(world_map_player_pos.get("r", 0))
+	var candidates: Array[Dictionary] = []
+	for key in world_map_tiles.keys():
+		var tile: Dictionary = world_map_tiles[key]
+		if bool(tile.get("contains_village", false)):
+			continue
+		if not String(tile.get("poi_type", "")).is_empty():
+			continue
+		var terrain: String = String(tile.get("terrain_type", "ova"))
+		if terrain == "deniz" or terrain == "akarsu":
+			continue
+		var q: int = int(tile.get("q", 0))
+		var r: int = int(tile.get("r", 0))
+		if _hex_distance(vq, vr, q, r) < BANDIT_CAMP_MIN_DIST_FROM_VILLAGE:
+			continue
+		candidates.append(tile)
+	var placed: Array[Dictionary] = []
+	var limit: int = mini(BANDIT_CAMP_TARGET_COUNT, candidates.size())
+	while placed.size() < limit and not candidates.is_empty():
+		var idx: int = rng.randi_range(0, candidates.size() - 1)
+		var selected: Dictionary = candidates[idx]
+		candidates.remove_at(idx)
+		var q2: int = int(selected.get("q", 0))
+		var r2: int = int(selected.get("r", 0))
+		var far_enough: bool = true
+		for prev in placed:
+			if _hex_distance(q2, r2, int(prev.get("q", 0)), int(prev.get("r", 0))) < BANDIT_CAMP_MIN_DIST_BETWEEN:
+				far_enough = false
+				break
+		if not far_enough:
+			continue
+		var tile_key: String = _hex_key(q2, r2)
+		if world_map_tiles.has(tile_key):
+			world_map_tiles[tile_key]["poi_type"] = "bandit_camp"
+			_camp_cache_valid = false
+			placed.append({"q": q2, "r": r2})
+
+
+func _has_any_bandit_camp_state() -> bool:
+	for key in world_map_tiles.keys():
+		var tile: Dictionary = world_map_tiles[key]
+		if String(tile.get("poi_type", "")) == "bandit_camp" or bool(tile.get("camp_cleared", false)):
+			return true
+	return false
+
+
+## Cariye görevinden doğan süreli zindan etkisi (karoya yazılır, kayıtla birlikte saklanır).
+## kind: "intel" (Ajan sızması: sonraki run'da garanti kurtarma), "cleared" (Komutan temizliği: daha az düşman).
+func set_dungeon_directed_effect(q: int, r: int, kind: String, until_day: int) -> void:
+	var key: String = _hex_key(q, r)
+	if not world_map_tiles.has(key):
 		return
-	var rng := RandomNumberGenerator.new()
-	rng.seed = int(world_map_seed) + 9127
-	_place_landmarks_on_map(rng)
+	if String(world_map_tiles[key].get("poi_type", "")) != "dungeon":
+		return
+	world_map_tiles[key][kind + "_until_day"] = until_day
+	world_map_updated.emit()
+
+
+## dungeon_id ("q,r") için hâlâ süren etkiler. {"intel": gün_sayısı, "cleared": gün_sayısı} (0: yok).
+func get_dungeon_directed_effects(dungeon_id: String) -> Dictionary:
+	var out: Dictionary = {"intel": 0, "cleared": 0}
+	var parts: PackedStringArray = dungeon_id.strip_edges().split(",")
+	if parts.size() != 2:
+		return out
+	var key: String = _hex_key(int(parts[0]), int(parts[1]))
+	if not world_map_tiles.has(key):
+		return out
+	var tile: Dictionary = world_map_tiles[key]
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	var day: int = int(tm.get_day()) if tm != null and tm.has_method("get_day") else 0
+	for kind in ["intel", "cleared"]:
+		var until: int = int(tile.get(kind + "_until_day", 0))
+		out[kind] = maxi(0, until - day) if until >= day and until > 0 else 0
+	return out
+
+
+## Kampı temizler (komutan görevi başarıyla bitince). true: kamp vardı ve kaldırıldı.
+func clear_bandit_camp_at(q: int, r: int) -> bool:
+	var key: String = _hex_key(q, r)
+	if not world_map_tiles.has(key):
+		return false
+	var tile: Dictionary = world_map_tiles[key]
+	if String(tile.get("poi_type", "")) != "bandit_camp":
+		return false
+	tile["poi_type"] = ""
+	tile["camp_cleared"] = true
+	world_map_tiles[key] = tile
+	_camp_cache_valid = false
+	world_map_updated.emit()
+	return true
+
+
+func _ensure_map_content_extensions() -> void:
+	_camp_cache_valid = false
+	_ensure_settlement_factions_assigned()
+	if _count_landmarks_on_map() == 0:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = int(world_map_seed) + 9127
+		_place_landmarks_on_map(rng)
+	if not _has_any_bandit_camp_state():
+		var rng_camp := RandomNumberGenerator.new()
+		rng_camp.seed = int(world_map_seed) + 4411
+		_place_bandit_camps_on_map(rng_camp)
 
 
 func _ensure_settlement_factions_assigned() -> void:
@@ -3392,7 +3595,45 @@ func get_active_settlement_incident(settlement_id: String) -> Dictionary:
 func get_settlement_incident_threat_bonus(q: int, r: int) -> float:
 	return _get_settlement_incident_threat_bonus(q, r)
 
+## Haydut kampları yakındaki yolu tehlikeli yapar: 3 hex içinde yol olayı şansı artar
+## (kampın üstünde/yanında +0.06, 2 hex +0.04, 3 hex +0.02; en çok 0.10). Komutan rolü
+## (hostile_route_risk_mult) bunu da azaltır. Kamp temizlenince tehdit de kalkar.
+var _camp_cache: Array[Vector2i] = []
+var _camp_cache_valid: bool = false
+
+
+func _bandit_camp_positions() -> Array[Vector2i]:
+	if _camp_cache_valid:
+		return _camp_cache
+	_camp_cache.clear()
+	for key in world_map_tiles.keys():
+		var tile: Dictionary = world_map_tiles[key]
+		if String(tile.get("poi_type", "")) == "bandit_camp":
+			_camp_cache.append(Vector2i(int(tile.get("q", 0)), int(tile.get("r", 0))))
+	_camp_cache_valid = true
+	return _camp_cache
+
+
+func _get_bandit_camp_threat_bonus(q: int, r: int) -> float:
+	var bonus: float = 0.0
+	for p in _bandit_camp_positions():
+		var d: int = _hex_distance(q, r, p.x, p.y)
+		if d > 3:
+			continue
+		bonus += 0.06 if d <= 1 else (0.04 if d == 2 else 0.02)
+	if bonus <= 0.0:
+		return 0.0
+	var role_mods: Dictionary = _get_living_world_role_modifiers()
+	bonus *= float(role_mods.get("hostile_route_risk_mult", 1.0))
+	return clampf(bonus, 0.0, 0.10)
+
+
+## Yol olayı hesabının kullandığı toplam "düşmanca" bonus: düşman köyler + haydut kampları.
 func _get_hostile_settlement_threat_bonus(q: int, r: int) -> float:
+	return _get_hostile_villages_threat_bonus(q, r) + _get_bandit_camp_threat_bonus(q, r)
+
+
+func _get_hostile_villages_threat_bonus(q: int, r: int) -> float:
 	# Oyuncuya dusman koylere yakin hex'lerde yol riski artar.
 	# 4 hex menzil icinde (proximity ile yumusatilmis) ve relation ne kadar dusukse bonus o kadar yuksek.
 	var hostiles: Array = get_player_hostile_settlements()
@@ -3429,16 +3670,11 @@ func _get_top_cariye_skill_for_role(role_id: int, skill_id: int) -> int:
 	var arr = mm.call("get_concubines_by_role", role_id)
 	if not (arr is Array) or arr.is_empty():
 		return 0
-	var best: int = 0
-	for c in arr:
-		if c == null:
-			continue
-		var s: int = 0
-		if c.has_method("get_skill_level"):
-			s = int(c.call("get_skill_level", skill_id))
-		if s > best:
-			best = s
-	return best
+	# Aynı roldeki cariyelerden en iyisi + her yardımcıdan +1 etkin puan (en çok 5):
+	# 0..100 ölçeği rol puanından gelir (rol 20, her puan +16).
+	if mm.has_method("get_role_strength"):
+		return 20 + 16 * int(mm.call("get_role_strength", role_id))
+	return 20
 
 func _get_living_world_role_modifiers() -> Dictionary:
 	var mods: Dictionary = {
@@ -3472,12 +3708,8 @@ func _get_living_world_role_modifiers() -> Dictionary:
 		# Komutan muttefik defans koordinasyonunu iyilestirir.
 		mods["alliance_defense_chance_bonus"] = 0.20 * k_norm
 		mods["alliance_defense_range_bonus"] = int(round(2.0 * k_norm))
-	var diplomat_skill: int = _get_top_cariye_skill_for_role(LW_ROLE_DIPLOMAT, LW_SKILL_DIPLOMASI)
-	if diplomat_skill > 0:
-		var d_norm: float = clampf(float(diplomat_skill) / 100.0, 0.0, 1.0)
-		mods["incident_duration_mult"] = clampf(1.0 - 0.30 * d_norm, 0.6, 1.0)
-		mods["stability_recovery_bonus"] = int(round(1.0 + 2.0 * d_norm))
-		mods["post_incident_stability_bonus"] = int(round(1.0 + 3.0 * d_norm))
+	# Diplomatın pasifi köy olaylarıyla ilgili değil, ilişkilerle ilgilidir:
+	# MissionManager._increase_settlement_relation (olumsuz ilişki kayıplarını azaltır).
 	var ajan_skill: int = _get_top_cariye_skill_for_role(LW_ROLE_AJAN, LW_SKILL_KESIF)
 	if ajan_skill > 0:
 		var a_norm: float = clampf(float(ajan_skill) / 100.0, 0.0, 1.0)
@@ -3490,11 +3722,6 @@ func _get_living_world_role_modifiers() -> Dictionary:
 		mods["food_drift_bonus"] = int(round(1.0 + 3.0 * t_norm))
 		# Tuccar tribute miktarini +1 ile +3 altin arttirir.
 		mods["alliance_tribute_bonus"] = int(round(1.0 + 2.0 * t_norm))
-	var alim_skill: int = _get_top_cariye_skill_for_role(LW_ROLE_ALIM, LW_SKILL_BUROKRASI)
-	if alim_skill > 0:
-		var al_norm: float = clampf(float(alim_skill) / 100.0, 0.0, 1.0)
-		mods["harvest_failure_severity_mult"] = clampf(1.0 - 0.30 * al_norm, 0.52, 1.0)
-		mods["plague_scare_severity_mult"] *= clampf(1.0 - 0.18 * al_norm, 0.78, 1.0)
 	var tibb_skill: int = _get_top_cariye_skill_for_role(LW_ROLE_TIBBIYECI, LW_SKILL_DIPLOMASI)
 	if tibb_skill > 0:
 		var tb_norm: float = clampf(float(tibb_skill) / 100.0, 0.0, 1.0)
@@ -4226,7 +4453,7 @@ func apply_war_support(supported_id: String, opponent_id: String) -> Dictionary:
 	var supported_name: String = _get_settlement_display_name(supported_id)
 	var opponent_name: String = _get_settlement_display_name(opponent_id)
 	change_relation("Köy", supported_name, 5, false)
-	change_relation("Köy", opponent_name, -5, false)
+	change_relation_by_player("Köy", opponent_name, -5, false)
 	_post_world_news({
 		"category": "world",
 		"subcategory": "warning",
@@ -4428,7 +4655,7 @@ func break_alliance(settlement_id: String) -> Dictionary:
 		return result
 	var settlement_name: String = _get_settlement_display_name(settlement_id)
 	world_player_alliances.erase(settlement_id)
-	change_relation("Köy", settlement_name, ALLIANCE_BREAK_RELATION_PENALTY, false)
+	change_relation_by_player("Köy", settlement_name, ALLIANCE_BREAK_RELATION_PENALTY, false)
 	_post_world_news({
 		"category": "world",
 		"subcategory": "warning",
@@ -5112,7 +5339,8 @@ func _trigger_periodic_raid_warning(kind: String, attack_day: int, attack_hour: 
 		"subcategory": "critical",
 		"title": title,
 		"content": content,
-		"day": warning_day
+		"day": warning_day,
+		"digest_keep": true
 	})
 	pending_attacks.append({
 		"attacker": attacker_name,
@@ -5555,7 +5783,8 @@ func _trigger_village_attack(attacker_faction: String, day: int) -> void:
 		"subcategory": "critical",
 		"title": "🚨 Saldırı Uyarısı!",
 		"content": "%s fraksiyonu köyümüze saldırı hazırlığı yapıyor! Saldırı 6 saat sonra bekleniyor. Askerlerinizi hazırlayın!" % attacker_faction,
-		"day": day
+		"day": day,
+		"digest_keep": true
 	})
 	
 	# Zamanlanmış saldırıyı kaydet
@@ -5751,7 +5980,8 @@ func _process_defense_result(attacker_faction: String, battle_result: Dictionary
 			"subcategory": "success",
 			"title": "✅ Savunma Başarılı",
 			"content": win_content,
-			"day": day
+			"day": day,
+			"digest_skip": true
 		})
 
 		# Küçük moral bonusu
@@ -5829,7 +6059,8 @@ func _process_defense_result(attacker_faction: String, battle_result: Dictionary
 			"subcategory": "critical",
 			"title": "❌ Savunma Başarısız",
 			"content": loss_content,
-			"day": day
+			"day": day,
+			"digest_skip": true
 		})
 
 		# Askerlerin geri dönmesi için sinyal gönder
@@ -5990,6 +6221,18 @@ func set_relation(a: String, b: String, value: int, post_news: bool = false) -> 
 func change_relation(a: String, b: String, delta: int, post_news: bool = true) -> void:
 	var current = get_relation(a, b)
 	set_relation(a, b, current + delta, post_news)
+
+
+## Oyuncunun kendi seçtiği bir eylemin ilişki bedeli (baskın, ittifak bozma, taraf tutma).
+## Diplomat varsa kayıp azalır (MissionManager.soften_relation_loss). Uygulanan değeri döndürür.
+func change_relation_by_player(a: String, b: String, delta: int, post_news: bool = false) -> int:
+	var applied: int = delta
+	if delta < 0:
+		var mm: Node = get_node_or_null("/root/MissionManager")
+		if mm != null and mm.has_method("soften_relation_loss"):
+			applied = int(mm.call("soften_relation_loss", delta))
+	change_relation(a, b, applied, post_news)
+	return applied
 
 func get_relation(a: String, b: String) -> int:
 	var key := _rel_key(a, b)
@@ -6185,21 +6428,21 @@ func _post_world_news(news: Dictionary) -> void:
 		
 		MissionManager.post_news(category, title, content, Color.WHITE, subcategory, {
 			"skip_daily_cap": bool(news.get("skip_daily_cap", false)),
+			"digest_skip": bool(news.get("digest_skip", false)),
+			"digest_keep": bool(news.get("digest_keep", false)),
 		})
 	else:
 		# Fallback: sinyal emit et
 		if MissionManager and MissionManager.has_signal("news_posted"):
 			MissionManager.news_posted.emit(news)
 		else:
-			print("[WORLD NEWS] ", news)
+			pass
 
 func _generate_battle_story(attacker_faction: String, battle_result: Dictionary, day: int, attacker_force: Dictionary, defender_force: Dictionary) -> void:
 	"""Generate a battle story using LLM without grammar constraints"""
 	if _DISABLE_BATTLE_STORY_LLM:
-		print("WorldManager: Battle story LLM disabled (_DISABLE_BATTLE_STORY_LLM); skipping LlamaService call.")
 		return
 	if not LlamaService.IsInitialized():
-		print("WorldManager: LlamaService not available, emitting fallback battle narration")
 		_emit_fallback_battle_story(attacker_faction, battle_result, day, attacker_force, defender_force)
 		return
 	
@@ -6226,7 +6469,6 @@ func _generate_battle_story(attacker_faction: String, battle_result: Dictionary,
 	# are compiler sugar that doesn't apply across the language boundary, so every parameter is
 	# passed explicitly here.
 	LlamaService.GenerateResponseAsyncBase(prompt, 170, true, 0.85, "battle_story.gbnf", false)
-	print("WorldManager: Sent battle story generation request to LlamaService")
 
 ## Mock-heroic, bathos-driven battle summary — the tone target is Asterix and Obelix: a
 ## grand, pompous windup that never quite matches how the fight actually looked. The joke lives
@@ -6316,14 +6558,12 @@ func _on_battle_story_generated(story: String) -> void:
 		return
 	
 	if trimmed_story.is_empty():
-		print("WorldManager: Empty battle story received from LLM")
 		_pending_battle_story_data = {}
 		return
 	
 	var battle_data = _pending_battle_story_data.duplicate()
 	_pending_battle_story_data = {}
 	
-	print("WorldManager: Battle story generated: ", trimmed_story)
 	
 	# Emit signal with the generated story
 	battle_story_generated.emit(trimmed_story, battle_data)
@@ -6336,7 +6576,6 @@ func test_battle(attacker_faction: String = "Kuzey") -> void:
 	"""Test function to immediately trigger a battle for testing battle story generation"""
 	var tm = get_node_or_null("/root/TimeManager")
 	var current_day = tm.get_day() if tm and tm.has_method("get_day") else 1
-	print("🧪 TEST: Triggering immediate battle from %s" % attacker_faction)
 	_execute_village_defense(attacker_faction, current_day)
 
 # === Ofansif Raid Sistemi (Hostile koylere baskin gorevi) ===
@@ -6387,7 +6626,7 @@ func launch_offensive_raid(settlement_id: String) -> Dictionary:
 	var gpd: Node = get_node_or_null("/root/GlobalPlayerData")
 	if gpd:
 		gpd.gold = max(0, int(gpd.gold) - OFFENSIVE_RAID_GOLD_COST)
-	change_relation("Köy", s_name, OFFENSIVE_RAID_RELATION_PENALTY, false)
+	change_relation_by_player("Köy", s_name, OFFENSIVE_RAID_RELATION_PENALTY, false)
 	var tm: Node = get_node_or_null("/root/TimeManager")
 	var day: int = tm.get_day() if tm and tm.has_method("get_day") else 1
 	var mm: Node = get_node_or_null("/root/MissionManager")
@@ -6424,11 +6663,11 @@ func get_offensive_raid_result_effects(settlement_id: String, success: bool) -> 
 			state["food_stock"] = clamp(int(state.get("food_stock", 80)) - 15, 5, 200)
 			state["stability"] = clamp(int(state.get("stability", 60)) - 5, 5, 100)
 			world_settlement_states[settlement_id] = state
-		change_relation("Köy", s_name, -5, false)
-		return {"gold_loot": randi_range(150, 400), "food_loot": randi_range(5, 15), "relation_change": -5, "target_weakened": true}
+		var rel_hit: int = change_relation_by_player("Köy", s_name, -5, false)
+		return {"gold_loot": randi_range(150, 400), "food_loot": randi_range(5, 15), "relation_change": rel_hit, "target_weakened": true}
 	else:
-		change_relation("Köy", s_name, -3, false)
-		return {"gold_loot": 0, "food_loot": 0, "relation_change": -3, "target_weakened": false}
+		var rel_hit_f: int = change_relation_by_player("Köy", s_name, -3, false)
+		return {"gold_loot": 0, "food_loot": 0, "relation_change": rel_hit_f, "target_weakened": false}
 
 
 # --- Köy işçisi temel kaynak seferleri (harita hex maliyeti ile uyumlu) ---

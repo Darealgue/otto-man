@@ -11,7 +11,6 @@ func _init():
 	item_name = tr("item.ac_gozlu_toksin.name")
 	description = tr("item.ac_gozlu_toksin.description")
 	flavor_text = "Zehir doyurur"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["poison_bonus_damage"]
 

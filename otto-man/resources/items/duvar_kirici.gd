@@ -11,14 +11,11 @@ func _init():
 	item_name = tr("item.duvar_kirici.name")
 	description = tr("item.duvar_kirici.description")
 	flavor_text = "Duvarı iterken düşmanı da iter"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.WALL_SLIDE
 	affected_stats = ["wall_jump_burst"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Duvar Kırıcı] ✅ Duvar zıplaması yakındaki düşmanlara hasar veriyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Duvar Kırıcı] ❌ Kaldırıldı")

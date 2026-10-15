@@ -12,14 +12,11 @@ func _init():
 	item_name = tr("item.ruh_mermisi.name")
 	description = tr("item.ruh_mermisi.description")
 	flavor_text = "Bir can biter, mermi bitmez"
-	rarity = ItemRarity.LEGENDARY
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["projectile_soul_chain"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Ruh Mermisi] ✅ Öldüren mermi bir sonraki hedefe geçiyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Ruh Mermisi] ❌ Kaldırıldı")

@@ -22,7 +22,6 @@ func _init():
 	item_name = tr("item.sirt_darbesi.name")
 	description = tr("item.sirt_darbesi.description")
 	flavor_text = "Gözün arkanda da olsun"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["light_attack_back_hit"]
 
@@ -33,7 +32,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("player_attack_landed"):
 		if not player.is_connected("player_attack_landed", _on_player_attack_landed):
 			player.connect("player_attack_landed", _on_player_attack_landed)
-	print("[Sırt Darbesi] ✅ 3. combo vuruşu arkaya da vuruyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -42,7 +40,6 @@ func deactivate(player: CharacterBody2D):
 			_player.disconnect("player_attack_landed", _on_player_attack_landed)
 	_player = null
 	_hitbox = null
-	print("[Sırt Darbesi] ❌ Kaldırıldı")
 
 func process(_player_ref: CharacterBody2D, delta: float) -> void:
 	if _chain_timer > 0.0:

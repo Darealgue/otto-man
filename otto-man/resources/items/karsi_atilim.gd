@@ -13,21 +13,18 @@ func _init():
 	item_name = tr("item.karsi_atilim.name")
 	description = tr("item.karsi_atilim.description")
 	flavor_text = "Parry'den sonra yol açılır"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.PARRY
 	affected_stats = ["counter_dash"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Karşı Atılım] ✅ Parry sonrası ilk atılım bedava ve 2x uzun")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	if is_instance_valid(player):
 		player.counter_dash_until_msec = 0
 	_player = null
-	print("[Karşı Atılım] ❌ Kaldırıldı")
 
 func _on_perfect_parry() -> void:
 	if is_instance_valid(_player):

@@ -19,7 +19,6 @@ func _init():
 	item_name = tr("item.artan_guc.name")
 	description = tr("item.artan_guc.description")
 	flavor_text = "Her vuruş bir öncekini besler"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["light_attack_streak"]
 
@@ -35,7 +34,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("player_attack_landed"):
 		if not player.is_connected("player_attack_landed", _on_player_attack_landed):
 			player.connect("player_attack_landed", _on_player_attack_landed)
-	print("[Artan Güç] ✅ Ardışık light attack'lar birbirini güçlendiriyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -46,7 +44,6 @@ func deactivate(player: CharacterBody2D):
 		if _player.is_connected("player_attack_landed", _on_player_attack_landed):
 			_player.disconnect("player_attack_landed", _on_player_attack_landed)
 	_player = null
-	print("[Artan Güç] ❌ Kaldırıldı")
 
 func process(_player_ref: CharacterBody2D, delta: float) -> void:
 	if _streak_timer > 0.0:

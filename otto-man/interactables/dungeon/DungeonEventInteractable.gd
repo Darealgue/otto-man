@@ -33,7 +33,8 @@ const _MARKET_UI := preload("res://ui/item_selection.tscn")
 ## Market fiyatları KASITLI OLARAK FAHİŞ. Run altını çıkışta köye taşınıyor
 ## (DungeonRunState.gold_multiplier_accumulated), yani buradan kart almak doğrudan
 ## köy geliştirmesinden feragat etmek demek. Ucuz olsaydı seçim olmazdı.
-const CARD_PRICE_BY_RARITY: Array[int] = [45, 70, 110, 180]
+## Rarity kaldırıldığı için tüm kartlar aynı taban fiyattan (eski 45/70/110/180 ortalaması).
+const CARD_BASE_PRICE: int = 90
 const CARD_PRICE_PER_LEVEL: int = 6
 
 ## Market bir KAPI. Zindanın kendi kapı sanatını kullanır (door_1.png, 8 kareli sheet;
@@ -225,7 +226,7 @@ func _open_market() -> void:
 			continue
 		scenes.append(im.ITEM_SCENES[id])
 		ids.append(id)
-		prices.append(_card_cost(int(meta.get("rarity", 0))))
+		prices.append(_card_cost())
 	if scenes.is_empty():
 		_dialog_open = false
 		return
@@ -352,9 +353,8 @@ func _resolve_curse(choice_id: String) -> void:
 
 
 
-func _card_cost(rarity: int) -> int:
-	var idx: int = clampi(rarity, 0, CARD_PRICE_BY_RARITY.size() - 1)
-	return CARD_PRICE_BY_RARITY[idx] + level * CARD_PRICE_PER_LEVEL
+func _card_cost() -> int:
+	return CARD_BASE_PRICE + level * CARD_PRICE_PER_LEVEL
 
 
 func _cleanse_cost() -> int:
@@ -371,7 +371,6 @@ func _finish_event() -> void:
 
 
 func _show_feedback(message: String) -> void:
-	print("[DungeonEvent] %s" % message)
 	var hud: Node = get_tree().get_first_node_in_group("dungeon_hud")
 	if hud and hud.has_method("show_toast"):
 		hud.call("show_toast", message)

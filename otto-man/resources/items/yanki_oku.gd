@@ -6,14 +6,11 @@ func _init():
 	item_name = tr("item.yanki_oku.name")
 	description = tr("item.yanki_oku.description")
 	flavor_text = "Ses gider, yankı kalır"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["projectile_echo"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Yankı Oku] ✅ Mermiler yankılanıyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Yankı Oku] ❌ Kaldırıldı")

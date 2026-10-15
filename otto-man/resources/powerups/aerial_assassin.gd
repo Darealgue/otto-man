@@ -37,7 +37,6 @@ func _apply_aerial_assassin_effects() -> void:
 	player_stats.add_stat_multiplier("fall_attack_damage", current_multiplier)
 	
 	var synergy_text = " (Aerial Warrior synergy)" if synergy_active else ""
-	print("[Aerial Assassin] Activated - Fall attack damage +" + str(int(damage_bonus * 100)) + "%" + synergy_text)
 
 func _on_synergy_activated(synergy_id: String) -> void:
 	if synergy_id == "aerial_warrior":
@@ -65,5 +64,4 @@ func deactivate(player: CharacterBody2D) -> void:
 	if powerup_manager and powerup_manager.is_connected("synergy_activated", _on_synergy_activated):
 		powerup_manager.disconnect("synergy_activated", _on_synergy_activated)
 	
-	print("[Aerial Assassin] Deactivated")
 	super.deactivate(player)

@@ -7,7 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://byov2w28tgqc0" path="res://ui/npc_window.tscn" id="7_a2l8b"]
 [ext_resource type="Texture2D" uid="uid://botduxqg661ye" path="res://assets/character_parts/beard/beard_style1_walk_gray.png" id="7_o5o4k"]
 [ext_resource type="Texture2D" uid="uid://wtnccajt6bj4" path="res://assets/character_parts/hair/hair_style1_walk_gray.png" id="8_7bdve"]
-[ext_resource type="Theme" uid="uid://t8h8e8m8e8t8" path="res://resources/medieval_theme.tres" id="9_theme"]
+[ext_resource type="Theme" path="res://resources/medieval_theme.tres" id="9_theme"]
 
 [sub_resource type="CanvasTexture" id="CanvasTexture_28vps"]
 

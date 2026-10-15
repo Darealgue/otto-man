@@ -16,7 +16,6 @@ func _init():
 	item_name = tr("item.yankesici.name")
 	description = tr("item.yankesici.description")
 	flavor_text = "Cebi delen, kılıç değildir"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["dodge_steal_gold"]
 
@@ -50,4 +49,3 @@ func _on_player_dodged(_direction: int, start_pos: Vector2, end_pos: Vector2) ->
 		gpd.credit_run_loot_gold(total_gold, last_pos)
 	elif gpd and gpd.has_method("add_dungeon_gold"):
 		gpd.add_dungeon_gold(total_gold)
-	print("[Yankesici] 💰 %d altın çalındı" % total_gold)

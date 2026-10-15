@@ -40,7 +40,6 @@ func initialize_darkness_controller() -> void:
 	# Shader'ı bu TileMap'e uygula
 	darkness_controller.apply_to_tilemap(self)
 	
-	print("[UnifiedTerrain] Darkness controller initialized and applied to TileMap")
 
 ## Zindan teması paleti: çarpışması olan karolar (zemin/duvar) `fg`, çarpışmasız karolar (arka plan)
 ## `bg` ile boyanır. Karoların kendi TileData.modulate'ı kullanılır (distance_darkness shader'ı
@@ -67,8 +66,7 @@ func apply_theme_palette(fg: Color, bg: Color) -> void:
 
 func unify_chunks(chunks: Array) -> void:
 	if DEBUG_UNIFIED_TERRAIN:
-		print("\n=== Starting Terrain Unification ===")
-		print("Number of chunks to process: ", chunks.size())
+		pass
 	
 	if chunks.is_empty():
 		push_error("No chunks provided for unification!")
@@ -85,24 +83,24 @@ func unify_chunks(chunks: Array) -> void:
 			continue
 			
 		if DEBUG_UNIFIED_TERRAIN:
-			print("\nProcessing chunk: ", chunk.name)
+			pass
 		
 		# Look for TileMapLayer directly
 		var tilemap_layer = chunk.get_node_or_null("TileMapLayer")
 		if tilemap_layer:
 			if DEBUG_UNIFIED_TERRAIN:
-				print("Found TileMapLayer in chunk ", chunk.name)
+				pass
 			# Hide the original TileMapLayer
 			tilemap_layer.visible = false
 			process_tilemap_layer(tilemap_layer, chunk)
 		else:
 			if DEBUG_UNIFIED_TERRAIN:
-				print("No TileMapLayer found in chunk ", chunk.name)
+				pass
 	
 	# After copying all tiles, fix the terrain connections
 	fix_terrain_connections()
 	if DEBUG_UNIFIED_TERRAIN:
-		print("\n=== Terrain Unification Complete ===")
+		pass
 	
 	# Make sure the unified terrain is visible
 	visible = true
@@ -112,15 +110,12 @@ func process_tilemap_layer(tilemap_layer: TileMapLayer, chunk: Node2D) -> void:
 		tile_set = tilemap_layer.tile_set
 	
 	if DEBUG_UNIFIED_TERRAIN:
-		print("\n=== Position Analysis for Chunk: ", chunk.name, " ===")
-		print("Chunk Global Position: ", chunk.global_position)
-		print("TileMapLayer Position: ", tilemap_layer.position)
-		print("TileMapLayer Global Position: ", tilemap_layer.global_position)
+		pass
 	
 	# Get all cells in the tilemap layer
 	var cells = tilemap_layer.get_used_cells()
 	if DEBUG_UNIFIED_TERRAIN:
-		print("Processing ", cells.size(), " cells")
+		pass
 	
 	# Sort cells by Y coordinate to ensure consistent processing
 	cells.sort_custom(func(a, b): return a.y < b.y)
@@ -155,10 +150,7 @@ func process_tilemap_layer(tilemap_layer: TileMapLayer, chunk: Node2D) -> void:
 		set_cell(0, unified_cell, source_id, atlas_coords, alternative_tile)
 	
 	if DEBUG_UNIFIED_TERRAIN:
-		print("\nChunk Bounds Analysis:")
-		print("- Min Position: ", min_pos)
-		print("- Max Position: ", max_pos)
-		print("- Chunk Size: ", max_pos - min_pos)
+		pass
 	
 	# After processing the layer, disable both visibility and collision
 	tilemap_layer.visible = false
@@ -188,7 +180,6 @@ func integrate_chunk(chunk: Node2D) -> int:
 		print("Warning: Null chunk passed to integrate_chunk")
 		return 0
 		
-	print("Integrating chunk: ", chunk.name)
 	
 	# Try to find TileMap in different possible locations
 	var chunk_map = chunk.get_node_or_null("TileMap")
@@ -215,8 +206,7 @@ func integrate_chunk(chunk: Node2D) -> int:
 				var tile_map_data = tilemap_layer.get("tile_map_data")
 				if tile_map_data:
 					if DEBUG_UNIFIED_TERRAIN:
-						print("Found tile data of type: ", typeof(tile_map_data))
-						print("First few bytes: ", tile_map_data.slice(0, 20) if tile_map_data is PackedByteArray else "N/A")
+						pass
 					new_tilemap.set("layer_0/tile_data", tile_map_data)
 				
 				# Add to scene before forcing update
@@ -226,7 +216,7 @@ func integrate_chunk(chunk: Node2D) -> int:
 				new_tilemap.force_update(0)
 				var cells = new_tilemap.get_used_cells(0)
 				if DEBUG_UNIFIED_TERRAIN:
-					print("After setup - cells found: ", cells.size())
+					pass
 				
 				chunk_map = new_tilemap
 	
@@ -248,7 +238,7 @@ func integrate_chunk(chunk: Node2D) -> int:
 		
 	var used_cells = chunk_map.get_used_cells(0)
 	if DEBUG_UNIFIED_TERRAIN:
-		print("Found ", used_cells.size(), " cells in chunk")
+		pass
 	
 	if used_cells.is_empty():
 		if DEBUG_UNIFIED_TERRAIN:
@@ -259,7 +249,7 @@ func integrate_chunk(chunk: Node2D) -> int:
 	var failed_transfers = 0
 	
 	if DEBUG_UNIFIED_TERRAIN:
-		print("Starting cell transfer for chunk ", chunk.name)
+		pass
 	for cell in used_cells:
 		var source_id = chunk_map.get_cell_source_id(0, cell)
 		var atlas_coords = chunk_map.get_cell_atlas_coords(0, cell)
@@ -281,28 +271,22 @@ func integrate_chunk(chunk: Node2D) -> int:
 		else:
 			cells_transferred += 1
 			if cells_transferred <= 5:  # Only print first 5 successes to avoid spam
-				print("Successfully placed tile at ", unified_cell, " from source cell ", cell)
+				pass
 	
-	print("Transfer results for chunk ", chunk.name, ":")
-	print("- Successful: ", cells_transferred)
 	print("- Failed: ", failed_transfers)
 	
 	return cells_transferred
 
 func process_chunk_boundaries(chunks: Array) -> int:
-	print("\nProcessing chunk boundaries...")
 	
 	# Get all cells that are at chunk boundaries
 	var boundary_cells = []
 	var all_cells = get_used_cells(0)
-	print("Total cells in unified map: ", all_cells.size())
 	
 	for cell in all_cells:
 		if is_boundary_cell(cell):
 			boundary_cells.append(cell)
-			print("Found boundary cell at: ", cell)
 	
-	print("Found ", boundary_cells.size(), " boundary cells")
 	
 	# Process boundary cells
 	var processed_count = 0
@@ -328,7 +312,6 @@ func is_boundary_cell(cell: Vector2i) -> bool:
 			var neighbor_terrain = get_cell_terrain_type(neighbor)
 			
 			if neighbor_terrain != -1 and neighbor_terrain != current_terrain:
-				print("Cell ", cell, " is boundary: different terrain at offset ", Vector2i(dx, dy))
 				is_boundary = true
 				break
 	
@@ -500,7 +483,6 @@ func select_appropriate_tile(surroundings: Dictionary) -> Vector2i:
 
 
 func fix_terrain_connections() -> void:
-	print("Fixing terrain connections...")
 	var cells = get_used_cells(0)
 	var updated_count = 0
 	
@@ -514,15 +496,11 @@ func fix_terrain_connections() -> void:
 		
 		# Dark tile'ları koru - onları değiştirme
 		if is_dark_tile(atlas_coords):
-			print("DEBUG: Found dark tile at ", cell, " with coords ", atlas_coords)
-			print("DEBUG: This tile should NOT be changed!")
 			continue
 		
 		# Dark tile'ların komşularını da koru - onları değiştirme
 		# Ama sadece dark tile'ların hemen yanındaki tile'ları koru
 		if is_dark_tile_immediate_neighbor(cell):
-			print("DEBUG: Found dark tile immediate neighbor at ", cell, " with coords ", atlas_coords)
-			print("DEBUG: This tile should NOT be changed!")
 			continue
 		
 		# Terrain type'ı belirle
@@ -537,7 +515,7 @@ func fix_terrain_connections() -> void:
 				set_cell(0, cell, source_id, new_coords, alternative)
 				updated_count += 1
 				if DEBUG_UNIFIED_TERRAIN:
-					print("DEBUG: Updated platform tile at ", cell, " from ", atlas_coords, " to ", new_coords)
+					pass
 		
 		# Wall tile'ları için de connection logic uygula (chunk birleşmeleri için)
 		elif terrain_type == 0:
@@ -556,7 +534,6 @@ func fix_terrain_connections() -> void:
 					set_cell(0, cell, source_id, new_coords, alternative)
 					updated_count += 1
 	
-	print("Terrain connection fixes complete. Updated ", updated_count, " tiles.")
 
 func is_dark_tile_immediate_neighbor(cell: Vector2i) -> bool:
 	# Dark tile'ların sadece 4 ana yöndeki komşularını kontrol et (diagonal değil)

@@ -16,7 +16,6 @@ func _init():
 	item_name = tr("item.yarilan_alev.name")
 	description = tr("item.yarilan_alev.description")
 	flavor_text = "Alevi yararak geç"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.DODGE
 	affected_stats = ["dodge_burn_detonate"]
 

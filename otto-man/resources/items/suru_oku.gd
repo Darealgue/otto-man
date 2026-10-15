@@ -11,14 +11,11 @@ func _init():
 	item_name = tr("item.suru_oku.name")
 	description = tr("item.suru_oku.description")
 	flavor_text = "Tek ok değil, bir sürü"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["projectile_split"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Sürü Oku] ✅ Mermiler 3'e ayrılıyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Sürü Oku] ❌ Kaldırıldı")

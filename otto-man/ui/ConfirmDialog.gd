@@ -41,18 +41,16 @@ func _connect_signals() -> void:
 	if confirm_button:
 		if not confirm_button.pressed.is_connected(_on_confirm_pressed):
 			confirm_button.pressed.connect(_on_confirm_pressed)
-			print("[ConfirmDialog] ✅ Connected confirm_button.pressed signal")
 		else:
-			print("[ConfirmDialog] ⚠️ confirm_button.pressed already connected")
+			pass
 	else:
 		push_error("[ConfirmDialog] confirm_button is null!")
 	
 	if cancel_button:
 		if not cancel_button.pressed.is_connected(_on_cancel_pressed):
 			cancel_button.pressed.connect(_on_cancel_pressed)
-			print("[ConfirmDialog] ✅ Connected cancel_button.pressed signal")
 		else:
-			print("[ConfirmDialog] ⚠️ cancel_button.pressed already connected")
+			pass
 	else:
 		push_error("[ConfirmDialog] cancel_button is null!")
 
@@ -65,7 +63,6 @@ func _refresh_locale(_locale: String = "") -> void:
 
 
 func show_dialog(title: String, message: String, show_cancel: bool = true) -> void:
-	print("[ConfirmDialog] show_dialog called: title='%s', message='%s', show_cancel=%s" % [title, message, show_cancel])
 	if not title_label or not message_label:
 		push_error("[ConfirmDialog] Nodes not ready!")
 		return
@@ -80,12 +77,10 @@ func show_dialog(title: String, message: String, show_cancel: bool = true) -> vo
 		confirm_button.disabled = false
 		confirm_button.process_mode = Node.PROCESS_MODE_ALWAYS
 		confirm_button.focus_mode = Control.FOCUS_ALL  # Ensure focus is enabled
-		print("[ConfirmDialog] Confirm button: visible=%s, disabled=%s, process_mode=%s, focus_mode=%s" % [confirm_button.visible, confirm_button.disabled, confirm_button.process_mode, confirm_button.focus_mode])
 	
 	if cancel_button:
 		cancel_button.process_mode = Node.PROCESS_MODE_ALWAYS
 		cancel_button.focus_mode = Control.FOCUS_ALL  # Ensure focus is enabled
-		print("[ConfirmDialog] Cancel button: visible=%s, disabled=%s, process_mode=%s, focus_mode=%s" % [cancel_button.visible, cancel_button.disabled, cancel_button.process_mode, cancel_button.focus_mode])
 	
 	_result = false
 	_waiting_for_result = true
@@ -116,17 +111,12 @@ func show_dialog(title: String, message: String, show_cancel: bool = true) -> vo
 		size = viewport.get_visible_rect().size
 		global_position = Vector2.ZERO
 	
-	print("[ConfirmDialog] Dialog visible set to true, process_mode: %s, z_index: %d" % [process_mode, z_index])
-	print("[ConfirmDialog] Dialog size: %s, position: %s" % [size, global_position])
-	print("[ConfirmDialog] Dialog parent: %s" % get_parent())
-	print("[ConfirmDialog] Dialog is_visible_in_tree: %s" % is_visible_in_tree())
 	
 	# Focus management - Always focus confirm button first, then cancel if shown
 	# This ensures confirm button is accessible
 	# Use call_deferred twice to ensure UI is ready and all focus changes are complete
 	if confirm_button:
 		call_deferred("call_deferred", "_set_dialog_focus")
-		print("[ConfirmDialog] Focus will be set to confirm button (double deferred)")
 
 func _set_dialog_focus() -> void:
 	# Set focus to confirm button when dialog is ready
@@ -138,25 +128,18 @@ func _set_dialog_focus() -> void:
 			current_focus.release_focus()
 		# Now grab focus
 		confirm_button.grab_focus()
-		print("[ConfirmDialog] ✅ Focus set to confirm button (previous focus: %s)" % (current_focus.name if current_focus else "none"))
 
 func _on_confirm_pressed() -> void:
-	print("[ConfirmDialog] 🔵 CONFIRM BUTTON PRESSED!")
 	_result = true
 	_waiting_for_result = false
 	visible = false
-	print("[ConfirmDialog] Emitting confirmed signal...")
 	confirmed.emit()
-	print("[ConfirmDialog] ✅ Confirmed signal emitted")
 
 func _on_cancel_pressed() -> void:
-	print("[ConfirmDialog] 🔴 CANCEL BUTTON PRESSED!")
 	_result = false
 	_waiting_for_result = false
 	visible = false
-	print("[ConfirmDialog] Emitting cancelled signal...")
 	cancelled.emit()
-	print("[ConfirmDialog] ✅ Cancelled signal emitted")
 
 func hide_dialog() -> void:
 	visible = false

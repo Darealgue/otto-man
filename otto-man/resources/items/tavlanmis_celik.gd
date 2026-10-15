@@ -17,7 +17,6 @@ func _init():
 	item_name = tr("item.tavlanmis_celik.name")
 	description = tr("item.tavlanmis_celik.description")
 	flavor_text = "Tavında dövülen demir"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.BLOCK
 	affected_stats = ["block_element"]
 
@@ -25,13 +24,11 @@ func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
 	_hot_timer = 0.0
-	print("[Tavlanmış Çelik] ✅ Blok kalkanı kızdırır; kızgın blok yakar (2x stamina)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
 	_hot_timer = 0.0
-	print("[Tavlanmış Çelik] ❌ Kaldırıldı")
 
 func process(_player_ref: CharacterBody2D, delta: float) -> void:
 	if _hot_timer > 0.0:

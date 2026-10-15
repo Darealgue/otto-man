@@ -13,14 +13,11 @@ func _init():
 	item_name = tr("item.ates_bombasi.name")
 	description = tr("item.ates_bombasi.description")
 	flavor_text = "Sekerek gelir, patlayarak gider"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.HEAVY_ATTACK
 	affected_stats = ["heavy_projectile_bomb"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Ateş Bombası] ✅ Ağır saldırı mermisi zıplayan ateş bombası oldu")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Ateş Bombası] ❌ Kaldırıldı")

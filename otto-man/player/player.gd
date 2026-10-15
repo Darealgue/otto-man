@@ -241,20 +241,12 @@ var _ui_lock_last_reason: String = ""
 var _suppress_village_interact_until_release: bool = false
 
 func _is_any_menu_open() -> bool:
-	var mcs = get_tree().get_first_node_in_group("mission_center")
-	if mcs and mcs.visible:
-		return true
 	var world_popups := get_tree().get_first_node_in_group("village_world_popups")
 	if world_popups and world_popups.has_method("is_any_popup_open"):
 		if bool(world_popups.call("is_any_popup_open")):
 			return true
 	for plot_sys in get_tree().get_nodes_in_group("village_plot_system"):
 		if plot_sys.has_method("_is_popup_open") and bool(plot_sys.call("_is_popup_open")):
-			return true
-	var scene_root := get_tree().current_scene
-	if scene_root and scene_root.has_node("BuildMenuLayer/BuildMenuUI"):
-		var build_menu: Node = scene_root.get_node("BuildMenuLayer/BuildMenuUI")
-		if build_menu.visible:
 			return true
 	return false
 
@@ -263,7 +255,7 @@ func set_ui_locked(locked: bool) -> void:
 		_suppress_village_interact_until_release = true
 	_ui_locked = locked
 	_ui_lock_logged_once = false
-	_ui_lock_last_reason = "MissionCenter.set_ui_locked(%s)" % (locked)
+	_ui_lock_last_reason = "set_ui_locked(%s)" % (locked)
 	# Hard lock: stop state machine and animations, zero velocity
 	if locked:
 		velocity = Vector2.ZERO
@@ -274,7 +266,7 @@ func set_ui_locked(locked: bool) -> void:
 		animation_tree.active = not locked
 	# print("[Player] set_ui_locked -> ", locked)
 
-@onready var animation_tree = $AnimationTree
+@onready var animation_tree = get_node_or_null("AnimationTree")  # player.tscn'de yok; kullanım yerleri null korumalı
 @onready var animation_player = $AnimationPlayer
 @onready var sprite = $Sprite2D
 @onready var player_sprite = $PlayerRenderLayer/PlayerSprite
@@ -463,7 +455,7 @@ func _physics_process(delta):
 			if _ui_locked:
 				reason = _ui_lock_last_reason
 			else:
-				reason = "MissionCenter visible"
+				reason = "menu open"
 			# print("[Player] UI lock active - movement halted (", reason, ")")
 			_ui_lock_logged_once = true
 		# Ensure we don't move
@@ -502,16 +494,14 @@ func _physics_process(delta):
 	# oyuncuyu koşulsuz 16 px aşağı ışınlıyor ve katı zeminde bu, zeminin içine girmek demek.
 	if Input.is_action_pressed("down") and Input.is_action_just_pressed("jump"):
 		if DEBUG_DROP_THROUGH:
-			print("[DropThrough] --- basildi --- on_floor=", is_on_floor(),
-				" active=", _drop_through_active, " mask=", collision_mask,
-				" pos=", global_position, " state=", ($StateMachine.current_state.name if $StateMachine and $StateMachine.current_state else "?"))
+			pass
 		if is_on_floor() and not _drop_through_active and _can_drop_through():
 			if DEBUG_DROP_THROUGH:
-				print("[DropThrough] SONUC: iniliyor")
+				pass
 			drop_through_platform()
 			return  # Skip other processing for this frame
 		elif DEBUG_DROP_THROUGH:
-			print("[DropThrough] SONUC: reddedildi")
+			pass
 	
 	# Update dash cooldown
 	if dash_state and dash_state.has_method("cooldown_update"):
@@ -539,13 +529,12 @@ func _physics_process(delta):
 		jump_block_timer -= delta
 		if jump_block_timer <= 0:
 			jump_input_blocked = false
-			print("[Player] Jump input unblocked after timer")
 	
 	# Update block input block timer
 	if block_input_blocked_timer > 0:
 		block_input_blocked_timer -= delta
 		if block_input_blocked_timer <= 0:
-			print("[Player] Block input unblocked after timer")
+			pass
 	
 	# Dash input removed - only dodge available until powerup upgrade
 	
@@ -581,7 +570,7 @@ func _physics_process(delta):
 		if not is_crouching and not is_dodging and not jump_locked_by_hurt and not jump_input_blocked and jump_block_timer <= 0:
 			jump_buffer_timer = jump_buffer_time
 		else:
-			print("[Player] Jump buffering BLOCKED - crouching:", is_crouching, " dodging:", is_dodging, " blocked:", jump_input_blocked, " timer:", jump_block_timer)
+			pass
 	elif jump_buffer_timer > 0:
 		jump_buffer_timer -= delta
 	
@@ -701,7 +690,7 @@ func _physics_process(delta):
 		var input_dir = grounded_input
 		if input_dir != 0:
 			if hit_recoil_lock_timer > 0.0:
-				print("[Player] DEBUG: Facing direction update BLOCKED - hit_recoil_lock_timer: %f, input_dir: %f, current facing: %f" % [hit_recoil_lock_timer, input_dir, facing_direction])
+				pass
 			else:
 				var old_facing = facing_direction
 				facing_direction = sign(input_dir)
@@ -1312,7 +1301,6 @@ func _dmg_diag(reason: String) -> void:
 		return
 	_dmgdiag_last_msec = now
 	var st: String = String(state_machine.current_state.name) if state_machine and state_machine.current_state else "?"
-	print("[DMGDIAG] hasar uygulanmadi: %s | durum=%s hurtbox.monitoring=%s hurtbox.monitorable=%s" % [reason, st, str(hurtbox.monitoring) if hurtbox else "?", str(hurtbox.monitorable) if hurtbox else "?"])
 
 
 func _on_hurtbox_hurt(hitbox: Area2D) -> void:
@@ -1519,7 +1507,6 @@ func _on_player_died() -> void:
 	if is_dead or pending_death:
 		return  # Already dead, prevent multiple calls
 	pending_death = true
-	print("[Player] 💀 Player died!")
 
 	# Stop taking new hits while dying on ground.
 	if hurtbox:
@@ -1591,7 +1578,6 @@ func _settle_corpse_on_death() -> void:
 const DUNGEON_DEATH_MORALE_PENALTY: float = 10.0
 
 func _return_to_village_on_death() -> void:
-	print("[Player] 🏠 Returning to village after death...")
 	
 	var tree = get_tree()
 	if tree and tree.current_scene:
@@ -1601,7 +1587,6 @@ func _return_to_village_on_death() -> void:
 			if is_instance_valid(vm) and "village_morale" in vm:
 				var before: float = float(vm.get("village_morale"))
 				vm.set("village_morale", maxf(0.0, before - DUNGEON_DEATH_MORALE_PENALTY))
-				print("[Player] 📉 Dungeon death: village morale %.1f -> %.1f" % [before, vm.get("village_morale")])
 	
 	_apply_roguelike_mechanics_on_death()
 	
@@ -1623,37 +1608,30 @@ func _apply_roguelike_mechanics_on_death() -> void:
 	# Clear powerups
 	if powerup_manager and powerup_manager.has_method("clear_all_powerups"):
 		powerup_manager.clear_all_powerups()
-		print("[Player] 🎮 Roguelike: All powerups cleared on death")
 	
 	# Tüm item etkilerini sıfırla (aktif itemlar kaldırılsın, köyde etki kalmasın)
 	if has_node("/root/ItemManager") and ItemManager.has_method("clear_all_items"):
 		ItemManager.clear_all_items()
-		print("[Player] 🎒 Roguelike: All item effects cleared on death")
 	
 	# Clear dungeon gold (ölümde tüm run altını kaybet)
 	if global_player_data and global_player_data.has_method("clear_dungeon_gold"):
 		global_player_data.clear_dungeon_gold()
-		print("[Player] 🪙 Roguelike: Cleared dungeon gold on death")
 
 	# Clear inventory (death penalty)
 	if global_player_data and "envanter" in global_player_data:
 		var envanter: Array = global_player_data.get("envanter")
 		var lost_count = envanter.size()
 		global_player_data.set("envanter", [])
-		print("[Player] 💀 Roguelike: Inventory cleared on death (%d items lost)" % lost_count)
 
 	# Sefer loot'u ölünce kaybolur (köye teslim edilmediyse)
 	if player_stats and player_stats.has_method("clear_carried_expedition_loot"):
 		player_stats.clear_carried_expedition_loot()
-		print("[Player] 🎒 Roguelike: Expedition loot cleared on death")
 	if player_stats and player_stats.has_method("mark_death_injury"):
 		player_stats.mark_death_injury()
-		print("[Player] 💚 Death recovery started: respawn health set to 1")
 	
 	# Reset kill count
 	if powerup_manager and "enemy_kill_count" in powerup_manager:
 		powerup_manager.set("enemy_kill_count", 0)
-		print("[Player] 🎮 Roguelike: Kill count reset on death")
 
 func reset_death_state() -> void:
 	"""Reset player death state - called when returning to village."""
@@ -1662,7 +1640,6 @@ func reset_death_state() -> void:
 	
 	is_dead = false
 	pending_death = false
-	print("[Player] 🔄 Resetting death state...")
 	
 	# Ölüm sonrası akışta can artık otomatik full olmaz; sadece 0 can durumunu güvenli şekilde toparla.
 	var player_stats = get_node_or_null("/root/PlayerStats")
@@ -1672,7 +1649,6 @@ func reset_death_state() -> void:
 			player_stats.current_health = 1.0
 			if player_stats.has_signal("health_changed"):
 				player_stats.health_changed.emit(1.0)
-			print("[Player] 💚 Health reset to 1.0 (was %.1f)" % current_health)
 	
 	# Make visible again
 	visible = true
@@ -1711,7 +1687,6 @@ func reset_death_state() -> void:
 	elif animation_player:
 		animation_player.play("idle")
 	
-	print("[Player] ✅ Death state reset complete")
 
 func get_max_health() -> float:
 	var player_stats = get_node("/root/PlayerStats")
@@ -2002,7 +1977,7 @@ func _can_drop_through() -> bool:
 	var hit: Dictionary = space.intersect_ray(query)
 	if hit.is_empty():
 		if DEBUG_DROP_THROUGH:
-			print("[DropThrough] ışın hiçbir şeye çarpmadı | ayak=", global_position, " mask=", collision_mask)
+			pass
 		return false
 
 	var collider: Object = hit.get("collider")
@@ -2011,8 +1986,6 @@ func _can_drop_through() -> bool:
 
 	if DEBUG_DROP_THROUGH:
 		var dbg_layer: int = (collider as CollisionObject2D).collision_layer if collider is CollisionObject2D else -1
-		print("[DropThrough] çarpılan=", collider.get_class(), " ad=", (collider as Node).name if collider is Node else "?",
-			" shape=", hit.get("shape", -1), " layer=", dbg_layer, " pos=", hit.get("position"))
 
 	if collider is CollisionObject2D:
 		var body := collider as CollisionObject2D
@@ -2043,9 +2016,6 @@ func _can_drop_through() -> bool:
 		if DEBUG_DROP_THROUGH:
 			var c0: Vector2i = tml.local_to_map(tml.to_local(hit_pos))
 			var c1: Vector2i = c0 + Vector2i(0, 1)
-			print("[DropThrough] TileMapLayer=", tml.name, " tile_size=", (ts.tile_size if ts else Vector2i.ZERO),
-				" | hucre=", c0, " dolu=", tml.get_cell_source_id(c0) != -1, " one_way=", _cell_is_one_way(tml, c0),
-				" | alt hucre=", c1, " dolu=", tml.get_cell_source_id(c1) != -1, " one_way=", _cell_is_one_way(tml, c1))
 		return _tile_at_is_one_way(tml, hit_pos, hit.get("normal", Vector2.UP))
 
 	# 4) Eski tip TileMap. Zindanda ayağımızın altındaki zemin BU: LevelGenerator terrain
@@ -2066,7 +2036,6 @@ func _can_drop_through() -> bool:
 				parts.append("k%d[%s dolu=%s ow=%s | %s dolu=%s ow=%s]" % [li2,
 					str(tc0), str(tm.get_cell_source_id(li2, tc0) != -1), str(_tm_cell_is_one_way(tm, li2, tc0)),
 					str(tc1), str(tm.get_cell_source_id(li2, tc1) != -1), str(_tm_cell_is_one_way(tm, li2, tc1))])
-			print("[DropThrough] TileMap katman=", tm.get_layers_count(), " tile_size=", (ts2.tile_size if ts2 else Vector2i.ZERO), " ", " ".join(parts))
 		return _tilemap_at_is_one_way(tm, tm_hit, hit.get("normal", Vector2.UP))
 
 	return false

@@ -5,13 +5,36 @@ class_name Concubine
 const VillagerAppearance = preload("res://village/scripts/VillagerAppearance.gd")
 
 # Cariye durumları
-enum Status { BOŞTA, GÖREVDE, YARALI, DİNLENİYOR }
+enum Status { BOŞTA, GÖREVDE, YARALI, DİNLENİYOR, ESIR }
 
-# Cariye yetenekleri
-enum Skill { SAVAŞ, DİPLOMASİ, TİCARET, BÜROKRASİ, KEŞİF }
+## Doğuştan özellikler: tamamen şansa bağlı, 0-3 tane, her biri özgün (birbirinin tersi yok).
+## Kimlikten türetilir, kayıt alanı yoktur; sabittir ve değişmez. Bir cariye hiç iyi özellik
+## alamayabilir, ya da hepsi kötü olabilir; beğenmezsen köyden yollanabilir.
+## Tür: "good" artı, "mixed" çift taraflı, "bad" eksi (arayüz renklendirmesi için).
+const TRAIT_KINDS := {
+	"fast": "good",           # Fırtına Ayaklı: yolculuk süresi -%20
+	"cunning": "good",        # Kurnaz: esir düşerse %40 kendi kaçar
+	"beloved": "good",        # Sevilen Komutan: asker kaybı -%40
+	"frugal": "good",         # Tutumlu: hediyenin dörtte biri geri döner
+	"lucky": "good",          # Şanslı Yıldız: büyük başarı şansı artar
+	"learner": "good",        # Çabuk Öğrenir: XP bonusu
+	"silver_tongue": "good",  # Tatlı Dilli: köy ilişkisi kazancı +1
+	"greedy": "mixed",        # Açgözlü: altın ödülü +%25, hediye %20 pahalı
+	"reckless": "mixed",      # Atılgan: başarı +%8, felaket (esirlik) ihtimali x1.5
+	"fragile": "bad",         # Kırılgan: yaraları x1.5 gün
+	"nervous": "bad",           # Ürkek: başarısızlıkta morali daha çok düşer
+	"stubborn": "bad",        # Dikbaşlı: morali düşükse göreve çıkmaz
+	"grumbler": "bad",        # Dert Küpü: başarısızlıkta köy morali düşer
+}
+const TRAIT_IDS: Array[String] = [
+	"fast", "cunning", "beloved", "frugal", "lucky", "learner", "silver_tongue",
+	"greedy", "reckless", "fragile", "nervous", "stubborn", "grumbler",
+]
 
 # Cariye rolleri
-enum Role { NONE, KOMUTAN, AJAN, DİPLOMAT, TÜCCAR, ALIM, TIBBIYECI }
+## REMOVED_5: eskiden "Alım" rolüydü, kaldırıldı. Sıra numaraları kayıt/WorldManager sabitleriyle
+## uyumlu kalsın diye yuva duruyor; yüklemede bu değer NONE'a çevrilir. Yeni rol ekleme: sona ekle.
+enum Role { NONE, KOMUTAN, AJAN, DİPLOMAT, TÜCCAR, REMOVED_5, TIBBIYECI }
 
 # Temel cariye bilgileri
 @export var id: int
@@ -20,27 +43,38 @@ enum Role { NONE, KOMUTAN, AJAN, DİPLOMAT, TÜCCAR, ALIM, TIBBIYECI }
 @export var experience: int = 0
 @export var max_experience: int = 100
 
-# Yetenekler (0-100 arası)
-@export var skills: Dictionary = {
-	Skill.SAVAŞ: 50,
-	Skill.DİPLOMASİ: 50,
-	Skill.TİCARET: 50,
-	Skill.BÜROKRASİ: 50,
-	Skill.KEŞİF: 50
-}
+## Gelişim: statlar kalktı. Her seviye atlayışta 1 puan kazanılır, oyuncu istediği role verir
+## (rol başına en çok ROLE_POINT_CAP). Yalnız AKTİF rolün puanı sayılır; puan geri alınamaz.
+const ROLE_POINT_CAP := 5
+## Puan verilebilen roller (REMOVED_5 hariç).
+const SPENDABLE_ROLES: Array[int] = [Role.KOMUTAN, Role.AJAN, Role.DİPLOMAT, Role.TÜCCAR, Role.TIBBIYECI]
+## Her puanın görev başarı şansına katkısı (5 puanda +%20).
+const SUCCESS_BONUS_PER_POINT := 0.04
+## rol (int) -> verilmiş puan (0..ROLE_POINT_CAP)
+var role_points: Dictionary = {}
+## Seviye atlayarak kazanılmış, henüz verilmemiş puan
+var unspent_points: int = 0
 
 # Durum bilgileri
 var status: Status = Status.BOŞTA
 var current_mission_id: String = ""
-var health: int = 100
-var max_health: int = 100
-var moral: int = 100
-var max_moral: int = 100
+## Dinçlik (0..STAMINA_MAX): her görev düşürür, köyde yemek yiyerek dolar (MissionManager).
+## Eski sağlık ve moral tek değere indirildi; yaralanma ayrı (`injured_days_left`).
+const STAMINA_MAX := 100
+## Bunun altındaki cariye göreve çıkamaz.
+const STAMINA_MIN_FOR_MISSION := 30
+const STAMINA_COST_SUCCESS := 10
+const STAMINA_COST_FAIL := 25
+var stamina: int = STAMINA_MAX
 
 # Rol bilgisi
 var role: Role = Role.NONE
 ## Zindan kurtarma minigame leverage (hikâye zinciri kilidi)
 var rescue_leverage: int = 0
+## Yaralıyken kaç gün sonra iyileşir (0: eski sağlık tabanlı iyileşme)
+var injured_days_left: int = 0
+## Esirken tutulduğu hex ("q,r"); esir değilse boş
+var captured_hex: String = ""
 
 # Görev geçmişi
 var completed_missions: Array[String] = []
@@ -66,6 +100,40 @@ func _init():
 	experience = 0
 	max_experience = 100
 
+var _traits_cache: Array[String] = []
+var _traits_cache_id: int = -2147483648
+
+
+## Bu cariyenin özellikleri (0-3). Kimlikten deterministik türetilir: 0 tane %12, 1 tane %38,
+## 2 tane %38, 3 tane %12; havuzdan tekrarsız çekilir. Hiçbir denge zorunluluğu yoktur.
+func get_traits() -> Array[String]:
+	if _traits_cache_id == id:
+		return _traits_cache
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash("traits_%d" % id)
+	var roll: float = rng.randf()
+	var count: int = 0
+	if roll >= 0.12:
+		count = 1
+	if roll >= 0.50:
+		count = 2
+	if roll >= 0.88:
+		count = 3
+	var pool: Array[String] = TRAIT_IDS.duplicate()
+	var picked: Array[String] = []
+	for i in range(count):
+		var idx: int = rng.randi_range(0, pool.size() - 1)
+		picked.append(pool[idx])
+		pool.remove_at(idx)
+	_traits_cache = picked
+	_traits_cache_id = id
+	return _traits_cache
+
+
+func has_trait(trait_id: String) -> bool:
+	return get_traits().has(trait_id)
+
+
 # Deneyim ekle
 func add_experience(amount: int) -> bool:
 	experience += amount
@@ -86,16 +154,12 @@ func add_experience(amount: int) -> bool:
 
 # Seviye atlama bonusları
 func _apply_level_up_bonuses():
-	# Her seviyede tüm yetenekler +1
-	for skill in skills:
-		skills[skill] = min(100, skills[skill] + 1)
-	
-	# Sağlık ve moral artışı
-	max_health += 10
-	max_moral += 10
-	health = max_health
-	moral = max_moral
-	
+	# Her seviyede 1 gelişim puanı
+	unspent_points += 1
+
+	# Seviye atlayınca dinçlik tamamen dolar
+	stamina = STAMINA_MAX
+
 	# Seviye başarılarını kontrol et
 	check_level_achievements()
 
@@ -118,7 +182,7 @@ func complete_mission(successful: bool, mission_id: String) -> Dictionary:
 		completed_missions.append(mission_id)
 		# Başarılı görev deneyim bonusu
 		var leveled_up = add_experience(50)
-		moral = min(max_moral, moral + 10)
+		stamina = max(0, stamina - STAMINA_COST_SUCCESS)
 		
 		# Üst üste başarı takibi
 		if last_mission_successful:
@@ -129,7 +193,7 @@ func complete_mission(successful: bool, mission_id: String) -> Dictionary:
 	else:
 		failed_missions.append(mission_id)
 		# Başarısız görev moral cezası
-		moral = max(0, moral - 20)
+		stamina = max(0, stamina - STAMINA_COST_FAIL)
 		consecutive_successes = 0
 		last_mission_successful = false
 	
@@ -143,17 +207,16 @@ func complete_mission(successful: bool, mission_id: String) -> Dictionary:
 		"successful": successful,
 		"level": level,
 		"experience": experience,
-		"health": health,
-		"moral": moral
+		"stamina": stamina
 	}
 	
 	return results
 
 # Yaralanma
 func take_damage(amount: int) -> bool:
-	health = max(0, health - amount)
-	
-	if health <= 0:
+	stamina = max(0, stamina - amount)
+
+	if stamina <= 0:
 		status = Status.YARALI
 		# İlk yaralanma başarısı
 		if not has_achievement("Hayatta Kalan"):
@@ -167,9 +230,9 @@ func heal(amount: int) -> bool:
 	if status != Status.YARALI:
 		return false
 	
-	health = min(max_health, health + amount)
-	
-	if health >= max_health * 0.8:  # %80 sağlığa ulaştığında iyileş
+	stamina = min(STAMINA_MAX, stamina + amount)
+
+	if stamina >= STAMINA_MAX * 0.8:
 		status = Status.BOŞTA
 		# İyileşme başarısı
 		if not has_achievement("İyileşen"):
@@ -183,30 +246,41 @@ func rest() -> bool:
 	if status != Status.DİNLENİYOR:
 		return false
 	
-	# Dinlenme sırasında moral ve sağlık artışı
-	moral = min(max_moral, moral + 5)
-	health = min(max_health, health + 2)
-	
-	# Tam dinlenme
-	if moral >= max_moral and health >= max_health:
+	stamina = min(STAMINA_MAX, stamina + 5)
+
+	if stamina >= STAMINA_MAX:
 		status = Status.BOŞTA
 		return true
 	
 	return false
 
-# Yetenek seviyesi al
-func get_skill_level(skill: Skill) -> int:
-	return skills.get(skill, 0)
+## Bir role verilmiş puan (0..ROLE_POINT_CAP).
+func get_role_points(for_role: int) -> int:
+	return int(role_points.get(for_role, 0))
 
-# Yetenek adı
-func get_skill_name(skill: Skill) -> String:
-	match skill:
-		Skill.SAVAŞ: return tr("concubine.skill.combat")
-		Skill.DİPLOMASİ: return tr("concubine.skill.diplomacy")
-		Skill.TİCARET: return tr("concubine.skill.trade")
-		Skill.BÜROKRASİ: return tr("concubine.skill.bureaucracy")
-		Skill.KEŞİF: return tr("concubine.skill.exploration")
-		_: return tr("common.unknown")
+
+## Aktif rolün puanı (rolsüzse 0).
+func get_active_role_points() -> int:
+	return get_role_points(int(role))
+
+
+## Pasif etkilerin (WorldManager, kışla) kullandığı 0..100 ölçeği: rol 20, her puan +16.
+## Puan vermek pasif etkiyi de büyütür; puansız rol yine de küçük bir etki verir.
+func get_role_power(for_role: int) -> int:
+	return 20 + 16 * get_role_points(for_role)
+
+
+func can_spend_point(for_role: int) -> bool:
+	return unspent_points > 0 and SPENDABLE_ROLES.has(for_role) and get_role_points(for_role) < ROLE_POINT_CAP
+
+
+## Puan ver (geri alınamaz). true: verildi.
+func spend_point(for_role: int) -> bool:
+	if not can_spend_point(for_role):
+		return false
+	role_points[for_role] = get_role_points(for_role) + 1
+	unspent_points -= 1
+	return true
 
 # Durum adı
 func get_status_name() -> String:
@@ -215,6 +289,7 @@ func get_status_name() -> String:
 		Status.GÖREVDE: return tr("concubine.status.on_mission")
 		Status.YARALI: return tr("concubine.status.injured")
 		Status.DİNLENİYOR: return tr("concubine.status.resting")
+		Status.ESIR: return tr("concubine.status.captive")
 		_: return tr("common.unknown")
 
 # Rol adı
@@ -225,21 +300,8 @@ func get_role_name() -> String:
 		Role.AJAN: return tr("concubine.role.agent")
 		Role.DİPLOMAT: return tr("concubine.role.diplomat")
 		Role.TÜCCAR: return tr("concubine.role.trader")
-		Role.ALIM: return tr("concubine.role.scholar")
 		Role.TIBBIYECI: return tr("concubine.role.medic")
 		_: return tr("common.unknown")
-
-# En yüksek yetenek
-func get_best_skill() -> Skill:
-	var best_skill = Skill.SAVAŞ
-	var best_value = 0
-	
-	for skill in skills:
-		if skills[skill] > best_value:
-			best_value = skills[skill]
-			best_skill = skill
-	
-	return best_skill
 
 # Görev uygunluğu kontrolü
 func can_handle_mission(mission: Mission) -> bool:
@@ -251,12 +313,8 @@ func can_handle_mission(mission: Mission) -> bool:
 	if status != Status.BOŞTA:
 		return false
 	
-	# Sağlık kontrolü
-	if health < max_health * 0.5:  # %50'den az sağlık
-		return false
-	
-	# Moral kontrolü
-	if moral < max_moral * 0.3:  # %30'dan az moral
+	# Dinçlik kontrolü
+	if stamina < STAMINA_MIN_FOR_MISSION:
 		return false
 	
 	return true
@@ -265,27 +323,15 @@ func can_handle_mission(mission: Mission) -> bool:
 func calculate_mission_success_chance(mission: Mission) -> float:
 	var base_chance = mission.success_chance
 	
-	# Yetenek bonusu
-	var relevant_skill = Skill.SAVAŞ  # Varsayılan
-	match mission.mission_type:
-		Mission.MissionType.SAVAŞ: relevant_skill = Skill.SAVAŞ
-		Mission.MissionType.DİPLOMASİ: relevant_skill = Skill.DİPLOMASİ
-		Mission.MissionType.TİCARET: relevant_skill = Skill.TİCARET
-		Mission.MissionType.BÜROKRASİ: relevant_skill = Skill.BÜROKRASİ
-		Mission.MissionType.KEŞİF: relevant_skill = Skill.KEŞİF
-	
-	var skill_bonus = (get_skill_level(relevant_skill) - 50) * 0.002  # %0.2 per skill point
-	
-	# Seviye bonusu
-	var level_bonus = (level - 1) * 0.05  # %5 per level
-	
-	# Moral bonusu
-	var moral_bonus = (moral - 50) * 0.001  # %0.1 per moral point
-	
-	# Sağlık bonusu
-	var health_bonus = (health - 50) * 0.001  # %0.1 per health point
-	
-	var final_chance = base_chance + skill_bonus + level_bonus + moral_bonus + health_bonus
+	# Gelişim bonusu: aktif rolün puanı (en çok 5 x %4 = %20). Seviyenin kendisi bonus vermez.
+	var role_bonus = float(get_active_role_points()) * SUCCESS_BONUS_PER_POINT
+
+	# Dinçlik bonusu: tok ve dinç +%5, bitkin -%5
+	var stamina_bonus = (stamina - 50) * 0.001
+
+	var final_chance = base_chance + role_bonus + stamina_bonus
+	if has_trait("reckless"):
+		final_chance += 0.08
 	var vce := _get_village_card_effects()
 	if vce:
 		final_chance += vce.get_mission_success_bonus(int(mission.mission_type))
@@ -302,7 +348,6 @@ func _get_village_card_effects() -> Node:
 # Başarı kontrolü - tüm başarıları kontrol eder
 func check_achievements():
 	check_mission_achievements()
-	check_skill_achievements()
 	check_statistics_achievements()
 
 # Görev başarılarını kontrol et
@@ -348,40 +393,6 @@ func check_level_achievements():
 		add_achievement("👑 Efsane", "15. seviyeye ulaşıldı")
 	if level >= 20 and not has_achievement("Efsanevi Usta"):
 		add_achievement("💫 Efsanevi Usta", "20. seviyeye ulaşıldı")
-	
-	# Seviye atlama ile yetenekler de artıyor, bu yüzden yetenek başarılarını da kontrol et
-	check_skill_achievements()
-
-# Yetenek başarılarını kontrol et
-func check_skill_achievements():
-	# Her yetenek için kontrol et
-	for skill in skills:
-		var skill_level = skills[skill]
-		var skill_name = get_skill_name(skill)
-		
-		# 80+ yetenek başarıları
-		if skill_level >= 80:
-			var achievement_name = skill_name + " Ustası"
-			if not has_achievement(achievement_name):
-				var emoji = get_skill_emoji(skill)
-				add_achievement(emoji + " " + achievement_name, skill_name + " yeteneği 80'e ulaştı")
-		
-		# 100 yetenek başarıları
-		if skill_level >= 100:
-			var achievement_name = skill_name + " Efsanesi"
-			if not has_achievement(achievement_name):
-				var emoji = get_skill_emoji(skill)
-				add_achievement(emoji + " " + achievement_name, skill_name + " yeteneği mükemmelliğe ulaştı")
-
-# Yetenek emoji'si
-func get_skill_emoji(skill: Skill) -> String:
-	match skill:
-		Skill.SAVAŞ: return "⚔️"
-		Skill.DİPLOMASİ: return "🤝"
-		Skill.TİCARET: return "💰"
-		Skill.BÜROKRASİ: return "📋"
-		Skill.KEŞİF: return "🔍"
-		_: return "⭐"
 
 # İstatistik başarılarını kontrol et
 func check_statistics_achievements():
@@ -405,7 +416,6 @@ func add_achievement(achievement_name: String, achievement_description: String =
 		full_achievement = achievement_name + " - " + achievement_description
 	
 	special_achievements.append(full_achievement)
-	print("🏆 Başarı Kazanıldı: %s (%s)" % [achievement_name, name])
 
 # Başarı kontrolü (isimle)
 func has_achievement(achievement_name: String) -> bool:
@@ -423,17 +433,18 @@ func to_dict() -> Dictionary:
 	dict["level"] = level
 	dict["experience"] = experience
 	dict["max_experience"] = max_experience
-	dict["skills"] = {}
-	for skill in skills.keys():
-		dict["skills"][int(skill)] = skills[skill]
+	var rp: Dictionary = {}
+	for rk in role_points.keys():
+		rp[str(int(rk))] = int(role_points[rk])
+	dict["role_points"] = rp
+	dict["unspent_points"] = unspent_points
 	dict["status"] = int(status)
 	dict["current_mission_id"] = current_mission_id
-	dict["health"] = health
-	dict["max_health"] = max_health
-	dict["moral"] = moral
-	dict["max_moral"] = max_moral
+	dict["stamina"] = stamina
 	dict["role"] = int(role)
 	dict["rescue_leverage"] = rescue_leverage
+	dict["injured_days_left"] = injured_days_left
+	dict["captured_hex"] = captured_hex
 	dict["completed_missions"] = completed_missions.duplicate()
 	dict["failed_missions"] = failed_missions.duplicate()
 	dict["total_experience_gained"] = total_experience_gained
@@ -446,7 +457,6 @@ func to_dict() -> Dictionary:
 			var appearance_dict = appearance.to_dict()
 			if appearance_dict != null and appearance_dict.size() > 0:
 				dict["appearance"] = appearance_dict
-				print("[Concubine.to_dict] ✅ Cariye %d görünümü kaydedildi (dict size: %d)" % [id, appearance_dict.size()])
 			else:
 				printerr("[Concubine.to_dict] ⚠️ Cariye %d görünümü to_dict() boş dict döndü!" % id)
 				dict["appearance"] = null
@@ -472,29 +482,39 @@ func from_dict(dict: Dictionary) -> void:
 		experience = dict["experience"]
 	if dict.has("max_experience"):
 		max_experience = dict["max_experience"]
-	if dict.has("skills"):
-		skills = {}
-		for skill_key in dict["skills"].keys():
-			# Skill enum değerini al
-			var skill_enum_value = int(skill_key)
-			# Dictionary'de enum key olarak kullan
-			skills[skill_enum_value] = dict["skills"][skill_key]
+	# Gelişim puanları. Eski kayıtlarda "skills" vardı: statlar silinir, her seviye
+	# (seviye - 1) 1 boş puan olarak verilir.
+	if dict.has("role_points") and dict["role_points"] is Dictionary:
+		role_points = {}
+		for rk in (dict["role_points"] as Dictionary).keys():
+			var rid: int = int(rk)
+			if SPENDABLE_ROLES.has(rid):
+				role_points[rid] = clampi(int(dict["role_points"][rk]), 0, ROLE_POINT_CAP)
+		unspent_points = maxi(0, int(dict.get("unspent_points", 0)))
+	elif dict.has("skills"):
+		role_points = {}
+		unspent_points = maxi(0, int(dict.get("level", 1)) - 1)
 	if dict.has("status"):
 		status = dict["status"] as Status
 	if dict.has("current_mission_id"):
 		current_mission_id = dict["current_mission_id"]
-	if dict.has("health"):
-		health = dict["health"]
-	if dict.has("max_health"):
-		max_health = dict["max_health"]
-	if dict.has("moral"):
-		moral = dict["moral"]
-	if dict.has("max_moral"):
-		max_moral = dict["max_moral"]
+	if dict.has("stamina"):
+		stamina = clampi(int(dict["stamina"]), 0, STAMINA_MAX)
+	elif dict.has("moral") or dict.has("health"):
+		# Eski kayıt: sağlık ve moralin düşüğü, 100 üzerinden dinçlik olur.
+		var mr: float = float(dict.get("moral", 100)) / maxf(1.0, float(dict.get("max_moral", 100)))
+		var hr: float = float(dict.get("health", 100)) / maxf(1.0, float(dict.get("max_health", 100)))
+		stamina = clampi(int(round(100.0 * minf(mr, hr))), 0, STAMINA_MAX)
 	if dict.has("role"):
 		role = dict["role"] as Role
+		if int(role) == int(Role.REMOVED_5):
+			role = Role.NONE  # kaldırılan Alım rolü
 	if dict.has("rescue_leverage"):
 		rescue_leverage = int(dict["rescue_leverage"])
+	if dict.has("injured_days_left"):
+		injured_days_left = int(dict["injured_days_left"])
+	if dict.has("captured_hex"):
+		captured_hex = String(dict["captured_hex"])
 	if dict.has("completed_missions"):
 		var loaded_completed = dict["completed_missions"]
 		if loaded_completed is Array:
@@ -528,7 +548,6 @@ func from_dict(dict: Dictionary) -> void:
 			appearance = VillagerAppearance.new()
 			if appearance.has_method("from_dict"):
 				appearance.from_dict(dict["appearance"])
-				print("[Concubine.from_dict] ✅ Cariye %d görünümü yüklendi" % id)
 			else:
 				printerr("[Concubine.from_dict] ⚠️ Cariye %d görünümü from_dict metodu yok!" % id)
 				appearance = null

@@ -18,6 +18,8 @@ const EVENT_ICONS: Dictionary = {
 	"disease": ["🤒", false],
 	"plague": ["☠️", false],
 	"bandit_activity": ["🗡️", false],
+	"gather_bandits": ["🗡️", false],
+	"gather_birds": ["🐦", false],
 	"rebellion": ["🔥", false],
 	"trade_boom": ["💰", true],
 	"war_declaration": ["⚔️", false],

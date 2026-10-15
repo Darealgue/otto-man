@@ -13,7 +13,6 @@ func _init():
 	item_name = tr("item.fitil_hatti.name")
 	description = tr("item.fitil_hatti.description")
 	flavor_text = "Fitil fitili bulur"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["fuse_chain"]
 

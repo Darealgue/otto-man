@@ -54,6 +54,10 @@ enum ChainType { NONE, SEQUENTIAL, PARALLEL, CHOICE }
 ## Oyuncu hedef hex'teyken kaynak harcayarak seçebileceği stratejiler (boşsa: tek zar, success_chance).
 ## Her öğe: { "text": String, "cost": { "food": 5, "medicine": 3 }, "success_chance": 0.25 }
 @export var player_map_strategies: Array = []
+## Görevi kim yapabilir: "any" (eski görevler; oyuncu haritada VEYA cariye), "cariye_only" (yalnız cariye),
+## "player_or_komutan" (oyuncu kendi gidebilir ya da Komutan cariye gönderilir).
+## Bkz. docs/CONCUBINE_MAP_MISSIONS_PLAN.md §5.
+@export var executor: String = "any"
 
 # Görev zinciri bilgileri
 @export var chain_id: String = ""  # Hangi zincire ait
@@ -241,6 +245,19 @@ func are_prerequisites_met(completed_missions: Array[String]) -> bool:
 	
 	return true
 
+## Oyuncu bu görevi haritada kendisi tamamlayabilir mi? Ajan/diplomat/şifacı/tüccar/alım işleri
+## ve "cariye_only" görevler yalnız cariyelerindir; oyuncu hedef hex'e gelse de çözemez.
+func player_can_complete_on_map() -> bool:
+	if not allow_player_map_completion:
+		return false
+	if executor == "cariye_only":
+		return false
+	match required_concubine_role:
+		Concubine.Role.AJAN, Concubine.Role.DİPLOMAT, Concubine.Role.TÜCCAR, Concubine.Role.TIBBIYECI:
+			return false
+	return true
+
+
 func is_unlocked_for_concubine(cariye: Concubine) -> bool:
 	if unlock_leverage_min <= 0 and unlock_level_min <= 0:
 		return true
@@ -315,6 +332,7 @@ func to_save_dict() -> Dictionary:
 		"grants_concubine_role": grants_concubine_role,
 		"allow_player_map_completion": allow_player_map_completion,
 		"player_map_strategies": _duplicate_strategy_rows_for_save(),
+		"executor": executor,
 		"chain_id": chain_id,
 		"chain_type": int(chain_type),
 		"chain_order": chain_order,
@@ -378,6 +396,7 @@ static func from_save_dict(d: Dictionary) -> Mission:
 	m.completes_alliance_aid_settlement_id = str(d.get("completes_alliance_aid_settlement_id", ""))
 	m.grants_concubine_role = int(d.get("grants_concubine_role", -1))
 	m.allow_player_map_completion = bool(d.get("allow_player_map_completion", true))
+	m.executor = str(d.get("executor", "any"))
 	m.player_map_strategies = []
 	if d.get("player_map_strategies") is Array:
 		for item in d["player_map_strategies"]:

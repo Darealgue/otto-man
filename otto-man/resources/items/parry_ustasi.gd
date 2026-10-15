@@ -10,7 +10,6 @@ func _init():
 	item_name = tr("item.parry_ustasi.name")
 	description = tr("item.parry_ustasi.description")
 	flavor_text = "Daha kolay parry"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.PARRY
 	affected_stats = ["parry_window"]
 
@@ -22,7 +21,6 @@ func activate(player: CharacterBody2D):
 			block_state.set_meta("original_parry_window_parry", block_state.PARRY_WINDOW)
 		var orig = block_state.get_meta("original_parry_window_parry")
 		block_state.PARRY_WINDOW = orig * (1.0 + PARRY_WINDOW_BOOST)
-		print("[Parry Ustası] ✅ Parry penceresi +40%")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -30,4 +28,3 @@ func deactivate(player: CharacterBody2D):
 	if block_state and block_state.has_meta("original_parry_window_parry"):
 		block_state.PARRY_WINDOW = block_state.get_meta("original_parry_window_parry")
 		block_state.remove_meta("original_parry_window_parry")
-		print("[Parry Ustası] ❌ Parry penceresi eski haline döndü")

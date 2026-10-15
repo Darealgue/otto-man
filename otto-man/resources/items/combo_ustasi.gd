@@ -10,7 +10,6 @@ func _init():
 	item_name = tr("item.combo_ustasi.name")
 	description = tr("item.combo_ustasi.description")
 	flavor_text = "Kombo gücü"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["combo_damage"]
 
@@ -24,12 +23,10 @@ func activate(player: CharacterBody2D):
 	if "light_attack_damage_multiplier" in player and _applied_to != player:
 		player.light_attack_damage_multiplier *= 1.0 + DAMAGE_BOOST
 		_applied_to = player
-		print("[Combo Ustası] ✅ Combo hasarı +20%")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	
 	if "light_attack_damage_multiplier" in player and _applied_to == player:
 		player.light_attack_damage_multiplier /= 1.0 + DAMAGE_BOOST
-		print("[Combo Ustası] ❌ Combo hasarı restored")
 	_applied_to = null

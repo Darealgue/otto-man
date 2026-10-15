@@ -19,7 +19,7 @@ static func apply_to_scene_root(scene_root: Node) -> void:
 	_set_layer(scene_root.get_node_or_null("PauseMenuLayer"), MENU)
 	_set_layer(scene_root.get_node_or_null("ScreenDarknessLayer"), WORLD_VIGNETTE)
 	_set_layer(scene_root.get_node_or_null("BuildMenuLayer"), MENU)
-	for node_name in ["VillageStatusUI", "TimeDisplayUi", "WorkerAssignmentUI", "CariyeManagementUI"]:
+	for node_name in ["VillageStatusUI", "TimeDisplayUi"]:
 		_set_layer(scene_root.get_node_or_null(node_name), HUD)
 	var player := scene_root.get_node_or_null("Player")
 	if player == null:

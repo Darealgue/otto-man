@@ -13,7 +13,6 @@ func _init():
 	item_name = tr("item.berserker_ruhu.name")
 	description = tr("item.berserker_ruhu.description")
 	flavor_text = "Öfke güç verir"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["berserker_damage", "berserker_incoming"]
 
@@ -22,7 +21,6 @@ func activate(player: CharacterBody2D):
 	_player = player
 	_player.incoming_damage_multiplier *= INCOMING_DAMAGE_MULT
 	_update_bonus()
-	print("[Berserker Ruhu] Can azaldıkça hasar artar, daha fazla hasar alırsın")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)

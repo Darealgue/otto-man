@@ -11,7 +11,6 @@ func _init():
 	item_name = tr("item.keskin_nazar.name")
 	description = tr("item.keskin_nazar.description")
 	flavor_text = "Gözü keskin olanın kılıcı da keskindir"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.SPECIAL
 	affected_stats = ["crit_chance"]
 
@@ -31,4 +30,3 @@ func deactivate(player: CharacterBody2D):
 	if am and is_instance_valid(player):
 		am.disable_critical_strike(player)
 	_player = null
-	print("[Keskin Nazar] ❌ Kaldırıldı")

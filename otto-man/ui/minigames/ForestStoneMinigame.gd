@@ -83,14 +83,13 @@ func _on_minigame_ready() -> void:
 		_gauge.set_feedback(tr("mg.hint.heavy_attack"), neutral_feedback_color, -1.0)
 	
 	set_process(true)
-	print("[StoneMinigame] Vertical bar minigame active (hits=%d, max_misses=%d, tier=%d, speed=%.2f, success_zone=%.2f-1.0)" % [_required_hits, _max_misses, _tier, _fill_speed, success_zone_threshold])
 
 func _setup_nodes() -> void:
 	# Taş node'unu bul
 	if not _rock_path.is_empty():
 		_rock_node = get_node_or_null(_rock_path)
 		if _rock_node:
-			print("[StoneMinigame] Rock node found: %s" % _rock_node.name)
+			pass
 		else:
 			print("[StoneMinigame] Warning: Rock node not found at path: %s" % _rock_path)
 	# Oyuncu node'unu bul
@@ -122,7 +121,6 @@ func _create_gauge(parent: Node) -> void:
 		_gauge.global_position = _rock_node.global_position + _anchor_offset
 	else:
 		_gauge.global_position = Vector2(960, 540)  # Ekran merkezi
-	print("[StoneMinigame] Gauge created at position: %s" % _gauge.global_position)
 
 func _setup_hurtbox() -> void:
 	if not _rock_node:
@@ -142,7 +140,6 @@ func _setup_hurtbox() -> void:
 	shape.position = Vector2(0, -48)  # Taşın merkezine göre
 	_hurtbox.add_child(shape)
 	
-	print("[StoneMinigame] Hurtbox created and bound to minigame")
 
 func _process(delta: float) -> void:
 	if is_finished():
@@ -278,7 +275,6 @@ func _change_speed() -> void:
 	_fill_speed *= speed_multiplier
 	# Hız sınırlarını kontrol et
 	_fill_speed = clamp(_fill_speed, min_speed, max_speed)
-	print("[StoneMinigame] Speed changed to: %.2f (multiplier: %.2f)" % [_fill_speed, speed_multiplier])
 
 func _reset_bar() -> void:
 	_fill_value = 0.0  # Bar'ı sıfırla

@@ -19,18 +19,15 @@ func _init():
 	item_name = tr("item.usta_isci.name")
 	description = tr("item.usta_isci.description")
 	flavor_text = "Her aleti kullanan, hiçbirine muhtaç kalmaz"
-	rarity = ItemRarity.LEGENDARY
 	category = ItemCategory.SYNERGY
 	affected_stats = ["pipeline_diversity_bonus"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_tick_timer = 0.0
-	print("[Usta İşçi] ✅ Farklı boru hatlarına yayılmak periyodik stamina iade ediyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Usta İşçi] ❌ Kaldırıldı")
 
 func process(_player_ref: CharacterBody2D, delta: float) -> void:
 	_tick_timer += delta

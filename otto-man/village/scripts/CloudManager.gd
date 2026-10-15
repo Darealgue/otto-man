@@ -88,7 +88,8 @@ func _ready() -> void:
 	_spawn_timer = Timer.new()
 	# Keep ticking regardless of parent pause/state
 	_spawn_timer.process_mode = Node.PROCESS_MODE_ALWAYS
-	_spawn_timer.wait_time = randf_range(min_spawn_interval, max_spawn_interval)
+	# VillageScene.tscn min_spawn_interval = -10 veriyor (negatif yarı "hemen" anlamında); Timer 0'dan büyük ister
+	_spawn_timer.wait_time = maxf(0.5, randf_range(min_spawn_interval, max_spawn_interval))
 	_spawn_timer.one_shot = false # Keep repeating
 	_spawn_timer.timeout.connect(_on_spawn_timer_timeout)
 	add_child(_spawn_timer)
@@ -121,7 +122,7 @@ func _on_spawn_timer_timeout() -> void:
 	
 	# Reset timer for next interval
 	if is_instance_valid(_spawn_timer):
-		_spawn_timer.wait_time = randf_range(effective_min, effective_max)
+		_spawn_timer.wait_time = maxf(0.5, randf_range(effective_min, effective_max))
 
 	if randf() > effective_chance:
 		return

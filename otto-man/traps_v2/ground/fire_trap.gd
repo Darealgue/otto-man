@@ -37,7 +37,7 @@ var _off_timer: float = 0.0
 @onready var sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var detection_area: Area2D = $DetectionArea
 @onready var damage_area: Area2D = $DamageArea
-@onready var fire_light: PointLight2D = $PointLight2D
+@onready var fire_light: PointLight2D = get_node_or_null("PointLight2D") as PointLight2D  # fire_trap.tscn'de yok; tüm kullanımlar null korumalı
 
 func _ready() -> void:
 	detection_area.body_entered.connect(_on_detection_entered)

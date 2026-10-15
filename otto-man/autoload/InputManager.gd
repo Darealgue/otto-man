@@ -636,8 +636,9 @@ static func get_available_keyboard_presets() -> Array[StringName]:
 
 static func _replace_action_keys(action: StringName, keycodes: Array) -> void:
 	if not InputMap.has_action(action):
-		push_warning("[InputManager] Action not found: %s" % str(action))
-		return
+		# project.godot'ta tanımsız (ör. move_up/move_down) ama preset'lerde listeli: boş aksiyon oluştur,
+		# tuşlar aşağıda eklenir; öğretici ipuçları ve is_pressed çağrıları böylece çalışır.
+		InputMap.add_action(action)
 	var events = InputMap.action_get_events(action)
 	for event in events:
 		if event is InputEventKey:
@@ -659,8 +660,7 @@ static func _apply_ui_navigation_fallback() -> void:
 
 static func _ensure_action_keys(action: StringName, keycodes: Array) -> void:
 	if not InputMap.has_action(action):
-		push_warning("[InputManager] Action not found: %s" % str(action))
-		return
+		InputMap.add_action(action)
 	var existing: Array[int] = []
 	for event in InputMap.action_get_events(action):
 		if event is InputEventKey:

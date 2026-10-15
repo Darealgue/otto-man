@@ -12,7 +12,6 @@ func _init():
 	item_name = tr("item.flank_avantaji.name")
 	description = tr("item.flank_avantaji.description")
 	flavor_text = "Sırtından vur"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["flank_damage"]
 
@@ -20,7 +19,6 @@ func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
 	_player.flank_damage_mult = FLANK_MULT
-	print("[Flank Avantajı] Arkadan vuruş +%50")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)

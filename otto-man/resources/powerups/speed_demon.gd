@@ -63,7 +63,6 @@ func _activate_speed_boost() -> void:
 	current_speed_multiplier = 1.0 + SPEED_BOOST
 	player_stats.add_stat_multiplier("movement_speed", current_speed_multiplier)
 	
-	print("[Speed Demon] Speed boost activated: " + str(current_speed_multiplier))
 
 func _end_speed_boost(player: CharacterBody2D) -> void:
 	if !is_boosted:
@@ -76,7 +75,6 @@ func _end_speed_boost(player: CharacterBody2D) -> void:
 		player_stats.add_stat_multiplier("movement_speed", 1.0 / current_speed_multiplier)
 		current_speed_multiplier = 1.0
 	
-	print("[Speed Demon] Speed boost ended")
 
 func deactivate(player: CharacterBody2D) -> void:
 	if is_instance_valid(player):

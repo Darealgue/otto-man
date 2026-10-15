@@ -14,7 +14,6 @@ func _init():
 	item_name = tr("item.alevli_parry.name")
 	description = tr("item.alevli_parry.description")
 	flavor_text = "Savuşturan, yakar"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.PARRY
 	affected_stats = ["parry_flame_wave"]
 

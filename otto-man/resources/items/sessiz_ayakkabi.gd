@@ -13,7 +13,6 @@ func _init():
 	item_name = tr("item.sessiz_ayakkabi.name")
 	description = tr("item.sessiz_ayakkabi.description")
 	flavor_text = "Adımlar yumuşak"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.SPECIAL
 	affected_stats = ["stealth_noise"]
 
@@ -24,7 +23,6 @@ func activate(player: CharacterBody2D):
 	if emitter and emitter.has_method("get_noise_multiplier"):
 		_original_noise_mult = float(emitter.get_noise_multiplier())
 		emitter.set_noise_multiplier(_original_noise_mult * (1.0 - NOISE_REDUCTION))
-		print("[Sessiz Ayakkabı] Gürültü -%d%%" % int(NOISE_REDUCTION * 100.0))
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)

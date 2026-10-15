@@ -152,10 +152,7 @@ func get_pending_brief(request_id: String) -> Dictionary:
 func debug_print_brief(request_id: String) -> void:
 	var brief: Dictionary = get_pending_brief(request_id)
 	if brief.is_empty():
-		print("NarrativeSpawnPipeline: no brief for ", request_id)
 		return
-	print("BRIEF JSON: ", AiNarrativeBrief.to_json(brief))
-	print("BRIEF PROMPT: ", AiNarrativeBrief.to_prompt_string(brief))
 
 
 func _queue_llm_or_publish(request_id: String) -> void:

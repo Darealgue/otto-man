@@ -16,11 +16,9 @@ func activate(player: CharacterBody2D) -> void:
 	# Add block charges
 	player_stats.add_stat_bonus("block_charges", BLOCK_CHARGES_BONUS)
 	
-	print("[Endurance] Activated - +1 block charge")
 
 func deactivate(player: CharacterBody2D) -> void:
 	# Remove block charges
 	player_stats.add_stat_bonus("block_charges", -BLOCK_CHARGES_BONUS)
 	
-	print("[Endurance] Deactivated")
 	super.deactivate(player)

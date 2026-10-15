@@ -7,7 +7,6 @@ func _init():
 	item_name = tr("item.sadik_golge.name")
 	description = tr("item.sadik_golge.description")
 	flavor_text = "Sadık ruhlar sahibini terk etmez"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["persistent_ghosts"]
 
@@ -15,7 +14,6 @@ func _init():
 # kalıcı hayalet sayısı 2'nin altındaysa hayalet persistent moda geçer.
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Sadık Gölge] ✅ Hayaletler kalıcı (max 2)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -23,4 +21,3 @@ func deactivate(player: CharacterBody2D):
 	for ghost in get_tree().get_nodes_in_group("persistent_ghosts"):
 		if is_instance_valid(ghost):
 			ghost.queue_free()
-	print("[Sadık Gölge] ❌ Kaldırıldı")

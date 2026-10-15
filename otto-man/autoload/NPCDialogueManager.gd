@@ -110,19 +110,19 @@ const _VERBOSE_NPC_DIALOGUE := false
 
 func _npc_dbg(msg: String) -> void:
 	if _VERBOSE_NPC_DIALOGUE:
-		print(msg)
+		pass
 
 
 func _npc_chain_diag(msg: String) -> void:
 	if _LOG_NPC_DIALOGUE_CHAIN:
-		print("[NPCDialogue] ", msg)
+		pass
 
 
 ## Explicit "which TP triggered which, and why" marker — printed between passes so the console
 ## reads as a readable trace of the whole turn, not just isolated raw I/O blocks.
 func _npc_log_transition(msg: String) -> void:
 	if _LOG_NPC_DIALOGUE_CHAIN:
-		print("[NPCDialogue] ==> ", msg)
+		pass
 
 
 ## Called from npc_window when the player submits text (ties UI to LLM request).
@@ -135,20 +135,8 @@ func npc_chain_diag_ui_send(preview: String) -> void:
 
 func _npc_log_raw_io_tagged(npc_name: String, tag: String, kind: String, payload: String, ms: int) -> void:
 	if kind == "in":
-		print(
-			"========== RAW INPUT npc=%s %s prompt_chars=%d =========="
-			% [npc_name, tag, payload.length()]
-		)
-		print(payload)
-		print("========== END RAW INPUT ==========")
 		return
 	var ms_tag := " roundtrip_ms≈%d" % ms if ms >= 0 else ""
-	print(
-		"========== RAW OUTPUT npc=%s %s completion_chars=%d%s =========="
-		% [npc_name, tag, payload.length(), ms_tag]
-	)
-	print(payload)
-	print("========== END RAW OUTPUT ==========")
 func _ready():
 	# Connect to LlamaService
 	if not LlamaService.is_connected("GenerationCompleteNpc", Callable(self, "_on_llama_generation_complete")):

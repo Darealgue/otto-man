@@ -43,7 +43,7 @@ func _ready():
 		base_energy = point_light.energy
 		base_texture_scale = point_light.texture_scale
 		if DEBUG_TORCH:
-			print("[TorchController] Found PointLight2D with base energy: ", base_energy, " base scale: ", base_texture_scale)
+			pass
 	else:
 		if DEBUG_TORCH:
 			print("[TorchController] Warning: No PointLight2D found!")
@@ -52,7 +52,7 @@ func _ready():
 		# Start the animation
 		animated_sprite.play("idle")
 		if DEBUG_TORCH:
-			print("[TorchController] Started torch animation")
+			pass
 	else:
 		if DEBUG_TORCH:
 			print("[TorchController] Warning: No AnimatedSprite2D found!")

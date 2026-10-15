@@ -36,6 +36,7 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	UiFontFloor.attach(self)
 	_build_ui()
 	visible = false
 	var viewport := get_viewport()

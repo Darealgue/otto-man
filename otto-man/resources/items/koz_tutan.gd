@@ -11,7 +11,6 @@ func _init():
 	item_name = tr("item.koz_tutan.name")
 	description = tr("item.koz_tutan.description")
 	flavor_text = "Kor, sahibini arar"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.SPECIAL
 	tags = ["elemental_fire"]
 	affected_stats = ["burn_spread"]

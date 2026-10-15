@@ -10,21 +10,18 @@ func _init():
 	item_name = tr("item.taskin_guc.name")
 	description = tr("item.taskin_guc.description")
 	flavor_text = "Dolu kadeh en sert çarpar"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.STAMINA
 	affected_stats = ["full_stamina_damage"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Taşkın Güç] ✅ Dolu staminada +%30 hasar")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	if is_instance_valid(_player):
 		_player.taskin_guc_mult = 1.0
 	_player = null
-	print("[Taşkın Güç] ❌ Kaldırıldı")
 
 func process(player: CharacterBody2D, _delta: float) -> void:
 	if not is_instance_valid(player):

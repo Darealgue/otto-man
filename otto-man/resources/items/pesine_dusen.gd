@@ -11,14 +11,11 @@ func _init():
 	item_name = tr("item.pesine_dusen.name")
 	description = tr("item.pesine_dusen.description")
 	flavor_text = "Kaçış yok, sadece gecikme"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["projectile_homing"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Peşine Düşen] ✅ Mermiler hafif homing kazandı")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Peşine Düşen] ❌ Kaldırıldı")

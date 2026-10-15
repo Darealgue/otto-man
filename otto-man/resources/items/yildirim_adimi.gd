@@ -11,7 +11,6 @@ func _init():
 	item_name = tr("item.yildirim_adimi.name")
 	description = tr("item.yildirim_adimi.description")
 	flavor_text = "Şimşek hızı"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.DODGE
 	affected_stats = ["speed_boost"]
 
@@ -29,7 +28,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("player_dodged"):
 		if not player.is_connected("player_dodged", _on_player_dodged):
 			player.connect("player_dodged", _on_player_dodged)
-	print("[Yıldırım Adımı] ✅ Dodge/dash sonrası hız bonusu aktif")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -42,7 +40,6 @@ func deactivate(player: CharacterBody2D):
 			_player.disconnect("player_dodged", _on_player_dodged)
 	_player = null
 	_speed_boost_timer = 0.0
-	print("[Yıldırım Adımı] ❌ Yıldırım Adımı kaldırıldı")
 
 func _on_player_dodged(direction: int, start_pos: Vector2, end_pos: Vector2):
 	if not _player:
@@ -54,7 +51,6 @@ func _apply_speed_boost():
 		return
 	_player.speed = _original_speed * SPEED_BOOST_MULTIPLIER
 	_speed_boost_timer = BOOST_DURATION
-	print("[Yıldırım Adımı] Hız bonusu aktif (", _player.speed, ")")
 
 func process(player: CharacterBody2D, delta: float):
 	if not _player or _speed_boost_timer <= 0.0:
@@ -64,4 +60,3 @@ func process(player: CharacterBody2D, delta: float):
 	if _speed_boost_timer <= 0.0:
 		# Restore original speed
 		_player.speed = _original_speed
-		print("[Yıldırım Adımı] Hız bonusu bitti")

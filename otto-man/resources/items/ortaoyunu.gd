@@ -13,7 +13,6 @@ func _init():
 	item_name = tr("item.ortaoyunu.name")
 	description = tr("item.ortaoyunu.description")
 	flavor_text = "Gölge oyunu"
-	rarity = ItemRarity.LEGENDARY
 	category = ItemCategory.DODGE
 	affected_stats = ["dodge_decoy"]
 
@@ -27,7 +26,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("dash_started"):
 		if not player.is_connected("dash_started", _on_dash_started):
 			player.connect("dash_started", _on_dash_started)
-	print("[Ortaoyunu] Dodge/dash basıldığında gölge decoy bırakır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)

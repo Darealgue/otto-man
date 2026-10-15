@@ -29,6 +29,77 @@ static var _cur_name := ""
 static var _pass_no := 0
 static var _log: Array = []
 static var _valid := {}
+static var _gt := {}          # TileMapLayer -> global tile offset of that chunk
+static var _gtm: Array = []   # [gx][gy] -> TileMapLayer or null
+static var _gw := 0
+static var _gh := 0
+const MAX_REACH := 400000
+static var guard_enabled := true   # tests only
+
+# ---------------------------------------------------------------- connectivity guard
+# Filling must never cut the level in two: a fill that separates cells which were connected before is refused.
+static func _g_open(x: int, y: int) -> bool:
+	if x < 0 or y < 0:
+		return false
+	var cx := x / W
+	var cy := y / H
+	if cx >= _gw or cy >= _gh:
+		return false
+	var tm = _gtm[cx][cy]
+	if tm == null:
+		return false
+	var c := Vector2i(x % W, y % H)
+	if tm.get_cell_source_id(c) == -1:
+		return true
+	var td: TileData = tm.get_cell_tile_data(c)
+	return td != null and td.terrain == 1
+
+static func _reach(start: Vector2i, blocked: Dictionary, targets: Dictionary) -> Dictionary:
+	var found := {start: true}
+	var seen := {start: true}
+	var queue: Array[Vector2i] = [start]
+	var i := 0
+	while i < queue.size() and found.size() < targets.size() and queue.size() < MAX_REACH:
+		var c: Vector2i = queue[i]
+		i += 1
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var n: Vector2i = c + d
+			if seen.has(n) or blocked.has(n) or not _g_open(n.x, n.y):
+				continue
+			seen[n] = true
+			queue.append(n)
+			if targets.has(n):
+				found[n] = true
+	return found
+
+# true when closing `cells` (chunk local coords of `tm`) would disconnect open cells that are connected right now
+static func _would_split(tm: TileMapLayer, cells: Array) -> bool:
+	if not guard_enabled or not _gt.has(tm):
+		return false
+	var off: Vector2i = _gt[tm]
+	var s := {}
+	for c in cells:
+		s[Vector2i(c) + off] = true
+	var nb := {}
+	for k in s.keys():
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var n: Vector2i = k + d
+			if not s.has(n) and _g_open(n.x, n.y):
+				nb[n] = true
+	if nb.size() < 2:
+		return false
+	var remaining := nb.duplicate()
+	var none := {}
+	while not remaining.is_empty():
+		var start: Vector2i = remaining.keys()[0]
+		var after := _reach(start, s, nb)
+		if after.size() < nb.size():
+			var before := _reach(start, none, nb)
+			if before.size() > after.size():
+				return true
+		for k2 in after.keys():
+			remaining.erase(k2)
+	return false
 
 static func _tm(chunk) -> TileMapLayer:
 	if chunk == null or not is_instance_valid(chunk):
@@ -48,7 +119,11 @@ static func _can_dig_into(chunk) -> bool:
 	return true
 
 ## Returns the number of tunnel cells that were filled.
+static var disabled := false   # tests only
+
 static func seal(grid: Array) -> int:
+	if disabled:
+		return 0
 	stat_kept = 0
 	stat_dug = 0
 	stat_sealed = 0
@@ -59,16 +134,28 @@ static func seal(grid: Array) -> int:
 	var tms: Array = []
 	var before := {}
 	var plain: Array = []
+	_gt = {}
+	_gtm = []
+	_gw = grid.size()
+	_gh = 0
+	for col in grid:
+		_gh = maxi(_gh, col.size())
 	for gx0 in range(grid.size()):
+		var tcol: Array = []
+		tcol.resize(_gh)
+		_gtm.append(tcol)
 		for gy0 in range(grid[gx0].size()):
 			var c0 = grid[gx0][gy0]
 			if c0 != null and c0.chunk != null:
 				var tm0 := _tm(c0.chunk)
 				if tm0 != null:
+					_gtm[gx0][gy0] = tm0
+					_gt[tm0] = Vector2i(gx0 * W, gy0 * H)
 					tms.append(tm0)
 					if _can_dig_into(c0.chunk):
 						plain.append(tm0)
 					before[tm0] = _bad_cells(tm0)
+	var m_before := _measure_reach() if measure else {}
 	for _pass in range(10):
 		_pass_no = _pass
 		var changed := 0
@@ -98,10 +185,37 @@ static func seal(grid: Array) -> int:
 		stat_spur += _seal_spurs(tm2)
 	for tm1 in tms:
 		_repair(tm1, before[tm1])
-	print("[TunnelSealer] tunnels kept %d, dug through a neighbour %d, sealed %d (cells filled %d), dead-end spurs filled %d" % [stat_kept, stat_dug, stat_sealed, total, stat_spur])
-	for ln in _log:
-		print("[TunnelSealer]   ", ln)
+	if measure:
+		var m_after := _measure_reach()
+		m_lost = 0
+		for k in m_before.keys():
+			if _g_open(k.x, k.y) and not m_after.has(k):
+				m_lost += 1
 	return total
+
+static var measure := false
+static var m_lost := 0
+
+static func _measure_reach() -> Dictionary:
+	var seen := {}
+	var q: Array[Vector2i] = []
+	var sy: int = _gh / 2
+	for y in range(H):
+		for x in range(W):
+			if _g_open(x, sy * H + y):
+				var c := Vector2i(x, sy * H + y)
+				seen[c] = true
+				q.append(c)
+	var i := 0
+	while i < q.size():
+		var c2: Vector2i = q[i]
+		i += 1
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var n: Vector2i = c2 + d
+			if not seen.has(n) and _g_open(n.x, n.y):
+				seen[n] = true
+				q.append(n)
+	return seen
 
 # returns the number of cells that changed (dug or filled), 0 when nothing had to be done
 static func _resolve_side(tm: TileMapLayer, right: bool, ntm: TileMapLayer, nchunk) -> int:
@@ -323,6 +437,9 @@ static func _fill_corridor(tm: TileMapLayer, starts: Array) -> int:
 	var cells: Array[Vector2i] = []
 	for c2 in queue:
 		cells.append(c2)
+	if _would_split(tm, cells):
+		# this corridor is part of a real route: leave it open
+		return 0
 	tm.set_cells_terrain_connect(cells, 0, 0, false)
 	return cells.size()
 
@@ -441,6 +558,8 @@ static func _repair(tm: TileMapLayer, before: Dictionary) -> void:
 					else:
 						if x < 1 or x > W - 2 or y < 1 or y > H - 2:
 							continue
+					if fill and _would_split(tm, [Vector2i(cx, cy)]):
+						continue
 					wall[cy][cx] = fill
 					var after := _bad_in(wall, x - 2, y - 2, x + 2, y + 2)
 					wall[cy][cx] = not fill
@@ -506,6 +625,8 @@ static func _seal_spurs(tm: TileMapLayer) -> int:
 		var cells: Array[Vector2i] = []
 		for c2 in comp:
 			cells.append(c2)
+		if _would_split(tm, cells):
+			continue
 		tm.set_cells_terrain_connect(cells, 0, 0, false)
 		filled += 1
 	return filled

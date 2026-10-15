@@ -21,21 +21,14 @@ var _run_stats_panel: Control = null
 
 func _ready() -> void:
 	# DungeonRunState'e bakarak modu otomatik belirle
-	print("[CampScene] _ready called")
 	var drs = _get_dungeon_run_state()
 	if drs and drs.has_method("sync_warmup_limits"):
 		drs.sync_warmup_limits()
 	if drs and drs.run_started and (drs.run_segments_completed > 0 or drs.run_segment_count > 0):
 		# En az bir segment oynandı, bu bir mid-run kamp
-		print("[CampScene] Detected mid-run camp, completed=%d/%d challenges=%d" % [
-			drs.run_segments_completed if "run_segments_completed" in drs else 0,
-			drs.run_max_segments if "run_max_segments" in drs else drs.MAX_SEGMENTS,
-			drs.run_segment_count,
-		])
 		setup_mid_run()
 	else:
 		# Yeni run başlangıcı, köyden geliyoruz
-		print("[CampScene] Initial camp from village")
 		setup_initial_from_village()
 	_setup_run_stats_ui()
 	_maybe_show_tutorial_door_intro()
@@ -168,18 +161,15 @@ func _clear_spawned() -> void:
 			child.queue_free()
 
 func _spawn_doors() -> void:
-	print("[CampScene] _spawn_doors start. current mode=%s, door_scenes.size=%d" % [mode, door_scenes.size()])
 	if door_scenes.is_empty():
 		# Varsayılan olarak kamp kapısı sahnesini kullan (inspector'da override edebilirsin)
 		var default_door_scene: PackedScene = load("res://scenes/CampDoor.tscn")
 		if default_door_scene:
-			print("[CampScene] door_scenes empty, loading default door.tscn")
 			door_scenes.append(default_door_scene)
 		else:
 			print("[CampScene] ERROR: Could not load res://scenes/door.tscn")
 			return
 	if not has_node("Spots/Doors"):
-		print("[CampScene] No Spots/Doors node found")
 		return
 	# Spot sırası: ilk kampta 1,2,3,4,5 (0=çıkış yok). Mid-run'da 0,1,2,3,4,5 (0=çıkış)
 	var spot_names: PackedStringArray = PackedStringArray()
@@ -193,18 +183,15 @@ func _spawn_doors() -> void:
 			var spot: Node2D = get_node("Spots/Doors/%s" % name) as Node2D
 			spots.append(spot)
 	if spots.is_empty():
-		print("[CampScene] No door spots found")
 		return
 
 	if _current_doors.is_empty():
-		print("[CampScene] _current_doors empty, nothing to spawn")
 		return
 
 	var door_count: int = mini(_current_doors.size(), spots.size())
 
 	# Spotları X pozisyonuna göre sırala; soldan sağa kapı 1-2-3...
 	spots.sort_custom(Callable(self, "_sort_spots_by_x"))
-	print("[CampScene] Spawning %d doors on %d spots (sorted by X)" % [door_count, spots.size()])
 
 	for i in range(door_count):
 		var spot: Node2D = spots[i]
@@ -214,7 +201,6 @@ func _spawn_doors() -> void:
 			# Kapının pivotunu senin koyduğun Marker2D'nin local pozisyonuna oturt.
 			# Hem kapı hem spot root'un doğrudan çocukları olduğu için local position yeterli.
 			door.position = spot.position
-			print("[CampScene] Spawned door #%d at local %s (spot=%s) using scene %s" % [i, str(door.position), str(spot.position), scene.resource_path])
 		if door is CanvasItem:
 			# Kapı oyuncunun ARKASINDA kalsın: oyuncunun z_index'inden 1 düşük
 			var player := get_tree().current_scene.get_node_or_null("Player")

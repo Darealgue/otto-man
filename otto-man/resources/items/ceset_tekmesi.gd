@@ -6,7 +6,6 @@ func _init():
 	item_name = tr("item.ceset_tekmesi.name")
 	description = tr("item.ceset_tekmesi.description")
 	flavor_text = "Ölü de olsa bir işe yarasın"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.DODGE
 	affected_stats = ["corpse_kick"]
 
@@ -15,8 +14,6 @@ func _init():
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Ceset Tekmesi] ✅ Dodge ile cesetleri tekmeleyebilirsin")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Ceset Tekmesi] ❌ Kaldırıldı")

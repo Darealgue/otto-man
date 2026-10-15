@@ -56,9 +56,10 @@ func _build_ui() -> void:
 	_panel.anchor_right = 0.5
 	_panel.anchor_bottom = 0.5
 	_panel.offset_left = -PANEL_HALF_W
-	_panel.offset_top = -PANEL_HALF_H
+	# Yükseklik içeriğe göre (kaydırma alanının en küçük yüksekliği belirler): az haberde dev boş panel kalmaz
+	_panel.offset_top = 0.0
 	_panel.offset_right = PANEL_HALF_W
-	_panel.offset_bottom = PANEL_HALF_H
+	_panel.offset_bottom = 0.0
 	_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	ParchmentTextures.apply_large_panel_style(_panel, 22)
@@ -71,7 +72,7 @@ func _build_ui() -> void:
 	_title_label = Label.new()
 	_title_label.text = tr("mentor_brief.title")
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title_label.add_theme_font_size_override("font_size", 28)
+	_title_label.add_theme_font_size_override("font_size", 36)
 	root.add_child(_title_label)
 
 	var tab_row := HBoxContainer.new()
@@ -123,7 +124,7 @@ func _build_ui() -> void:
 	_content_scroll = ScrollContainer.new()
 	_content_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_content_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_content_scroll.custom_minimum_size = Vector2(0, 820)
+	_content_scroll.custom_minimum_size = Vector2(0, 700)
 	_content_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_content_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_content_scroll.follow_focus = true
@@ -138,6 +139,11 @@ func _build_ui() -> void:
 
 	root.add_child(_make_close_hint_bar())
 	TextOutline.apply_to_tree(self)
+	# İpucu etiketleri (10-11 punto) ve sekme düğmeleri okunur boyuta
+	_enlarge_fonts(_panel)
+	for tab_btn in [_tab_news_btn, _tab_missions_btn, _tab_diplo_btn, _tab_combat_btn]:
+		tab_btn.custom_minimum_size = Vector2(150, 48)
+		tab_btn.add_theme_font_size_override("font_size", 22)
 
 
 func _make_close_hint_bar() -> Control:
@@ -254,8 +260,28 @@ func _refresh_content() -> void:
 		Tab.COMBAT:
 			_setup_single_column_host()
 			_populate_combat_history()
+	_enlarge_fonts(_content_scroll)
 	if is_instance_valid(_content_scroll):
 		_content_scroll.scroll_vertical = 0
+
+
+## Kartlar 10-16 punto ile yazılmıştı ve 1920x1080'de okunmuyordu (playtest 2026-10-12). Kart kodunu tek tek
+## değiştirmek yerine, kurulduktan sonra açıkça verilmiş punto değerleri okunur boyuta çekilir.
+const FONT_STEP_UP: Dictionary = {
+	10: 17, 11: 17, 12: 19, 13: 20, 14: 22, 15: 23, 16: 24, 18: 28,
+}
+
+func _enlarge_fonts(node: Node) -> void:
+	if node == null:
+		return
+	if node is Label or node is Button:
+		var c := node as Control
+		if c.has_theme_font_size_override("font_size"):
+			var cur: int = c.get_theme_font_size("font_size")
+			if FONT_STEP_UP.has(cur):
+				c.add_theme_font_size_override("font_size", int(FONT_STEP_UP[cur]))
+	for child in node.get_children():
+		_enlarge_fonts(child)
 
 
 func _clear_scroll_host() -> void:
@@ -508,7 +534,7 @@ func _combat_history_detail_text(entry: Dictionary, is_incoming: bool, won: bool
 		var gold_cost: int = int(entry.get("gold_cost", 0))
 		if gold_cost > 0:
 			lines.append(tr("mentor_brief.gold_spent") % gold_cost)
-		lines.append(tr("mentor_brief.raid_result_hint"))
+		lines.append(tr("mentor_brief.raid_result_hint2"))
 	if lines.is_empty():
 		lines.append(tr("mentor_brief.no_further_details"))
 	return "\n".join(lines)
@@ -584,26 +610,36 @@ func _add_news_card(news: Dictionary, parent: VBoxContainer) -> void:
 	col.add_theme_constant_override("separation", 2)
 	card.add_child(col)
 
+	# Başlık solda, zaman sağda aynı satırda: kartta ayrı bir zaman satırı boşluğu kalmaz
+	var head_row := HBoxContainer.new()
+	head_row.add_theme_constant_override("separation", 12)
+	col.add_child(head_row)
+
 	var title := Label.new()
 	title.text = news.get("title", tr("mentor_brief.news_fallback"))
 	title.add_theme_font_size_override("font_size", 16)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(title)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head_row.add_child(title)
 
 	var time_text: String = _format_time_ago_game(int(news.get("game_time_minutes", 0)))
 	if not time_text.is_empty():
 		var time_lbl := Label.new()
 		time_lbl.text = time_text
+		time_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		time_lbl.add_theme_font_size_override("font_size", 11)
-		time_lbl.modulate = Color(1, 1, 1, 0.5)
-		col.add_child(time_lbl)
+		time_lbl.modulate = Color(1, 1, 1, 0.6)
+		head_row.add_child(time_lbl)
 
-	var body := Label.new()
-	body.text = news.get("content", "")
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.add_theme_font_size_override("font_size", 14)
-	body.modulate = Color(1, 1, 1, 0.75)
-	col.add_child(body)
+	var body_text: String = String(news.get("content", ""))
+	# İçerik başlıkla aynıysa (ör. biçimlendirilmemiş eski kayıtlar) ikinci kez yazma
+	if not body_text.is_empty() and body_text != String(news.get("title", "")):
+		var body := Label.new()
+		body.text = body_text
+		body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body.add_theme_font_size_override("font_size", 14)
+		body.modulate = Color(1, 1, 1, 0.82)
+		col.add_child(body)
 
 	parent.add_child(card)
 

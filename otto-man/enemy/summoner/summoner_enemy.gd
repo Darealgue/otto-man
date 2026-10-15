@@ -98,11 +98,7 @@ func _summoner_apply_hp_tankiness_and_healthbar() -> void:
 		health_bar.setup(health)
 	_health_emit_changed()
 	if summoner_combat_debug:
-		print("[SummonerDBG] post-spawn HP | enemy_level=", enemy_level,
-			" max_before_2x=", max_before_tank,
-			" stats.max_health=", stats.max_health,
-			" health=", health,
-			" hurtbox=", hurtbox)
+		pass
 
 
 func _physics_process(delta: float) -> void:
@@ -402,13 +398,10 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	var before_hp: float = health
 	if summoner_combat_debug:
 		var smax: float = stats.max_health if stats else -1.0
-		print("[SummonerDBG] take_damage IN | dmg=", amount, " hp=", before_hp, "/", smax,
-			" behavior=", current_behavior, " invuln=", invulnerable, " apply_kb=", apply_knockback)
 	super.take_damage(amount, knockback_force, knockback_up_force, apply_knockback)
 	if summoner_combat_debug:
 		var smax2: float = stats.max_health if stats else -1.0
 		var bar_m: float = health_bar.max_health if health_bar else -1.0
-		print("[SummonerDBG] take_damage OUT| hp=", health, "/", smax2, " health_bar.max=", bar_m)
 	# Hasar sonrası UI bazen gecikmeli kaldığı için (özellikle state çakışmalarında) kesin güncelle.
 	if health_bar and health < before_hp:
 		health_bar.update_health(health)

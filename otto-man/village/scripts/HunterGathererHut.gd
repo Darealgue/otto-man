@@ -26,10 +26,8 @@ var _collision_original_positions: Dictionary = {}
 # Bu bina için bir işçi atamaya çalışır
 func add_worker() -> bool:
 	if is_upgrading:
-		print("Avcı Kulübesi: Yükseltme sırasında işlem yapılamaz!")
 		return false
 	if assigned_workers >= max_workers:
-		print("Avcı Kulübesi: Kapasite dolu!")
 		return false
 
 	var worker_instance: Node = VillageManager.register_generic_worker()
@@ -52,16 +50,12 @@ func add_worker() -> bool:
 		# Mesai saatleri dışında ya da bugün vardiyaya zaten başladıysa, beklemeli
 		worker_instance.current_state = worker_instance.State.AWAKE_IDLE
 
-	print("Avcı Kulübesi: İşçi (ID: %d) atandı (%d/%d)." % [
-		worker_instance.worker_id, assigned_workers, max_workers
-	])
 	VillageManager.notify_building_state_changed(self)
 	return true
 
 # Bu binadan bir işçi çıkarır
 func remove_worker() -> bool:
 	if is_upgrading:
-		print("Avcı Kulübesi: Yükseltme sırasında işlem yapılamaz!")
 		return false
 	if assigned_workers <= 0 or assigned_worker_ids.is_empty():
 		print("Avcı Kulübesi: Çıkarılacak işçi yok!")
@@ -95,7 +89,6 @@ func remove_worker() -> bool:
 		worker_instance.current_state = worker_instance.State.AWAKE_IDLE
 		worker_instance.visible = true
 
-	print("%s: İşçi (ID: %d) çıkarıldı (%d/%d)." % [self.name, worker_id_to_remove, assigned_workers, max_workers])
 	emit_signal("worker_removed", worker_id_to_remove)
 	VillageManager.notify_building_state_changed(self)
 
@@ -115,7 +108,6 @@ func _init(): # _ready yerine _init'te oluşturmak daha güvenli olabilir
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
-	print("HunterGathererHut hazır.")
 	if not scene_file_path.is_empty():
 		max_level = BuildingUpgradeConfig.get_max_level(scene_file_path)
 	_store_collision_original_positions()
@@ -145,7 +137,6 @@ func start_upgrade() -> bool:
 func finish_upgrade() -> void:
 	if not is_upgrading: return # Zaten bitmişse veya hiç başlamadıysa çık
 
-	print("Avcı Kulübesi: Yükseltme tamamlandı (Seviye %d -> %d)" % [level, level + 1])
 	is_upgrading = false
 	level += 1
 	max_workers = level #<<< YENİ: Maksimum işçi sayısını seviyeye eşitle
@@ -159,7 +150,6 @@ func finish_upgrade() -> void:
 	if get_node_or_null("Sprite2D") is Sprite2D: get_node("Sprite2D").modulate = Color.WHITE
 	_update_texture()
 	_update_collision()
-	print("Avcı Kulübesi: Yeni seviye: %d" % level)
 
 # --- Texture (food1..food4) ---
 func _update_texture() -> void:

@@ -15,7 +15,8 @@ var active_items: Array[ItemEffect] = []
 var active_item_sets: Array[String] = []
 var _set_bonus_cache: Dictionary = {}
 var enemy_kill_count: int = 0
-var xp_orbs_collected: int = 0  # Xp orb'u oyuncuya ulaştığında artar (bar + kart seçimi buna göre tetiklenir)
+var _selection_consumes_xp: bool = false
+var xp_orbs_collected: int = 0 # Xp orb'u oyuncuya ulaştığında artar (bar + kart seçimi buna göre tetiklenir)
 const KILLS_PER_ITEM: int = 10  # Her 10 kill'de item seçimi
 
 # Item selection UI
@@ -264,60 +265,9 @@ const ITEM_REQUIREMENTS_ANY: Dictionary = {
 	"sonen_golge": ["ortaoyunu", "golge_hasadi", "kukla_oyunu", "golge_donusu", "golge_sahnesi"],
 }
 
-## 2 parça = set bonusu (geri bildirim build — 4 set)
-const ITEM_SET_DEFINITIONS: Dictionary = {
-	"poison_mastery": {
-		"name_key": "item.set.poison.name",
-		"items": ["zehirli_tirnak", "zehirli_dev", "zehirli_dusus"],
-		"pieces_for_bonus": 2,
-		"bonuses": {"poison_damage_mult": 1.4, "poison_max_stacks_bonus": 2},
-	},
-	"iron_guard": {
-		"name_key": "item.set.guard.name",
-		"items": ["yansitici_kalkan", "simsek_kalkani", "ters_darbe", "parry_ustasi", "dikenli_kalkan", "demir_kalkan"],
-		"pieces_for_bonus": 2,
-		"bonuses": {"block_reflect_mult": 1.35},
-	},
-	"sky_strike": {
-		"name_key": "item.set.aerial.name",
-		"items": ["yildirim_dususu", "ates_topu_dususu", "buz_cagi", "zehirli_dusus", "gokten_dusus", "genis_dusus"],
-		"pieces_for_bonus": 2,
-		"bonuses": {"fall_damage_mult": 1.3, "fall_effect_damage_mult": 1.35, "fall_effect_radius_mult": 1.2},
-	},
-	# "items" yerine "tag_prefix" kullanıyor (bkz. docs/ITEM_SYNERGY_DESIGN.md §10 Faz 3).
-	# Eskiden ["atesli_yumruk", "buzlu_kilic", "simsek_parmagi"] elle listeliyordu; bu üç
-	# item'ın ağır/düşüş eşdeğerlerini (lav_cekici, donma_cekici, gok_gurultusu, vb.) ve
-	# zehiri hiç saymıyordu. Artık "elemental_" ile başlayan herhangi bir tag'i taşıyan
-	# aktif item'lar otomatik sayılıyor — yeni bir elemental item eklendiğinde bu listeye
-	# elle eklenmesi gerekmez. Havuz 3 item'dan 12'ye çıktığı için eşik de 2'den 3'e çekildi.
-	"tri_element": {
-		"name_key": "item.set.elemental.name",
-		"tag_prefix": "elemental_",
-		"pieces_for_bonus": 3,
-		"bonuses": {"elemental_damage_mult": 1.25},
-	},
-	# "category_family" kullanıyor — bkz. docs/ITEM_SYNERGY_DESIGN.md §10 Faz 4.
-	# Her item zaten TEK bir ItemCategory taşıyor (item_effect.gd); burada yeni bir tag
-	# eklemeye gerek yok, sadece hangi kategorilerin "hareket" sayıldığını gruplayıp
-	# eşik koyuyoruz. Sayısal bonus yok — bu setin AKTİF OLMASI kendi başına bir
-	# davranış kapısı: apply_movement_contact_tick() bunu okuyup dodge/dash'i temas
-	# hasarı verir hale getiriyor (bkz. o fonksiyon ve dodge_state.gd/dash_state.gd).
-	"restless_body": {
-		"name_key": "item.set.movement.name",
-		"category_family": [ItemEffect.ItemCategory.DODGE, ItemEffect.ItemCategory.SLIDE, ItemEffect.ItemCategory.WALL_SLIDE, ItemEffect.ItemCategory.JUMP, ItemEffect.ItemCategory.CROUCH],
-		"pieces_for_bonus": 3,
-		"bonuses": {},
-	},
-	# Aynı desen, dövüş kategorileri için. Aktifken _on_global_attack_landed_brawl_family
-	# her isabetli vuruşa (light/heavy/fall, tip fark etmez) aktif element(ler)i uygular —
-	# oyuncu bunun için ayrıca element item'ının "doğru" saldırı tipini bulmasına gerek kalmaz.
-	"brawler_instinct": {
-		"name_key": "item.set.brawl.name",
-		"category_family": [ItemEffect.ItemCategory.LIGHT_ATTACK, ItemEffect.ItemCategory.HEAVY_ATTACK, ItemEffect.ItemCategory.FALL_ATTACK],
-		"pieces_for_bonus": 4,
-		"bonuses": {},
-	},
-}
+## Set bonusları 2026-10-15'te komple kaldırıldı (playtest: sessiz setler elementleri yanlış saldırılara sızdırıyordu).
+## Boş bırakıldı; set altyapısı (aktivasyon, ipucu, get_set_bonus varsayılanları) bu sözlüğe bağlı olduğu için pasif.
+const ITEM_SET_DEFINITIONS: Dictionary = {}
 
 ## ============================================================================
 ## UNLOCK SİSTEMİ (docs/ITEM_UNLOCK_SISTEMI.md)
@@ -342,7 +292,7 @@ const STARTER_ITEM_IDS: Array[String] = [
 	"demir_kalkan", "kalkan_ustasi", "parry_ruhu",
 	"cift_ziplama", "kus_kanadi", "ruzgar_hanceri",
 	"topuk_kirici",
-	"duvar_kirici", "soguk_temas", "sarsici_darbe", "kesme_yayi", "artan_guc", "emici_kalkan",
+	"soguk_temas", "sarsici_darbe", "kesme_yayi", "artan_guc", "emici_kalkan",
 	# Mermi açıcıları: burada olmaları TÜM Mermi yükseltme item'larını (yansiyan_ok,
 	# ruzgarin_nisani, yanki_oku, kartal_bakisi, gerilmis_yay, golge_nisanci, suru_oku,
 	# pesine_dusen, agir_mermi, ruh_mermisi — ITEM_REQUIREMENTS_ANY ile bunlara bağlı)
@@ -363,7 +313,7 @@ const STARTER_ITEM_IDS: Array[String] = [
 const EXCLUDED_ITEM_IDS: Array[String] = [
 	"hizlanan_yumruk", "ruh_avcisi", "ikinci_nefes", "berserker_ruhu", "kan_tadi",
 	"tas_yurek", "sessiz_ayakkabi", "golge_pelerini", "sadik_golge", "barut_zirhi",
-	"kara_barut", "panzehir_derisi", "kaygan_yag", "keskin_nazar",
+	"kara_barut", "panzehir_derisi", "kaygan_yag", "keskin_nazar", "duvar_kirici", "falci_kadin",
 ]
 
 const UNLOCK_TIER_KESIF: String = "kesif"
@@ -402,7 +352,7 @@ const DUNGEON_THEME_POOLS: Dictionary = {
 	"golge": {
 		# Gölge = BİRLEŞTİR: sinerji, element dönüşümü, kaynak (stamina)
 		"kesif": ["element_izi", "ruh_akisi", "ayran", "cellat_nefesi", "golge_donusu", "golge_hasadi", "kukla_oyunu", "golge_sahnesi", "uzayan_golge"],
-		"boss": ["ortaoyunu", "golge_adimi", "element_degisimi", "elemental_odak", "falci_kadin", "kader_ani", "usta_isci", "tek_sanat", "gercek_golge"],
+		"boss": ["ortaoyunu", "golge_adimi", "element_degisimi", "elemental_odak", "kader_ani", "usta_isci", "tek_sanat", "gercek_golge"],
 	},
 }
 
@@ -474,7 +424,6 @@ func unlock_item(item_id: String) -> bool:
 		return false
 	unlocked_item_ids.append(item_id)
 	item_unlocked.emit(item_id)
-	print("[ItemManager] Item açıldı: %s" % item_id)
 	return true
 
 
@@ -600,10 +549,8 @@ func has_unlock_candidates(theme: String, tier: String) -> bool:
 func queue_unlock_offer(theme: String, tier: String, picks: int = 1) -> void:
 	var key: String = theme if DUNGEON_THEME_POOLS.has(theme) else DEFAULT_DUNGEON_THEME
 	if not has_unlock_candidates(key, tier):
-		print("[ItemManager] Unlock teklifi atlandı — %s/%s havuzu tükendi" % [key, tier])
 		return
 	_pending_unlock_offers.append({"theme": key, "tier": tier, "picks": maxi(1, picks)})
-	print("[ItemManager] Unlock teklifi kuyruğa alındı: %s/%s x%d" % [key, tier, maxi(1, picks)])
 
 
 func has_pending_unlock_offers() -> bool:
@@ -643,16 +590,6 @@ func _show_unlock_selection(theme: String, tier: String) -> bool:
 	candidates.shuffle()
 	var picked_ids: Array[String] = candidates.slice(0, mini(3, candidates.size()))
 
-	# Kehanet: falcıya para verdiysen bir slot istediğin kategoriye yönlendirilir
-	var focus: int = consume_oracle_category()
-	if focus != -1 and not picked_ids.is_empty():
-		for candidate_id in candidates:
-			if candidate_id in picked_ids:
-				continue
-			if _get_item_category(candidate_id) == focus:
-				picked_ids[picked_ids.size() - 1] = candidate_id
-				print("[ItemManager] 🔮 Kehanet tuttu: %s" % candidate_id)
-				break
 	var scenes: Array[PackedScene] = []
 	for id in picked_ids:
 		scenes.append(ITEM_SCENES[id])
@@ -681,6 +618,7 @@ func reset_for_new_game() -> void:
 	permanently_banished_ids.clear()
 	taken_item_ids.clear()
 	oracle_category = -1
+	_reset_falci_deck_state()
 	falci_arrives_day = -1
 	falci_leaves_day = -1
 	_falci_present_cache = false
@@ -700,6 +638,12 @@ func get_save_data() -> Dictionary:
 		"permanently_banished": permanently_banished_ids.duplicate(),
 		"taken_items": taken_item_ids.duplicate(),
 		"oracle_category": oracle_category,
+		"archived_items": archived_item_ids.duplicate(),
+		"boosted_items": boosted_item_ids.duplicate(),
+		"falci_level": falci_level,
+		"falci_sale_stock": falci_sale_stock.duplicate(),
+		"falci_sale_visit_day": falci_sale_visit_day,
+		"falci_sale_taken": falci_sale_taken,
 		"falci_arrives_day": falci_arrives_day,
 		"falci_leaves_day": falci_leaves_day,
 		"ozan_arrives_day": ozan_arrives_day,
@@ -730,6 +674,13 @@ func load_save_data(data: Variant) -> void:
 			if ITEM_SCENES.has(b) and b not in permanently_banished_ids:
 				permanently_banished_ids.append(b)
 	oracle_category = int(d.get("oracle_category", -1))
+	_reset_falci_deck_state()
+	archived_item_ids = _load_item_id_list(d.get("archived_items", null))
+	boosted_item_ids = _load_item_id_list(d.get("boosted_items", null))
+	falci_sale_stock = _load_item_id_list(d.get("falci_sale_stock", null))
+	falci_level = clampi(int(d.get("falci_level", 0)), 0, FALCI_MAX_LEVEL)
+	falci_sale_visit_day = int(d.get("falci_sale_visit_day", -1))
+	falci_sale_taken = bool(d.get("falci_sale_taken", false))
 	falci_arrives_day = int(d.get("falci_arrives_day", -1))
 	falci_leaves_day = int(d.get("falci_leaves_day", -1))
 	_falci_present_cache = is_falci_in_village()
@@ -755,6 +706,10 @@ func load_save_data(data: Variant) -> void:
 				continue
 			if ITEM_SCENES.has(id) and id not in unlocked_item_ids:
 				unlocked_item_ids.append(id)
+	archived_item_ids = archived_item_ids.filter(func(x): return x in unlocked_item_ids)
+	boosted_item_ids = boosted_item_ids.filter(func(x): return x in unlocked_item_ids and x not in archived_item_ids)
+	if boosted_item_ids.size() > falci_level:
+		boosted_item_ids.resize(falci_level)
 	var pending: Variant = d.get("pending_unlock_offers", null)
 	if pending is Array:
 		for entry in (pending as Array):
@@ -906,7 +861,6 @@ func activate_item(item_scene: PackedScene) -> void:
 	item_activated.emit(item)
 	_recalculate_item_sets()
 	
-	print("[ItemManager] ✅ Activated: ", item.item_name)
 
 func _initialize_item(item: ItemEffect) -> void:
 	# Ensure item has access to singletons
@@ -1008,7 +962,6 @@ func deactivate_item(item: ItemEffect) -> void:
 	item_deactivated.emit(item)
 	_recalculate_item_sets()
 	
-	print("[ItemManager] ❌ Deactivated: ", item.item_name)
 
 func get_active_items() -> Array[ItemEffect]:
 	return active_items
@@ -1039,7 +992,6 @@ func clear_all_items() -> void:
 	xp_orbs_collected = 0
 	_run_banished_ids.clear()  # Tüccarın elemesi run'a özgü
 	xp_orbs_collected_changed.emit(xp_orbs_collected)
-	print("[ItemManager] 🗑️ All items cleared")
 
 ## Zindan/orman/test_level: ölen düşmandan bazen fiziksel altın (seviye çarpanı ile).
 const ENEMY_GOLD_DROP_CHANCE_NORMAL := 0.25
@@ -1243,6 +1195,9 @@ func _on_xp_orb_collected() -> void:
 	# Eşiğe ulaşıldı mı? Sayaç kart seçimi kapanınca sıfırlandığı için modulo yerine >= .
 	if xp_orbs_collected >= KILLS_PER_ITEM and not _item_selection_open:
 		await get_tree().create_timer(0.15).timeout
+		if _item_selection_open:
+			return
+		_selection_consumes_xp = true
 		show_item_selection()
 
 
@@ -1317,8 +1272,11 @@ func _on_item_selection_closed() -> void:
 		item_selection_sequence_finished.emit()
 	# Ödül alındı, sayaç sıfırdan başlasın. Eskiden sayaç toplam olarak artmaya devam ettiği
 	# için bar 10'da dolu kalıyor ve ancak 11. orb geldiğinde 1'e düşüyordu ("bir geriden").
-	xp_orbs_collected = 0
-	xp_orbs_collected_changed.emit(xp_orbs_collected)
+	# Sadece xp eşiğiyle açılan seçim xp'yi harcar; seviye geçişi/challenge ödülü kartı oyuncunun xp'sine dokunmaz.
+	if _selection_consumes_xp:
+		_selection_consumes_xp = false
+		xp_orbs_collected = 0
+		xp_orbs_collected_changed.emit(xp_orbs_collected)
 
 ## Bu run boyunca teklif havuzundan elenen item'lar (zindan tüccarının hizmeti).
 ## Run bitince clear_all_items() ile sıfırlanır — kalıcı silme falcının işi (aşağıda).
@@ -1371,7 +1329,6 @@ func _schedule_next_falci_visit(from_day: int) -> void:
 	var gap: int = randi_range(FALCI_VISIT_INTERVAL_MIN, FALCI_VISIT_INTERVAL_MAX)
 	falci_arrives_day = from_day + gap
 	falci_leaves_day = falci_arrives_day + FALCI_STAY_DAYS
-	print("[ItemManager] 🔮 Falcı %d. günde gelecek, %d. günde gidecek" % [falci_arrives_day, falci_leaves_day])
 
 
 func _current_day() -> int:
@@ -1433,7 +1390,6 @@ func _schedule_next_ozan_visit(from_day: int) -> void:
 	var gap: int = randi_range(OZAN_VISIT_INTERVAL_MIN, OZAN_VISIT_INTERVAL_MAX)
 	ozan_arrives_day = from_day + gap
 	ozan_leaves_day = ozan_arrives_day + OZAN_STAY_DAYS
-	print("[ItemManager] 🎻 Ozan %d. günde gelecek, %d. günde gidecek" % [ozan_arrives_day, ozan_leaves_day])
 
 
 ## Dev/test: ozanı hemen köye getirir.
@@ -1446,81 +1402,362 @@ func force_ozan_visit_now() -> void:
 	ozan_presence_changed.emit(true)
 
 
-func banish_item_permanently(item_id: String) -> bool:
-	if item_id.is_empty() or not ITEM_SCENES.has(item_id):
-		return false
-	if item_id in permanently_banished_ids:
-		return false
-	permanently_banished_ids.append(item_id)
-	print("[ItemManager] 🔮 Kalıcı olarak elendi: %s" % item_id)
-	return true
-
-
 func is_permanently_banished(item_id: String) -> bool:
 	return item_id in permanently_banished_ids
 
 
-## Takas edilebilir mi? Ön koşul zincirinin ebeveyni olan item takas edilemez —
-## çıkarılırsa çocukları koleksiyonda ölü ağırlık olarak kalır.
-func can_swap_unlocked_item(item_id: String) -> bool:
-	if not is_unlocked(item_id) or item_id in STARTER_ITEM_IDS:
-		return false
+## ---------------------------------------------------------------------------------------------
+## FALCI DESTE YÖNETİMİ (bkz. docs/FALCI_REWORK.md)
+## Deste = açık item'lar - arşivdekiler. Güçlendirilen kart çekimde x3 ağırlıkla gelir; toplam pay tavanı
+## ve deste tabanı, "sadece sevdiği build" çekimini tamamen deterministik yapmasın diye var.
+## Fiyatlar burada, altın tahsilatı arayüzde (önce can_*, sonra harca, sonra işlem).
+## ---------------------------------------------------------------------------------------------
+const FALCI_MAX_LEVEL: int = 5
+const FALCI_UPGRADE_COSTS: Array[int] = [300, 600, 1000, 1500, 2200]
+## i. güçlendirme slotunu doldurmanın bedeli (slot başına artar)
+const FALCI_BOOST_COSTS: Array[int] = [150, 250, 380, 550, 750]
+const FALCI_ARCHIVE_BASE_COST: int = 120
+const FALCI_ARCHIVE_STEP_COST: int = 40
+const FALCI_RESTORE_COST: int = 100
+const FALCI_SWAP_COST: int = 250
+const FALCI_SWAP_SACRIFICE_COUNT: int = 3
+const FALCI_SALE_PRICE: int = 300
+const FALCI_SALE_STOCK_SIZE: int = 3
+const BOOST_WEIGHT: float = 3.0
+const BOOST_MAX_SHARE: float = 0.4
+const DECK_FLOOR_ABS: int = 18
+const DECK_FLOOR_RATIO: float = 0.6
+
+signal falci_deck_changed
+
+var archived_item_ids: Array[String] = []
+var boosted_item_ids: Array[String] = []
+var falci_level: int = 0
+var falci_sale_stock: Array[String] = []
+var falci_sale_visit_day: int = -1
+var falci_sale_taken: bool = false
+
+
+func _reset_falci_deck_state() -> void:
+	archived_item_ids.clear()
+	boosted_item_ids.clear()
+	falci_level = 0
+	falci_sale_stock.clear()
+	falci_sale_visit_day = -1
+	falci_sale_taken = false
+
+
+func _load_item_id_list(raw: Variant) -> Array[String]:
+	var out: Array[String] = []
+	if raw is Array:
+		for v in (raw as Array):
+			var s: String = String(v).strip_edges()
+			if ITEM_SCENES.has(s) and s not in out:
+				out.append(s)
+	return out
+
+
+func is_archived(item_id: String) -> bool:
+	return item_id in archived_item_ids
+
+
+func is_boosted(item_id: String) -> bool:
+	return item_id in boosted_item_ids
+
+
+## Desteye giren (açık ve arşivde olmayan) item'lar.
+func get_deck_ids() -> Array[String]:
+	var out: Array[String] = []
+	for id in unlocked_item_ids:
+		if id not in archived_item_ids and id not in EXCLUDED_ITEM_IDS:
+			out.append(id)
+	return out
+
+
+func get_deck_floor() -> int:
+	return maxi(DECK_FLOOR_ABS, int(ceil(float(unlocked_item_ids.size()) * DECK_FLOOR_RATIO)))
+
+
+## Bir item'ın teması: DUNGEON_THEME_POOLS (kesif/boss) veya çocuksa ebeveyninin yuvası. Başlangıç item'ları "notr".
+func get_item_theme(item_id: String) -> String:
+	for theme in DUNGEON_THEME_POOLS:
+		for tier in [UNLOCK_TIER_KESIF, UNLOCK_TIER_BOSS]:
+			if item_id in DUNGEON_THEME_POOLS[theme].get(tier, []):
+				return String(theme)
+	var home: Array = _child_home(item_id)
+	if home.size() == 2:
+		return String(home[0])
+	return "notr"
+
+
+const THEME_COLORS: Dictionary = {
+	"ates": Color(0.93, 0.36, 0.18),
+	"buz": Color(0.38, 0.72, 0.95),
+	"zehir": Color(0.45, 0.80, 0.30),
+	"firtina": Color(0.95, 0.82, 0.25),
+	"barut": Color(0.62, 0.45, 0.30),
+	"golge": Color(0.62, 0.40, 0.85),
+	"notr": Color(0.70, 0.70, 0.70),
+}
+
+
+func get_theme_color(theme: String) -> Color:
+	return THEME_COLORS.get(theme, THEME_COLORS["notr"])
+
+
+func get_item_color(item_id: String) -> Color:
+	return get_theme_color(get_item_theme(item_id))
+
+
+## Ön koşul zincirinin ebeveyni olan item desteden çıkarılamaz/feda edilemez: çıkarılırsa çocukları ölü ağırlık kalır.
+func _is_locked_parent(item_id: String) -> bool:
 	for child_id in _dependent_item_ids():
-		if not is_unlocked(child_id):
+		if not is_unlocked(child_id) or is_archived(child_id):
 			continue
 		if item_id in ITEM_REQUIREMENTS.get(child_id, []):
-			return false
+			return true
 		if item_id in ITEM_REQUIREMENTS_ANY.get(child_id, []):
-			# VEYA koşulu: başka bir ebeveyn hâlâ açıksa çıkarmak güvenli
 			var other_parent_open: bool = false
 			for parent_id in ITEM_REQUIREMENTS_ANY[child_id]:
-				if String(parent_id) != item_id and is_unlocked(String(parent_id)):
+				if String(parent_id) != item_id and is_unlocked(String(parent_id)) and not is_archived(String(parent_id)):
 					other_parent_open = true
 					break
 			if not other_parent_open:
-				return false
+				return true
+	return false
+
+
+func get_archive_cost() -> int:
+	return FALCI_ARCHIVE_BASE_COST + FALCI_ARCHIVE_STEP_COST * archived_item_ids.size()
+
+
+## Dönen sözlük: {ok: bool, reason: String} — reason kısa bir anahtar (arayüz çevirir).
+func can_archive_item(item_id: String) -> Dictionary:
+	if not is_unlocked(item_id) or is_archived(item_id):
+		return {"ok": false, "reason": "not_in_deck"}
+	if has_active_item(item_id):
+		return {"ok": false, "reason": "active"}
+	if _is_locked_parent(item_id):
+		return {"ok": false, "reason": "parent"}
+	if get_deck_ids().size() - 1 < get_deck_floor():
+		return {"ok": false, "reason": "floor"}
+	return {"ok": true, "reason": ""}
+
+
+func archive_item(item_id: String) -> bool:
+	if not bool(can_archive_item(item_id).get("ok", false)):
+		return false
+	archived_item_ids.append(item_id)
+	boosted_item_ids.erase(item_id)
+	falci_deck_changed.emit()
 	return true
 
 
-## Takas: verilen item koleksiyondan çıkar, yerine aynı rarity'den rastgele kapalı bir item
-## açılır. Yeni item'ın id'sini döner; takas mümkün değilse boş string.
-func swap_unlocked_item(item_id: String) -> String:
-	if not can_swap_unlocked_item(item_id):
+func can_restore_item(item_id: String) -> bool:
+	return is_archived(item_id)
+
+
+func restore_item(item_id: String) -> bool:
+	if not is_archived(item_id):
+		return false
+	archived_item_ids.erase(item_id)
+	falci_deck_changed.emit()
+	return true
+
+
+func get_falci_upgrade_cost() -> int:
+	if falci_level >= FALCI_MAX_LEVEL:
+		return -1
+	return FALCI_UPGRADE_COSTS[falci_level]
+
+
+func upgrade_falci() -> bool:
+	if falci_level >= FALCI_MAX_LEVEL:
+		return false
+	falci_level += 1
+	falci_deck_changed.emit()
+	return true
+
+
+func get_boost_slots() -> int:
+	return falci_level
+
+
+func get_boost_cost() -> int:
+	return FALCI_BOOST_COSTS[clampi(boosted_item_ids.size(), 0, FALCI_BOOST_COSTS.size() - 1)]
+
+
+func can_boost_item(item_id: String) -> Dictionary:
+	if not is_unlocked(item_id) or is_archived(item_id):
+		return {"ok": false, "reason": "not_in_deck"}
+	if is_boosted(item_id):
+		return {"ok": false, "reason": "already"}
+	if boosted_item_ids.size() >= get_boost_slots():
+		return {"ok": false, "reason": "no_slot"}
+	return {"ok": true, "reason": ""}
+
+
+func boost_item(item_id: String) -> bool:
+	if not bool(can_boost_item(item_id).get("ok", false)):
+		return false
+	boosted_item_ids.append(item_id)
+	falci_deck_changed.emit()
+	return true
+
+
+## Güçlendirmeyi kaldırmak bedava, iade yok.
+func unboost_item(item_id: String) -> bool:
+	if not is_boosted(item_id):
+		return false
+	boosted_item_ids.erase(item_id)
+	falci_deck_changed.emit()
+	return true
+
+
+## Takas: 3 item feda edilir (yok olur, arşive girmez; tekrar kazanılabilir ama geri alınamaz), feda edilenlerin
+## elementlerinden biri rastgele seçilir ve o elementin kapalı havuzundan 1 item açılır.
+func can_swap_items(item_ids: Array) -> Dictionary:
+	if item_ids.size() != FALCI_SWAP_SACRIFICE_COUNT:
+		return {"ok": false, "reason": "count"}
+	var seen: Array[String] = []
+	for raw in item_ids:
+		var id: String = String(raw)
+		if id in seen:
+			return {"ok": false, "reason": "dupe"}
+		seen.append(id)
+		if not is_unlocked(id) or is_archived(id):
+			return {"ok": false, "reason": "not_in_deck"}
+		if has_active_item(id):
+			return {"ok": false, "reason": "active"}
+		if _is_locked_parent(id):
+			return {"ok": false, "reason": "parent"}
+	if get_deck_ids().size() - FALCI_SWAP_SACRIFICE_COUNT + 1 < get_deck_floor():
+		return {"ok": false, "reason": "floor"}
+	return {"ok": true, "reason": ""}
+
+
+## Dönen: yeni açılan item id'si, başarısızsa boş string.
+func swap_items(item_ids: Array) -> String:
+	if not bool(can_swap_items(item_ids).get("ok", false)):
 		return ""
-	var meta: Dictionary = get_item_meta(item_id)
-	if meta.is_empty():
+	var themes: Array[String] = []
+	for raw in item_ids:
+		themes.append(get_item_theme(String(raw)))
+	themes.shuffle()
+	var picked: String = ""
+	# Nötr (temasız başlangıç) kartlar belirli bir element taşımaz: onlar için her tema aday olur
+	var search: Array[String] = []
+	for theme in themes:
+		if theme == "notr":
+			var all_themes: Array = DUNGEON_THEME_POOLS.keys()
+			all_themes.shuffle()
+			for t in all_themes:
+				search.append(String(t))
+		else:
+			search.append(theme)
+	for theme in search:
+		var pool: Array[String] = []
+		for c in get_unlock_candidates(theme, ""):
+			if c not in item_ids and c not in EXCLUDED_ITEM_IDS:
+				pool.append(c)
+		if not pool.is_empty():
+			picked = pool[randi() % pool.size()]
+			break
+	if picked.is_empty():
 		return ""
-	var target_rarity: int = int(meta.get("rarity", 0))
-	var candidates: Array[String] = []
-	for other_id in ITEM_SCENES:
-		var oid: String = String(other_id)
-		if is_unlocked(oid) or oid == item_id:
+	for raw in item_ids:
+		var sid: String = String(raw)
+		unlocked_item_ids.erase(sid)
+		boosted_item_ids.erase(sid)
+	unlocked_item_ids.append(picked)
+	item_unlocked.emit(picked)
+	falci_deck_changed.emit()
+	return picked
+
+
+## Ziyaret başına 1 hak: ziyaret günü değişince stok yeniden kurulur. Havuz = bütün temaların kapalı item'ları,
+## her slot için önce tema eşit olasılıkla seçilir.
+func get_falci_sale_stock() -> Array[String]:
+	if not is_falci_in_village():
+		return []
+	if falci_sale_visit_day != falci_arrives_day:
+		falci_sale_visit_day = falci_arrives_day
+		falci_sale_taken = false
+		falci_sale_stock = _roll_falci_sale_stock()
+	if falci_sale_taken:
+		return []
+	return falci_sale_stock.duplicate()
+
+
+func _roll_falci_sale_stock() -> Array[String]:
+	var by_theme: Dictionary = {}
+	for theme in DUNGEON_THEME_POOLS:
+		var c: Array[String] = get_unlock_candidates(String(theme), "")
+		if not c.is_empty():
+			by_theme[String(theme)] = c
+	var out: Array[String] = []
+	var theme_keys: Array = by_theme.keys()
+	var guard: int = 0
+	while out.size() < FALCI_SALE_STOCK_SIZE and not theme_keys.is_empty() and guard < 64:
+		guard += 1
+		var tk: String = String(theme_keys[randi() % theme_keys.size()])
+		var pool: Array = by_theme[tk]
+		var pick: String = String(pool[randi() % pool.size()])
+		if pick in out:
 			continue
-		if is_permanently_banished(oid) or oid in EXCLUDED_ITEM_IDS:
-			continue
-		if oid in _dependent_item_ids():
-			continue  # Ön koşullu item'lar ebeveyniyle gelir, takasla değil
-		if int(get_item_meta(oid).get("rarity", -1)) == target_rarity:
-			candidates.append(oid)
-	if candidates.is_empty():
-		return ""
-	unlocked_item_ids.erase(item_id)
-	var replacement: String = candidates[randi() % candidates.size()]
-	unlocked_item_ids.append(replacement)
-	item_unlocked.emit(replacement)
-	print("[ItemManager] 🔮 Takas: %s -> %s" % [item_id, replacement])
-	return replacement
+		out.append(pick)
+		pool.erase(pick)
+		if pool.is_empty():
+			theme_keys.erase(tk)
+	return out
 
 
-## Kehanet: sonraki unlock teklifinde bir slotu bu kategoriye yönlendirir.
-func set_oracle_category(category: int) -> void:
-	oracle_category = category
+func can_buy_falci_sale(item_id: String) -> bool:
+	return is_falci_in_village() and not falci_sale_taken and item_id in falci_sale_stock and not is_unlocked(item_id)
 
 
-func consume_oracle_category() -> int:
-	var c: int = oracle_category
-	oracle_category = -1
-	return c
+func buy_falci_sale(item_id: String) -> bool:
+	if not can_buy_falci_sale(item_id):
+		return false
+	if not unlock_item(item_id):
+		return false
+	falci_sale_taken = true
+	falci_sale_stock.clear()
+	falci_deck_changed.emit()
+	return true
+
+
+## Kart çekiminde kullanılan ağırlıklı seçim: güçlendirilmişler BOOST_WEIGHT ile gelir ama toplam pay
+## BOOST_MAX_SHARE'i geçemez (küçük destede çekimin deterministik olmaması için çarpan düşer).
+func _weighted_pick(ids: Array[String], count: int) -> Array[String]:
+	var pool: Array[String] = ids.duplicate()
+	var boosted_in_pool: int = 0
+	for id in pool:
+		if id in boosted_item_ids:
+			boosted_in_pool += 1
+	var mult: float = 1.0
+	var normal_count: int = pool.size() - boosted_in_pool
+	if boosted_in_pool > 0:
+		mult = BOOST_WEIGHT
+		if normal_count > 0:
+			var cap_mult: float = BOOST_MAX_SHARE * float(normal_count) / ((1.0 - BOOST_MAX_SHARE) * float(boosted_in_pool))
+			mult = clampf(minf(BOOST_WEIGHT, cap_mult), 1.0, BOOST_WEIGHT)
+	var picked: Array[String] = []
+	while picked.size() < count and not pool.is_empty():
+		var total: float = 0.0
+		for id in pool:
+			total += mult if id in boosted_item_ids else 1.0
+		var roll: float = randf() * total
+		var chosen: int = pool.size() - 1
+		var acc: float = 0.0
+		for i in range(pool.size()):
+			acc += mult if pool[i] in boosted_item_ids else 1.0
+			if roll <= acc:
+				chosen = i
+				break
+		picked.append(pool[chosen])
+		pool.remove_at(chosen)
+	return picked
 
 
 func banish_item_for_run(item_id: String) -> bool:
@@ -1529,7 +1766,6 @@ func banish_item_for_run(item_id: String) -> bool:
 	if not ITEM_SCENES.has(item_id):
 		return false
 	_run_banished_ids.append(item_id)
-	print("[ItemManager] 🚫 Bu run boyunca teklif edilmeyecek: %s" % item_id)
 	return true
 
 
@@ -1548,8 +1784,8 @@ func get_offer_candidate_ids() -> Array[String]:
 		# Zaten seçilmiş item tekrar çıkmasın
 		if has_active_item(item_id):
 			continue
-		# Tüccara "bunu bir daha gösterme" dedik (bu run) / falcı kalıcı olarak eledi
-		if is_banished_for_run(item_id) or is_permanently_banished(item_id):
+		# Tüccara "bunu bir daha gösterme" dedik (bu run) / falcı arşivledi (desteden çıktı)
+		if is_banished_for_run(item_id) or is_permanently_banished(item_id) or is_archived(item_id):
 			continue
 		# Ön koşullu item: gerekli item(lar) yoksa seçenekte gösterme
 		if item_id in ITEM_REQUIREMENTS:
@@ -1577,19 +1813,8 @@ func get_offer_candidate_ids() -> Array[String]:
 
 func get_random_items(count: int = 3) -> Array[PackedScene]:
 	var available_ids: Array[String] = get_offer_candidate_ids()
-	available_ids.shuffle()
-	var picked_ids: Array[String] = available_ids.slice(0, min(count, available_ids.size()))
-
-	# Falcı Kadın: build'inde 2+ aynı kategoriden item varsa, %60 ihtimalle bir slotu o kategoriye yönlendir
-	if has_active_item("falci_kadin") and not picked_ids.is_empty():
-		var favored := _get_favored_category()
-		if favored != -1 and randf() < 0.6:
-			for candidate_id in available_ids:
-				if candidate_id in picked_ids:
-					continue
-				if _get_item_category(candidate_id) == favored:
-					picked_ids[0] = candidate_id
-					break
+	# Falcının güçlendirdiği kartlar ağırlıklı gelir (bkz. _weighted_pick)
+	var picked_ids: Array[String] = _weighted_pick(available_ids, count)
 
 	var result: Array[PackedScene] = []
 	for id in picked_ids:
@@ -1624,7 +1849,6 @@ func get_item_meta(item_id: String) -> Dictionary:
 		"id": item_id,
 		"name": String(temp.item_name),
 		"description": String(temp.description),
-		"rarity": int(temp.rarity),
 		"category": int(temp.category),
 	}
 	temp.queue_free()
@@ -1950,8 +2174,11 @@ func apply_movement_contact_tick(hit_ids: Array, radius: float, base_damage: flo
 		if deal_contact_damage:
 			if node.has_method("take_damage"):
 				node.take_damage(base_damage * specialist_mult, 80.0, contact_up_force, true)
-			for element in elements:
-				apply_element_to_enemy(node, element)
+			# Elementler yalnız Fırtına Sekmesi'nin açıkça tarif ettiği durumda taşınır; Huzursuz Beden seti
+			# (sessiz bonus) kendi başına saldırı-özel elementleri (ağır vuruş buzu vb.) dodge'a sızdırmasın.
+			if has_active_item("zehirli_sekme"):
+				for element in elements:
+					apply_element_to_enemy(node, element)
 		if apply_frost and node.has_method("add_frost_stack"):
 			node.add_frost_stack(1)
 
@@ -2277,7 +2504,9 @@ func _resolve_attack_target_enemy(target: Node) -> Node:
 func _on_global_attack_landed_brawl_family(_attack_type: String, _damage: float, targets: Array, _position: Vector2, effect_filter: String = "all") -> void:
 	if effect_filter == "physical_only":
 		return
-	if not active_item_sets.has("brawler_instinct"):
+	# Kapalı: her isabete tüm elementleri uygulamak, saldırı-özel element itemlarını (ağır vuruş buzu, hafif vuruş ateşi)
+	# yanlış saldırılara sızdırıyordu (playtest 2026-10-15). Set artık sayısal bir etki vermiyor.
+	if true:
 		return
 	var elements := get_active_elements()
 	if elements.is_empty():
@@ -2475,7 +2704,6 @@ func _recalculate_item_sets() -> void:
 	for set_id in active_item_sets:
 		if set_id not in previous:
 			item_set_activated.emit(set_id)
-			print("[ItemManager] ✨ Set aktif: ", tr(String(ITEM_SET_DEFINITIONS[set_id].get("name_key", set_id))))
 	for set_id in previous:
 		if set_id not in active_item_sets:
 			item_set_deactivated.emit(set_id)

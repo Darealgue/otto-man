@@ -127,25 +127,21 @@ func physics_update(delta: float):
 	if is_parrying:
 		var im := get_node_or_null("/root/ItemManager")
 		if Input.is_action_just_pressed("crouch") and im and im.has_active_item("golge_adimi") and is_instance_valid(_last_parried_attacker):
-			print("[Block] Gölge Adımı -> ışınlanma")
 			is_parrying = false
 			_do_golge_adimi(_last_parried_attacker)
 			state_machine.transition_to("Idle")
 			return
 		elif Input.is_action_just_pressed("jump") and im and im.has_active_item("firlatma_parry") and is_instance_valid(_last_parried_attacker):
-			print("[Block] Fırlatma Parry -> düşman havaya fırlar")
 			is_parrying = false
 			_do_firlatma_parry(_last_parried_attacker)
 			state_machine.transition_to("Idle")
 			return
 		if Input.is_action_just_pressed("attack_heavy") and state_machine.has_node("HeavyAttack") and player.can_use_heavy_attack():
-			print("[Block] Counter cancel -> HeavyAttack")
 			# End parry immediately and transition
 			is_parrying = false
 			state_machine.transition_to("HeavyAttack")
 			return
 		elif Input.is_action_just_pressed("attack") and state_machine.has_node("Attack"):
-			print("[Block] Counter cancel -> Attack")
 			is_parrying = false
 			state_machine.transition_to("Attack")
 			return
@@ -157,7 +153,6 @@ func physics_update(delta: float):
 			parry_timer = PARRY_WINDOW * player.parry_window_mult
 			_window_closed_msec = 0
 			block_start_time = Time.get_ticks_msec() / 1000.0
-			print("[Block] Parry window re-armed")
 		
 	# Update parry window timer
 	if parry_timer > 0:
@@ -220,7 +215,6 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 	
 	# Check if within parry window (or Keskin Refleks tolerance after it closed) and can parry
 	if can_parry or _in_late_parry():
-		print("[Block] PARRY SUCCESS")
 		_last_parried_attacker = hitbox.get_parent() if hitbox else null
 		_play_block_sfx(hitbox.global_position if hitbox else player.global_position, true)
 		
@@ -275,7 +269,6 @@ func _on_hurtbox_hurt(hitbox: Area2D) -> void:
 			if should_save_stamina:
 				# Save stamina but still block the damage
 				stamina_consumed_this_hit = true
-				print("[Block] Stamina saved by item!")
 			else:
 				# Normal stamina consumption
 				if stamina_bar.use_charge():

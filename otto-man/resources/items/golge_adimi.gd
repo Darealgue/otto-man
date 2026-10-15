@@ -6,7 +6,6 @@ func _init():
 	item_name = tr("item.golge_adimi.name")
 	description = tr("item.golge_adimi.description")
 	flavor_text = "Gölgeler asla önden gelmez"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.PARRY
 	affected_stats = ["parry_teleport"]
 
@@ -14,8 +13,6 @@ func _init():
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Gölge Adımı] ✅ Parry sonrası eğilme = ışınlanma")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Gölge Adımı] ❌ Kaldırıldı")

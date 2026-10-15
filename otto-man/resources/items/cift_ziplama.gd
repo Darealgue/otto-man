@@ -13,7 +13,6 @@ func _init():
 	item_name = tr("item.cift_ziplama.name")
 	description = tr("item.cift_ziplama.description")
 	flavor_text = "Ekstra zıplama"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.JUMP
 	affected_stats = ["jump_count"]
 
@@ -23,7 +22,6 @@ func activate(player: CharacterBody2D):
 	# Her yere basınca 3. zıplama hakkı açılır (fall_state'de kontrol)
 	player.set_meta("cift_ziplama_active", true)
 	player.set_meta("cift_ziplama_available", true)
-	print("[Çift Zıplama] ✅ 3 zıplama (3. zıplamada patlama + can)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -31,7 +29,6 @@ func deactivate(player: CharacterBody2D):
 		_player.remove_meta("cift_ziplama_active")
 		_player.remove_meta("cift_ziplama_available")
 	_player = null
-	print("[Çift Zıplama] ❌ Kaldırıldı")
 
 func process(player: CharacterBody2D, _delta: float) -> void:
 	if not is_instance_valid(player):

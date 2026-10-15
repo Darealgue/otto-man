@@ -13,7 +13,6 @@ func _init():
 	item_name = tr("item.aci_parry.name")
 	description = tr("item.aci_parry.description")
 	flavor_text = "Savuşturmak da acıtır"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.PARRY
 	affected_stats = ["parry_poison"]
 

@@ -27,7 +27,7 @@ var _water_row: Control = null
 # Events (Morale artık üst şeritteki cam fanus göstergesinde — MoraleJarUI.gd)
 # EventsSlot: olay yokken bile sabit genişlikte boşluk bırakır, layout zıplamaz.
 @onready var _events_slot: Control = %EventsSlot
-@onready var events_label: Label = %EventsLabel
+@onready var events_label: Label = get_node_or_null("%EventsLabel") as Label  # sahnede yoksa aşağıda kodla oluşturuluyor
 var housing_label: Label = null
 # İleride eklenecek diğer label'lar için @onready değişkenler...
 
@@ -121,7 +121,6 @@ func _ready() -> void:
 	_canvas_layer = get_parent().get_parent().get_parent() as CanvasLayer
 	_apply_hud_parchment_textures()
 	call_deferred("_sync_parchment_boxes_to_content")
-	print("VillageStatusUI Ready. (F9 = parşömen overlay | F10 = ölçü raporu)")
 
 
 ## Üst siyah şerit için varsayılan (durum rengi yokken) metin rengi: beyaz + siyah kontur.
@@ -190,7 +189,6 @@ func _set_parchment_debug(enabled: bool) -> void:
 	var pf := _canvas_layer.get_node_or_null("TopBarPanel") as ParchmentFrame
 	if pf:
 		pf.debug_layout = enabled
-	print("\n[VillageStatusUI] Parşömen debug: %s (kırmızı=kenar, yeşil=esneyen orta, mavi=içerik)\n" % ("AÇIK" if enabled else "KAPALI"))
 	if enabled:
 		_log_panel_measurements()
 
@@ -212,7 +210,6 @@ func _log_panel_measurements() -> void:
 	lines.append("  TopBarPanel: 765 x 53  (anchor üst-orta)")
 	lines.append("Öneri: texture boyutu ≈ 'parşömen kutusu' veya içerik+patch; 96x72 envanter için dar kalabilir.")
 	lines.append("==================================================")
-	print("\n".join(lines))
 
 
 func _log_one_panel(lines: PackedStringArray, title: String, panel: ParchmentFrame, content: Control) -> void:

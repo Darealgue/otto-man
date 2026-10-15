@@ -46,7 +46,6 @@ func _ready() -> void:
 	var trigger_area = get_node_or_null("TriggerArea")
 	if trigger_area:
 		trigger_area.body_entered.connect(_on_trigger_area_entered)
-		print("[FireGeyser] Trigger area connected")
 	else:
 		print("[FireGeyser] Warning: No TriggerArea found!")
 	
@@ -63,7 +62,6 @@ func _ready() -> void:
 		
 		# Keep damage area always enabled for fire geyser
 		damage_area.monitoring = true
-		print("[FireGeyser] Damage area set to always monitoring")
 		
 		# Create a timer to ensure damage area stays active
 		var monitor_timer = Timer.new()
@@ -71,7 +69,6 @@ func _ready() -> void:
 		monitor_timer.timeout.connect(_ensure_damage_area_active)
 		monitor_timer.autostart = true
 		add_child(monitor_timer)
-		print("[FireGeyser] Monitor timer created to keep damage area active")
 	
 	# Create fire geyser visual
 	_create_geyser_visual()
@@ -84,7 +81,6 @@ func _ready() -> void:
 	dot_timer.wait_time = dot_interval
 	dot_timer.timeout.connect(_deal_dot_damage)
 	add_child(dot_timer)
-	print("[FireGeyser] DOT timer created - interval: %.2fs" % dot_interval)
 	
 	# Create rising damage timer
 	rising_damage_timer = Timer.new()
@@ -92,9 +88,7 @@ func _ready() -> void:
 	rising_damage_timer.one_shot = true
 	rising_damage_timer.timeout.connect(_on_rising_damage_ready)
 	add_child(rising_damage_timer)
-	print("[FireGeyser] Rising damage timer created - delay: %.3fs" % rising_damage_timer.wait_time)
 	
-	print("[FireGeyser] Ready - Sprite position: %s, Z-index: %d" % [sprite_offset, sprite_z_index])
 
 func _create_geyser_visual() -> void:
 	geyser_sprite = Sprite2D.new()
@@ -113,7 +107,6 @@ func _create_geyser_visual() -> void:
 	# Create animation library and player
 	_create_geyser_animations()
 	
-	print("[FireGeyser] Loaded sprite with 22 frames")
 
 func _create_geyser_animations() -> void:
 	var anim_player = AnimationPlayer.new()
@@ -192,7 +185,6 @@ func _create_active_animation(library: AnimationLibrary) -> void:
 	# Add the first frame again at the end for smooth loop transition
 	anim.track_insert_key(frame_track, anim.length, 14)  # Back to first frame
 	
-	print("[FireGeyser] Active animation created - Duration: %.2fs, Frame duration: %.3fs" % [anim.length, frame_duration])
 	
 	library.add_animation("active", anim)
 
@@ -237,7 +229,6 @@ func _execute_trap_behavior() -> void:
 		print("[FireGeyser] Cannot execute - current state: %s" % GeyserState.keys()[current_state])
 		return
 	
-	print("[FireGeyser] Executing geyser behavior - starting activation")
 	_activate_geyser()
 
 func _activate_geyser() -> void:
@@ -258,28 +249,23 @@ func _activate_geyser() -> void:
 		# Then rising animation
 		current_state = GeyserState.RISING
 		_update_status_indicator("RISING", Color.YELLOW)
-		print("[FireGeyser] Flames rising - duration: %.1f seconds" % rising_duration)
 		
 		# Start the rising damage timer (damage after half of rising duration)
 		rising_damage_timer.start()
-		print("[FireGeyser] Rising damage timer started - damage in %.2fs" % rising_damage_timer.wait_time)
 		
 		anim_player.play("geyser_anims/rising")
 		await anim_player.animation_finished
 		
 		_on_geyser_fully_erupted()
 	else:
-		print("[FireGeyser] No AnimationPlayer found, using fallback")
+		pass
 
 func _on_geyser_fully_erupted() -> void:
 	current_state = GeyserState.ACTIVE
 	_update_status_indicator("ACTIVE - FIRE!", Color.RED)
-	print("[FireGeyser] 🔥 GEYSER NOW ACTIVE AND DANGEROUS for %.1f seconds 🔥" % active_duration)
-	print("[FireGeyser] State changed to: %s" % GeyserState.keys()[current_state])
 	
 	# Start DOT damage timer
 	dot_timer.start()
-	print("[FireGeyser] DOT damage started - every %.1fs" % dot_interval)
 	
 	# Check if any players are currently in damage area and damage them
 	_check_players_in_damage_area()
@@ -298,12 +284,9 @@ func _on_geyser_fully_erupted() -> void:
 func _cool_down_geyser() -> void:
 	current_state = GeyserState.COOLING
 	_update_status_indicator("COOLING", Color.BLUE)
-	print("[FireGeyser] ❄️ GEYSER COOLING DOWN - SAFE AGAIN - duration: %.1f seconds" % cooling_duration)
-	print("[FireGeyser] State changed to: %s" % GeyserState.keys()[current_state])
 	
 	# Stop DOT damage
 	dot_timer.stop()
-	print("[FireGeyser] DOT damage stopped")
 	
 	# Get AnimationPlayer and play cooling animation
 	var anim_player = get_node("GeyserAnimationPlayer")
@@ -312,14 +295,12 @@ func _cool_down_geyser() -> void:
 		await anim_player.animation_finished
 		_on_geyser_fully_cooled()
 	else:
-		print("[FireGeyser] No AnimationPlayer found, using fallback")
 		await get_tree().create_timer(cooling_duration).timeout
 		_on_geyser_fully_cooled()
 
 func _on_geyser_fully_cooled() -> void:
 	current_state = GeyserState.IDLE
 	_update_status_indicator("IDLE", Color.GRAY)
-	print("[FireGeyser] Geyser cooled down - waiting for cooldown")
 	
 	# Return to idle animation
 	var anim_player = get_node("GeyserAnimationPlayer")
@@ -327,71 +308,55 @@ func _on_geyser_fully_cooled() -> void:
 		anim_player.play("geyser_anims/idle")
 
 func _on_rising_damage_ready() -> void:
-	print("[FireGeyser] Rising damage timer finished - flames now dangerous during RISING!")
+	pass
 
 func _on_trigger_area_entered(body: Node2D) -> void:
-	print("[FireGeyser] Trigger area entered by: %s" % body.name)
-	print("[FireGeyser] Body groups: %s" % body.get_groups())
 	
 	if body.is_in_group("player") and current_state == GeyserState.IDLE:
-		print("[FireGeyser] ✓ PLAYER TRIGGERED GEYSER!")
 		_execute_trap_behavior()
 	else:
 		if not body.is_in_group("player"):
-			print("[FireGeyser] ✗ Not a player, ignoring trigger")
+			pass
 		else:
-			print("[FireGeyser] ✗ Geyser not idle (current state: %s)" % GeyserState.keys()[current_state])
+			pass
 
 func _on_damage_area_entered(body: Node2D) -> void:
-	print("[FireGeyser] Body entered damage area: %s" % body.name)
-	print("[FireGeyser] Body groups: %s" % body.get_groups())
-	print("[FireGeyser] Current geyser state: %s" % GeyserState.keys()[current_state])
-	print("[FireGeyser] Is player in group: %s" % body.is_in_group("player"))
 	
 	if body.is_in_group("player"):
-		print("[FireGeyser] ✓ PLAYER CONFIRMED - State: %s" % GeyserState.keys()[current_state])
 		
 		# Only deal initial damage once per cycle and only when geyser is dangerous
 		if not has_dealt_initial_damage and (current_state == GeyserState.RISING or current_state == GeyserState.ACTIVE):
 			# For RISING state, only deal damage if enough time has passed
 			if current_state == GeyserState.RISING:
 				if rising_damage_timer.is_stopped():  # Timer has finished
-					print("[FireGeyser] ✓ RISING FLAMES ARE DANGEROUS - DEALING INITIAL DAMAGE!")
 					_deal_initial_damage_to_player(body)
 					has_dealt_initial_damage = true
 				else:
-					print("[FireGeyser] ✗ Rising flames not dangerous yet - waiting for timer")
+					pass
 			elif current_state == GeyserState.ACTIVE:
-				print("[FireGeyser] ✓ ACTIVE FLAMES ARE DANGEROUS - DEALING INITIAL DAMAGE!")
 				_deal_initial_damage_to_player(body)
 				has_dealt_initial_damage = true
 		elif has_dealt_initial_damage:
-			print("[FireGeyser] ✗ Initial damage already dealt this cycle")
+			pass
 		else:
-			print("[FireGeyser] ✗ Flames not dangerous yet - State: %s" % GeyserState.keys()[current_state])
+			pass
 	else:
-		print("[FireGeyser] ✗ Not a player body, ignoring")
+		pass
 
 func _deal_dot_damage() -> void:
 	if current_state != GeyserState.ACTIVE:
 		return
 	
-	print("[FireGeyser] DOT damage tick!")
 	_check_players_in_damage_area_for_dot()
 
 func _check_players_in_damage_area() -> void:
 	if not damage_area:
-		print("[FireGeyser] No damage area found!")
 		return
 		
-	print("[FireGeyser] Checking for players currently in damage area...")
 	var bodies_in_area = damage_area.get_overlapping_bodies()
-	print("[FireGeyser] Found %d bodies in damage area" % bodies_in_area.size())
 	
 	for body in bodies_in_area:
-		print("[FireGeyser] Checking body: %s, groups: %s" % [body.name, body.get_groups()])
 		if body.is_in_group("player"):
-			print("[FireGeyser] ✓ FOUND PLAYER IN DAMAGE AREA - DEALING INITIAL DAMAGE!")
 			_deal_initial_damage_to_player(body)
 
 func _check_players_in_damage_area_for_dot() -> void:
@@ -402,16 +367,13 @@ func _check_players_in_damage_area_for_dot() -> void:
 	
 	for body in bodies_in_area:
 		if body.is_in_group("player"):
-			print("[FireGeyser] ✓ FOUND PLAYER IN DAMAGE AREA - DEALING DOT DAMAGE!")
 			_deal_dot_damage_to_player(body)
 
 func _deal_initial_damage_to_player(player: Node2D) -> void:
 	var initial_damage = base_damage * (initial_damage_percent / 100.0)
-	print("[FireGeyser] Dealing initial damage: %.1f" % initial_damage)
 	
 	if player.has_method("take_damage"):
 		player.take_damage(initial_damage)
-		print("[FireGeyser] Initial damage dealt successfully")
 		
 		# Visual feedback
 		_update_status_indicator("INITIAL DMG!", Color.MAGENTA)
@@ -421,11 +383,9 @@ func _deal_initial_damage_to_player(player: Node2D) -> void:
 
 func _deal_dot_damage_to_player(player: Node2D) -> void:
 	var dot_damage = base_damage * (dot_damage_percent / 100.0)
-	print("[FireGeyser] Dealing DOT damage: %.1f" % dot_damage)
 	
 	if player.has_method("take_damage"):
 		player.take_damage(dot_damage)
-		print("[FireGeyser] DOT damage dealt successfully")
 		
 		# Visual feedback
 		_update_status_indicator("DOT DMG!", Color.RED)
@@ -451,27 +411,23 @@ func _show_damage_number(damage: float) -> void:
 func _ensure_damage_area_active() -> void:
 	if damage_area and not damage_area.monitoring:
 		damage_area.monitoring = true
-		print("[FireGeyser] ⚠️ Damage area was disabled, re-enabling it!")
 
 # Debug functions for fine-tuning
 func adjust_sprite_position(new_offset: Vector2) -> void:
 	sprite_offset = new_offset
 	if geyser_sprite:
 		geyser_sprite.position = sprite_offset
-		print("[FireGeyser] Sprite position adjusted to: %s" % sprite_offset)
 
 func adjust_sprite_z_index(new_z_index: int) -> void:
 	sprite_z_index = new_z_index
 	if geyser_sprite:
 		geyser_sprite.z_index = sprite_z_index
-		print("[FireGeyser] Sprite z_index adjusted to: %d" % sprite_z_index)
 
 func adjust_damage_area_size(new_size: Vector2) -> void:
 	if damage_area:
 		var damage_collision = damage_area.get_node_or_null("CollisionShape2D")
 		if damage_collision and damage_collision.shape is RectangleShape2D:
 			damage_collision.shape.size = new_size
-			print("[FireGeyser] Damage area size adjusted to: %s" % new_size)
 
 func adjust_trigger_area_size(new_size: Vector2) -> void:
 	var trigger_area = get_node_or_null("TriggerArea")
@@ -482,33 +438,27 @@ func adjust_trigger_area_size(new_size: Vector2) -> void:
 				trigger_collision.shape.size = new_size
 			elif trigger_collision.shape is CircleShape2D:
 				trigger_collision.shape.radius = new_size.x / 2.0  # Use width as diameter
-			print("[FireGeyser] Trigger area size adjusted to: %s" % new_size)
 
 func get_trap_info() -> String:
 	return "Fire Geyser - Deals initial + DOT fire damage"
 
 # Debug info function
 func print_debug_info() -> void:
-	print("=== FireGeyser Debug Info ===")
-	print("Sprite offset: %s" % sprite_offset)
-	print("Sprite z_index: %d" % sprite_z_index)
 	
 	# Get current area sizes from scene
 	if damage_area:
 		var damage_collision = damage_area.get_node_or_null("CollisionShape2D")
 		if damage_collision and damage_collision.shape is RectangleShape2D:
-			print("Damage area size: %s" % damage_collision.shape.size)
+			pass
 	
 	var trigger_area = get_node_or_null("TriggerArea")
 	if trigger_area:
 		var trigger_collision = trigger_area.get_node_or_null("CollisionShape2D")
 		if trigger_collision:
 			if trigger_collision.shape is RectangleShape2D:
-				print("Trigger area size: %s" % trigger_collision.shape.size)
+				pass
 			elif trigger_collision.shape is CircleShape2D:
-				print("Trigger area radius: %s" % trigger_collision.shape.radius)
+				pass
 	
-	print("Current state: %s" % GeyserState.keys()[current_state])
-	print("==============================")
  
  

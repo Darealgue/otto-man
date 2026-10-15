@@ -14,7 +14,6 @@ func _init():
 	item_name = tr("item.yangin_yayilimi.name")
 	description = tr("item.yangin_yayilimi.description")
 	flavor_text = "Bir kıvılcım yeter"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["fire_spread"]
 

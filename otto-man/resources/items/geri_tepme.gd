@@ -11,17 +11,14 @@ func _init():
 	item_name = tr("item.geri_tepme.name")
 	description = tr("item.geri_tepme.description")
 	flavor_text = "Kalkanına çarpan geri döner"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.BLOCK
 	affected_stats = ["block_knockback"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Geri Tepme] ✅ Bloklanan düşman geri itilir")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Geri Tepme] ❌ Kaldırıldı")
 
 func _on_player_blocked(blocked_damage: float, attacker: Node2D) -> void:
 	if blocked_damage <= 0.0 or not is_instance_valid(attacker):

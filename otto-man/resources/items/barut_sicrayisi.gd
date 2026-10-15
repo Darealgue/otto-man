@@ -13,7 +13,6 @@ func _init():
 	item_name = tr("item.barut_sicrayisi.name")
 	description = tr("item.barut_sicrayisi.description")
 	flavor_text = "Havada fitil tutuşur"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.JUMP
 	affected_stats = ["air_jump_bomb"]
 

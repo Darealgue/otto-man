@@ -12,14 +12,11 @@ func _init():
 	item_name = tr("item.firtina_gozu.name")
 	description = tr("item.firtina_gozu.description")
 	flavor_text = "Dokunduğu her şeyi havaya savurur"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.DODGE
 	affected_stats = ["dodge_contact_launch"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Fırtına Gözü] ✅ Dodge/dash temas hasarı artık fırlatıyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Fırtına Gözü] ❌ Kaldırıldı")

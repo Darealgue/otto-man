@@ -20,7 +20,6 @@ func _init():
 	item_name = tr("item.tasiyici.name")
 	description = tr("item.tasiyici.description")
 	flavor_text = "Zehri sen taşırsın"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SLIDE
 	affected_stats = ["slide_poison_carry"]
 

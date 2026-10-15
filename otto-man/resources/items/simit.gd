@@ -16,7 +16,6 @@ func _init():
 	item_name = tr("item.simit.name")
 	description = tr("item.simit.description")
 	flavor_text = "Simitçi geçti!"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.STAMINA
 	affected_stats = ["stamina_regen"]
 
@@ -27,7 +26,6 @@ func activate(player: CharacterBody2D):
 		if !_stamina_bar.stamina_depleted.is_connected(_on_stamina_depleted):
 			_stamina_bar.stamina_depleted.connect(_on_stamina_depleted)
 		set_process(true)
-		print("[Simit] ✅ Stamina sıfırlanınca 5 sn 2x regen aktif")
 
 func deactivate(player: CharacterBody2D):
 	set_process(false)
@@ -39,7 +37,6 @@ func deactivate(player: CharacterBody2D):
 		_stamina_bar.RECHARGE_RATE = _stored_recharge_rate
 	_stamina_bar = null
 	super.deactivate(player)
-	print("[Simit] ❌ Simit kaldırıldı")
 
 func _on_stamina_depleted():
 	if _boost_active:
@@ -50,7 +47,6 @@ func _on_stamina_depleted():
 	_stamina_bar.RECHARGE_RATE = _stored_recharge_rate / REGEN_MULTIPLIER
 	_boost_active = true
 	_boost_timer = BOOST_DURATION
-	print("[Simit] Stamina sıfırlandı — 5 sn 2x regen başladı")
 
 func _process(delta: float):
 	if !_boost_active or !_stamina_bar:
@@ -59,4 +55,3 @@ func _process(delta: float):
 	if _boost_timer <= 0:
 		_stamina_bar.RECHARGE_RATE = _stored_recharge_rate
 		_boost_active = false
-		print("[Simit] 5 sn 2x regen bitti")

@@ -13,17 +13,14 @@ func _init():
 	item_name = tr("item.cellat_nefesi.name")
 	description = tr("item.cellat_nefesi.description")
 	flavor_text = "Durursan, nefesin de durur"
-	rarity = ItemRarity.LEGENDARY
 	category = ItemCategory.STAMINA
 	affected_stats = ["stamina_passive_regen", "stamina_attack_refund"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Cellat Nefesi] ✅ Pasif stamina yenilenmesi durdu, isabetli vuruş besliyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Cellat Nefesi] ❌ Kaldırıldı")
 
 func _on_player_attack_landed(_attack_type: String, _damage: float, _targets: Array, _position: Vector2, _effect_filter: String = "all") -> void:
 	var stamina_bar = get_tree().get_first_node_in_group("stamina_bar")

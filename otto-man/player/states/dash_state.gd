@@ -54,7 +54,7 @@ func enter():
 	var stamina_bar = get_tree().get_first_node_in_group("stamina_bar")
 	if stamina_bar and _speed_mult <= 1.0:
 		if stamina_bar.use_charge():
-			print("[Dash] Stamina consumed for dash")
+			pass
 		else:
 			print("[Dash] ERROR: No stamina available!")
 			# Stamina yoksa dash yapamaz, idle'a dön
@@ -136,7 +136,6 @@ func set_dash_charges(charges: int) -> void:
 	max_dash_charges = charges
 	dash_charges = charges
 	can_dash = dash_charges > 0
-	print("[Dash State] Set dash charges: " + str(charges))
 
 
 func _play_dash_sfx() -> void:

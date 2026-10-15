@@ -41,11 +41,7 @@ const VIP_NAMES := [
 
 func _ready():
 	if DEBUG_DOOR_INTERACTION:
-		print("[DoorInteraction] _ready, minigame_kind=%s, consumed=%s, room=%s" % [
-			str(minigame_kind),
-			str(_consumed),
-			str(get_parent() and get_parent().get("scene_file_path") if get_parent() else "NO_PARENT")
-		])
+		pass
 	input_event.connect(_on_input_event)
 	if has_signal("body_entered"):
 		body_entered.connect(_on_body_entered)
@@ -55,11 +51,11 @@ func _ready():
 		_setup_villager_pen_interaction()
 	if not _consumed and minigame_kind == "villager":
 		if DEBUG_DOOR_INTERACTION:
-			print("[DoorInteraction] Scheduling villager prisoner spawn...")
+			pass
 		call_deferred("_spawn_prisoner_villager")
 	if not _consumed and minigame_kind == "vip":
 		if DEBUG_DOOR_INTERACTION:
-			print("[DoorInteraction] Scheduling vip prisoner spawn...")
+			pass
 		call_deferred("_spawn_prisoner_cariye")
 	if minigame_kind == "vip":
 		call_deferred("_spawn_door_sprite")
@@ -175,6 +171,19 @@ func _show_village_full_message(text: String) -> void:
 	var t = get_tree().create_timer(2.0)
 	t.timeout.connect(func(): label.queue_free())
 
+## Yoluna gönderilen cariyenin bıraktığı küçük ödül (zindan altını).
+const RESCUED_CARIYE_PARTING_GOLD := 20
+
+
+## Kurtarılan cariye için "köye al / yoluna gitsin" penceresi; true: köye alınır.
+func _ask_keep_rescued_cariye(cariye_data: Dictionary) -> bool:
+	var ui := RescuedCariyeChoiceUI.new()
+	get_tree().root.add_child(ui)
+	ui.setup(cariye_data, RESCUED_CARIYE_PARTING_GOLD)
+	var accept: bool = await ui.decided
+	return accept
+
+
 func _on_minigame_result(result: Dictionary):
 	if minigame_kind == "villager":
 		_handle_villager_result(result)
@@ -206,7 +215,20 @@ func _on_minigame_result(result: Dictionary):
 					"leverage": leverage,
 					"appearance": appearance_dict
 				}
-				drs.add_pending_cariye(cariye_data)
+				# Kurtarılan cariyenin kimliği şimdiden ayrılır: özellikleri kimlikten türediği için
+				# oyuncu karar vermeden önce görebilsin.
+				var mm_res: Node = get_node_or_null("/root/MissionManager")
+				if mm_res != null and mm_res.has_method("reserve_concubine_id"):
+					cariye_data["id"] = int(mm_res.call("reserve_concubine_id"))
+				var keep: bool = await _ask_keep_rescued_cariye(cariye_data)
+				if keep:
+					drs.add_pending_cariye(cariye_data)
+				else:
+					# Yoluna gider: teşekkür edip küçük bir ödül bırakır (zindan altını).
+					var gpd: Node = get_node_or_null("/root/GlobalPlayerData")
+					if gpd != null and gpd.has_method("add_dungeon_gold"):
+						gpd.call("add_dungeon_gold", RESCUED_CARIYE_PARTING_GOLD)
+					_show_village_full_message(tr("rescue.choice.thanks") % String(cariye_data.get("isim", "")))
 	else:
 		# Kaybedilen kurtarma tekrar denenemez: oda kapanır
 		_consumed = true
@@ -274,7 +296,7 @@ func _random_villager_name() -> String:
 func _spawn_prisoner_villager() -> void:
 	if _consumed:
 		if DEBUG_DOOR_INTERACTION:
-			print("[DoorInteraction] _spawn_prisoner_villager: consumed, abort.")
+			pass
 		return
 	var chunk = get_parent()
 	if not chunk or not WorkerScene:
@@ -301,7 +323,7 @@ func _spawn_prisoner_villager() -> void:
 		_spawn_pen_barrier(chunk, pen)
 	var count: int = randi_range(VILLAGER_ROOM_MIN_COUNT, VILLAGER_ROOM_MAX_COUNT)
 	if DEBUG_DOOR_INTERACTION:
-		print("[DoorInteraction] Spawning %d villager prisoner(s), pen_center=%s pen_half=%.0f" % [count, str(pen_center_local), pen_half])
+		pass
 	var spacing: float = 48.0
 	if count > 1:
 		spacing = minf(48.0, (pen_half * 2.0 - 48.0) / float(count - 1))
@@ -374,7 +396,7 @@ func _count_unrescued_villagers() -> int:
 func _spawn_prisoner_cariye() -> void:
 	if _consumed:
 		if DEBUG_DOOR_INTERACTION:
-			print("[DoorInteraction] _spawn_prisoner_cariye: consumed, abort.")
+			pass
 		return
 	var chunk = get_parent()
 	if not chunk or not ConcubineScene:
@@ -382,7 +404,7 @@ func _spawn_prisoner_cariye() -> void:
 			print("[DoorInteraction] _spawn_prisoner_cariye: missing chunk or ConcubineScene.")
 		return
 	if DEBUG_DOOR_INTERACTION:
-		print("[DoorInteraction] Spawning vip prisoner in chunk: %s" % str(chunk.get("scene_file_path") if chunk.has_method("get") else chunk.name))
+		pass
 	var cariye = ConcubineScene.instantiate()
 	cariye.is_dungeon_prisoner = true
 	cariye.display_name = _random_vip_name()
@@ -393,7 +415,7 @@ func _spawn_prisoner_cariye() -> void:
 		if path_str.get_file().to_lower().contains("left"):
 			offset_x = 400
 	if DEBUG_DOOR_INTERACTION:
-		print("[DoorInteraction] VIP prisoner offset_x=%s base_position=%s" % [str(offset_x), str(position)])
+		pass
 	cariye.position = position + Vector2(offset_x, 0)
 	cariye.z_index = 50
 	chunk.add_child(cariye)
@@ -403,7 +425,7 @@ func _spawn_prisoner_cariye() -> void:
 	cariye.set_physics_process(false)
 	_snap_npc_to_floor(cariye)
 	if DEBUG_DOOR_INTERACTION:
-		print("[DoorInteraction] VIP prisoner spawned at global %s" % str(cariye.global_position))
+		pass
 	_prisoner_cariye = cariye
 
 ## VIP (cariye) odasında etkileşim noktasına görsel kapı koyar. Akış: oyuncu
@@ -447,7 +469,7 @@ func _snap_door_sprite_to_floor(spr: Sprite2D) -> void:
 		spr.position = door_sprite_offset
 	spr.visible = true
 	if DEBUG_DOOR_INTERACTION:
-		print("[DoorInteraction] Door sprite snapped to %s (floor_top=%s)" % [str(spr.global_position), str(floor_top)])
+		pass
 
 
 ## Yüzeyin üstünden aşağı fizik raycast: yürünebilir zeminin üst Y'si (bulamazsa INF).

@@ -12,14 +12,11 @@ func _init():
 	item_name = tr("item.agir_mermi.name")
 	description = tr("item.agir_mermi.description")
 	flavor_text = "Hafif bir ok değil, bir yumruk"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["projectile_knockback"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Ağır Mermi] ✅ Mermiler artık fırlatma da veriyor")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Ağır Mermi] ❌ Kaldırıldı")

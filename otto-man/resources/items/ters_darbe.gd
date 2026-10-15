@@ -8,7 +8,6 @@ func _init():
 	item_name = tr("item.ters_darbe.name")
 	description = tr("item.ters_darbe.description")
 	flavor_text = "Savunma = saldırı"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.PARRY
 	affected_stats = ["parry_counter"]
 
@@ -17,12 +16,10 @@ var _player: CharacterBody2D = null
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Ters Darbe] ✅ Perfect parry sonrası otomatik karşı saldırı aktif")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Ters Darbe] ❌ Ters Darbe kaldırıldı")
 
 func _on_perfect_parry():
 	if not _player:
@@ -34,5 +31,4 @@ func _on_perfect_parry():
 	# Transition to Attack state for automatic counter
 	var state_machine = _player.get_node_or_null("StateMachine")
 	if state_machine and state_machine.has_node("Attack"):
-		print("[Ters Darbe] Otomatik karşı saldırı!")
 		state_machine.transition_to("Attack")

@@ -13,7 +13,6 @@ func _init():
 	item_name = tr("item.ziplatan_yumruk.name")
 	description = tr("item.ziplatan_yumruk.description")
 	flavor_text = "Her yumruk gökyüzüne açılır"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.HEAVY_ATTACK
 	affected_stats = ["heavy_launch"]
 
@@ -23,11 +22,9 @@ func activate(player: CharacterBody2D):
 	if hitbox:
 		_hitbox = hitbox
 		_hitbox.force_heavy_launch = true
-		print("[Zıplatan Yumruk] ✅ Normal heavy attack de fırlatıcı oldu")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	if _hitbox and is_instance_valid(_hitbox):
 		_hitbox.force_heavy_launch = false
 	_hitbox = null
-	print("[Zıplatan Yumruk] ❌ Kaldırıldı")

@@ -18,7 +18,6 @@ func _init():
 	item_name = tr("item.gokten_dusus.name")
 	description = tr("item.gokten_dusus.description")
 	flavor_text = "Düştüğü yer kıvılcım olur"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.FALL_ATTACK
 	tags = ["elemental_fire"]
 	affected_stats = ["fall_sparks"]

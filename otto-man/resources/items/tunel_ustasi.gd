@@ -10,7 +10,6 @@ func _init():
 	item_name = tr("item.tunel_ustasi.name")
 	description = tr("item.tunel_ustasi.description")
 	flavor_text = "Daha hızlı sürünme"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.CROUCH
 	affected_stats = ["crawl_speed"]
 
@@ -22,7 +21,6 @@ func activate(player: CharacterBody2D):
 			crouch_state.set_meta("original_crawl_speed_tunel", crouch_state.DEFAULT_CRAWL_SPEED)
 		var orig = crouch_state.get_meta("original_crawl_speed_tunel")
 		crouch_state.CRAWL_SPEED = orig * (1.0 + SPEED_BOOST)
-		print("[Tünel Ustası] ✅ Crawl hızı +%50 (", crouch_state.CRAWL_SPEED, ")")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -30,4 +28,3 @@ func deactivate(player: CharacterBody2D):
 	if crouch_state and crouch_state.has_meta("original_crawl_speed_tunel"):
 		crouch_state.CRAWL_SPEED = crouch_state.get_meta("original_crawl_speed_tunel")
 		crouch_state.remove_meta("original_crawl_speed_tunel")
-		print("[Tünel Ustası] ❌ Crawl hızı eski haline döndü (", crouch_state.CRAWL_SPEED, ")")

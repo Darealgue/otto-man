@@ -81,7 +81,6 @@ func _ready() -> void:
 	else:
 		get_tree().paused = false
 	
-	print("[MainMenu] ready, intro landscape active")
 	_connect_signals()
 	_setup_load_game_menu()
 	_setup_settings_menu()
@@ -1052,7 +1051,6 @@ func _enable_main_menu_focus() -> void:
 		_quit_button.focus_mode = Control.FOCUS_ALL
 
 func _on_load_game_slot_selected(slot_id: int) -> void:
-	print("[MainMenu] Loading game from slot %d..." % slot_id)
 	if is_instance_valid(SaveManager):
 		# Connect to error signals if not already connected
 		if SaveManager.has_signal("error_occurred"):
@@ -1068,7 +1066,7 @@ func _on_load_game_slot_selected(slot_id: int) -> void:
 		else:
 			loaded_ok = SaveManager.load_game(slot_id)
 		if loaded_ok:
-			print("[MainMenu] ✅ Game loaded successfully")
+			pass
 		else:
 			push_error("[MainMenu] Failed to load game from slot %d" % slot_id)
 			_show_error(tr("error.load_failed_title"), tr("error.load_failed_message"))

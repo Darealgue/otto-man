@@ -9,7 +9,6 @@ var _current_level: int = 1
 
 func _ready() -> void:
 	_trap_config = TrapConfig.new()
-	print("[TrapManager] Initialized")
 	
 	# Collect all trap spawners in the chunk immediately
 	_collect_trap_spawners()
@@ -21,14 +20,12 @@ func _collect_trap_spawners() -> void:
 		return
 	
 	_find_trap_spawners_recursive(parent)
-	print("[TrapManager] Found %d trap spawners" % _trap_spawners.size())
 
 func _find_trap_spawners_recursive(node: Node) -> void:
 	for child in node.get_children():
 		if child is TrapSpawner:
 			_trap_spawners.append(child as TrapSpawner)
 			child.chunk_type = _chunk_type
-			print("[TrapManager] Added spawner: %s (Category: %s)" % [child.name, TrapConfig.TrapCategory.keys()[child.trap_category]])
 		else:
 			_find_trap_spawners_recursive(child)
 
@@ -36,7 +33,6 @@ func initialize(chunk_type: String, level: int) -> void:
 	_chunk_type = chunk_type
 	_current_level = level
 	
-	print("[TrapManager] Initializing with chunk type: %s, level: %d" % [chunk_type, level])
 	
 	# Update all spawners with current settings
 	for spawner in _trap_spawners:
@@ -53,7 +49,6 @@ func initialize(chunk_type: String, level: int) -> void:
 		else:
 			spawner.deactivate()
 	
-	print("[TrapManager] Activated %d out of %d spawners" % [_active_spawners.size(), _trap_spawners.size()])
 
 # Select which trap spawners to activate based on chunk type and level
 func _select_trap_spawners(available_spawners: Array[TrapSpawner], chunk_type: String, level: int) -> Array[TrapSpawner]:
@@ -72,13 +67,10 @@ func _select_trap_spawners(available_spawners: Array[TrapSpawner], chunk_type: S
 		match spawner.trap_category:
 			TrapConfig.TrapCategory.GROUND:
 				ground_spawners.append(spawner)
-				print("[TrapManager] Added GROUND spawner: %s" % spawner.name)
 			TrapConfig.TrapCategory.WALL:
 				wall_spawners.append(spawner)
-				print("[TrapManager] Added WALL spawner: %s" % spawner.name)
 			TrapConfig.TrapCategory.CEILING:
 				ceiling_spawners.append(spawner)
-				print("[TrapManager] Added CEILING spawner: %s" % spawner.name)
 	
 	# Select spawners with some variety
 	var categories = [ground_spawners, wall_spawners, ceiling_spawners]
@@ -95,7 +87,6 @@ func _select_trap_spawners(available_spawners: Array[TrapSpawner], chunk_type: S
 			if _is_valid_placement(spawner, selected):
 				selected.append(spawner)
 				current_category.erase(spawner)
-				print("[TrapManager] Selected spawner: %s (Category: %s)" % [spawner.name, TrapConfig.TrapCategory.keys()[spawner.trap_category]])
 		
 		category_index += 1
 		
@@ -144,7 +135,6 @@ func get_active_traps() -> Array[BaseTrap]:
 func clear_all_traps() -> void:
 	for spawner in _trap_spawners:
 		spawner.clear_trap()
-	print("[TrapManager] Cleared all traps")
 
 func set_level(level: int) -> void:
 	_current_level = level

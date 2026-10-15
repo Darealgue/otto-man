@@ -21,7 +21,6 @@ func _init():
 	item_name = tr("item.golge_donusu.name")
 	description = tr("item.golge_donusu.description")
 	flavor_text = "Gölge her zaman geri çağırır"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.DODGE
 	affected_stats = ["dodge_return"]
 
@@ -30,13 +29,11 @@ func activate(player: CharacterBody2D):
 	_player = player
 	_window_left = 0.0
 	_cooldown_left = 0.0
-	print("[Gölge Dönüşü] ✅ Dodge sonrası Blok = başlangıç noktasına ışınlan")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
 	_window_left = 0.0
-	print("[Gölge Dönüşü] ❌ Kaldırıldı")
 
 # ItemManager player_dodged'a otomatik bağlar (dodge ve dash bitişinde ateşlenir)
 func _on_player_dodged(_direction: int, start_pos: Vector2, end_pos: Vector2) -> void:
@@ -68,7 +65,6 @@ func _return_now(player: CharacterBody2D) -> void:
 	if im:
 		im.notify_item_event("_on_shadow_return", [from_pos, _return_pos])
 	player.velocity = Vector2.ZERO
-	print("[Gölge Dönüşü] ⚡ Başlangıç noktasına dönüldü")
 
 func _spawn_decoy(pos: Vector2, player: CharacterBody2D) -> void:
 	var tree := get_tree()

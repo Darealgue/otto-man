@@ -14,7 +14,6 @@ func _init():
 	item_name = tr("item.donma_cekici.name")
 	description = tr("item.donma_cekici.description")
 	flavor_text = "Buz dalgası"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.HEAVY_ATTACK
 	tags = ["elemental_ice"]
 	affected_stats = ["heavy_frost"]
@@ -22,12 +21,10 @@ func _init():
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Donma Çekici] ✅ Heavy attack donma AoE (1 stamina hücresi)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Donma Çekici] ❌ Kaldırıldı")
 
 func _on_heavy_attack_impact(_attack_name: String = "") -> void:
 	if not _player or not is_instance_valid(_player):

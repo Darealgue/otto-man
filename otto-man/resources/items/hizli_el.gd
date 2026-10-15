@@ -10,7 +10,6 @@ func _init():
 	item_name = tr("item.hizli_el.name")
 	description = tr("item.hizli_el.description")
 	flavor_text = "Daha hızlı vuruşlar"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.LIGHT_ATTACK
 	affected_stats = ["attack_speed"]
 
@@ -27,7 +26,6 @@ func activate(player: CharacterBody2D):
 		# Increase animation speed
 		var original_speed = attack_state.get_meta("original_animation_speed")
 		attack_state.ANIMATION_SPEED = original_speed * (1.0 + SPEED_BOOST)
-		print("[Hızlı El] ✅ Attack speed +25%")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -36,4 +34,3 @@ func deactivate(player: CharacterBody2D):
 	if attack_state and attack_state.has_meta("original_animation_speed"):
 		attack_state.ANIMATION_SPEED = attack_state.get_meta("original_animation_speed")
 		attack_state.remove_meta("original_animation_speed")
-		print("[Hızlı El] ❌ Attack speed restored")

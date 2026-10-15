@@ -14,19 +14,16 @@ func _init():
 	item_name = tr("item.ok_yagmuru.name")
 	description = tr("item.ok_yagmuru.description")
 	flavor_text = "Gökten ok yağar"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.HEAVY_ATTACK
 	affected_stats = ["heavy_attack_ranged"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Ok Yağmuru] ✅ Ağır saldırı projectile fırlatır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Ok Yağmuru] ❌ Kaldırıldı")
 
 func _on_heavy_attack_impact(_attack_name: String) -> void:
 	if not _player or not is_instance_valid(_player):

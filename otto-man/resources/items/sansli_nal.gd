@@ -8,7 +8,6 @@ func _init():
 	item_name = tr("item.sansli_nal.name")
 	description = tr("item.sansli_nal.description")
 	flavor_text = "Şans, hazırlıklı olanı sever"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SPECIAL
 	affected_stats = ["guaranteed_crit"]
 
@@ -24,7 +23,6 @@ func deactivate(player: CharacterBody2D):
 		player.sansli_nal_active = false
 		player.sansli_nal_crit_next = false
 	_player = null
-	print("[Şanslı Nal] ❌ Kaldırıldı")
 
 func _on_perfect_parry() -> void:
 	if is_instance_valid(_player):

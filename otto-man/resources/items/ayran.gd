@@ -10,7 +10,6 @@ func _init():
 	item_name = tr("item.ayran.name")
 	description = tr("item.ayran.description")
 	flavor_text = "Serinletici ve ferahlatıcı"
-	rarity = ItemRarity.COMMON
 	category = ItemCategory.STAMINA
 	affected_stats = ["stamina_regen"]
 
@@ -28,7 +27,6 @@ func activate(player: CharacterBody2D):
 		# Apply multiplier to current rate (stack with other regen items)
 		var current_rate = stamina_bar.RECHARGE_RATE
 		stamina_bar.RECHARGE_RATE = current_rate / (1.0 + REGEN_BOOST)
-		print("[Ayran] ✅ Stamina regen +50%")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -39,4 +37,3 @@ func deactivate(player: CharacterBody2D):
 		var original_rate = stamina_bar.get_meta("original_recharge_rate")
 		stamina_bar.RECHARGE_RATE = original_rate
 		stamina_bar.remove_meta("original_recharge_rate")
-		print("[Ayran] ❌ Stamina regen restored")

@@ -27,7 +27,6 @@ var _pickup_area: Area2D = null
 
 
 func _ready() -> void:
-	print("[ResourcePiece] _ready() type=", resource_type, " pos=", global_position, " visible=", visible, " modulate=", modulate)
 	_rigid_body = get_node_or_null("RigidBody2D")
 	if _rigid_body == null:
 		print("[ResourcePiece] ERROR: RigidBody2D child not found")

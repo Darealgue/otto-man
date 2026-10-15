@@ -43,6 +43,7 @@ var _player_in_range: bool = false
 var _is_speaking: bool = false
 var _interact_hint_icon: TextureRect = null
 var _interact_hold_ring: NpcInteractHoldRing = null
+var _nameplate: PanelContainer = null
 
 var state: MentorState = MentorState.ROAM
 var roam_target_x: float = 0.0
@@ -335,12 +336,16 @@ func ShowInteractButton() -> void:
 		_create_interact_hint()
 	if _interact_hint_icon:
 		NpcOverheadUi.fade_show_icon(_interact_hint_icon)
+	if is_instance_valid(_nameplate):
+		_nameplate.visible = true
 	if _interact_hold_ring:
 		_interact_hold_ring.sync_to_control(_interact_hint_icon)
 		_interact_hold_ring.set_progress(0.0)
 
 
 func HideInteractButton() -> void:
+	if is_instance_valid(_nameplate):
+		_nameplate.visible = false
 	if _interact_hint_icon:
 		NpcOverheadUi.fade_hide_icon(_interact_hint_icon)
 	if _interact_hold_ring:
@@ -470,6 +475,8 @@ func _create_interact_hint() -> void:
 	# Sahne ışığından (gece CanvasModulate) etkilenmesin diye ayrı bir CanvasLayer'a taşınıp
 	# ekran uzayında takip ettiriliyor.
 	OverheadUiTracker.attach(_interact_hint_icon, self, Vector2(0, -80))
+	# İsim plakası: eskiden ok tek başına duruyordu. Plaka okun eski yerinde, ok onun hemen üstünde.
+	_nameplate = NpcOverheadUi.attach_nameplate_above(self, tr("mentor_brief.title"), _interact_hint_icon, _interact_hold_ring, -80.0)
 
 
 func _find_or_create_speech_bar() -> Node:

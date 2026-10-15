@@ -17,7 +17,6 @@ func _init():
 	item_name = tr("item.kader_ani.name")
 	description = tr("item.kader_ani.description")
 	flavor_text = "Yerçekimi seni bulamaz"
-	rarity = ItemRarity.LEGENDARY
 	category = ItemCategory.HEAVY_ATTACK
 	affected_stats = ["air_crit", "air_element"]
 
@@ -42,7 +41,6 @@ func deactivate(player: CharacterBody2D):
 		if _player.is_connected("player_attack_landed", _on_player_attack_landed):
 			_player.disconnect("player_attack_landed", _on_player_attack_landed)
 	_player = null
-	print("[Kader Anı] ❌ Kaldırıldı")
 
 func _on_player_attack_landed(_attack_type: String, _damage: float, targets: Array, _position: Vector2, effect_filter: String = "all") -> void:
 	if effect_filter == "physical_only":

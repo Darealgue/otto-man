@@ -61,7 +61,6 @@ func _on_minigame_ready() -> void:
 	if _gauge:
 		_gauge.set_feedback(tr("mg.hint.heavy_attack_well"), neutral_feedback_color, -1.0)
 	set_process(true)
-	print("[WellRhythmMinigame] Water minigame active (hits=%d, max_misses=%d)" % [_required_hits, _max_misses])
 
 func _process(delta: float) -> void:
 	if is_finished():
@@ -167,7 +166,7 @@ func _ensure_nodes() -> void:
 	if not _well_path.is_empty():
 		_well_node = _resolve_node2d(_well_path)
 		if _well_node:
-			print("[WellRhythmMinigame] Well node found: %s" % _well_node.name)
+			pass
 		else:
 			print("[WellRhythmMinigame] Warning: Well node not found at path: %s" % _well_path)
 	if not _player_path.is_empty():
@@ -251,7 +250,6 @@ func _update_sweet_width(difficulty: int) -> void:
 	var t := float(difficulty - 1) / 4.0  # 0.0 (easy) to 1.0 (hard)
 	_sweet_width = lerpf(sweet_width_easy, sweet_width_hard, t)
 	_sweet_center = 0.5  # Ortada
-	print("[WellRhythmMinigame] Sweet spot: center=%.2f width=%.2f (difficulty=%d)" % [_sweet_center, _sweet_width, difficulty])
 
 func _reset_indicator(reset_after_hit: bool) -> void:
 	if reset_after_hit:

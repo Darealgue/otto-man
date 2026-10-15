@@ -19,7 +19,6 @@ func _init():
 	item_name = tr("item.gorunmezlik_pelerini.name")
 	description = tr("item.gorunmezlik_pelerini.description")
 	flavor_text = "Gölgeler arasında"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.DODGE
 	affected_stats = ["dodge_invis"]
 
@@ -32,7 +31,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("dash_started"):
 		if not player.is_connected("dash_started", _on_dash_started):
 			player.connect("dash_started", _on_dash_started)
-	print("[Görünmezlik Pelerini] Dodge/dash başında 3 sn yarı saydamlık")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)

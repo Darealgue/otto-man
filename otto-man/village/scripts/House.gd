@@ -52,7 +52,6 @@ func demolish() -> bool:
 	if current_floors > 1:
 		var displaced: Array = remove_top_floor()
 		_release_displaced_occupants(displaced)
-		print("🏗️ Üst kat kaldırıldı. Kalan kat: %d, kapasite: %d" % [current_floors, get_max_capacity()])
 		if vm and vm.has_signal("village_data_changed"):
 			vm.emit_signal("village_data_changed")
 		return true
@@ -60,7 +59,6 @@ func demolish() -> bool:
 	# Anında queue_free() çağrısı; aynı frame'de çalışan _apply_time_of_day gibi
 	# fonksiyonların freed-instance hatasına yol açmasını önler.
 	_evict_all_occupants()
-	print("🏚️ Ev tamamen yıkıldı: ", name)
 	call_deferred("queue_free")
 	if vm and vm.has_signal("village_data_changed"):
 		vm.call_deferred("emit_signal", "village_data_changed")

@@ -25,7 +25,6 @@ func _init():
 	item_name = tr("item.koruk.name")
 	description = tr("item.koruk.description")
 	flavor_text = "Körüklenen ateş, sahibini de yalar"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.STAMINA
 	tags = ["elemental_fire"]
 	affected_stats = ["combo_ignite", "incoming_damage"]
@@ -38,13 +37,11 @@ func activate(player: CharacterBody2D):
 	_ignite_timer = 0.0
 	_tick_timer = 0.0
 	_penalty_applied = false
-	print("[Körük] ✅ 5 combo → 4 sn tutuşma (alınan hasar +%20)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_clear_penalty()
 	_player = null
-	print("[Körük] ❌ Kaldırıldı")
 
 func _on_player_attack_landed(attack_type: String, _damage: float, _targets: Array, _position: Vector2, effect_filter: String = "all") -> void:
 	if effect_filter == "elemental_only":
@@ -101,7 +98,6 @@ func _start_ignite() -> void:
 	if not _penalty_applied and is_instance_valid(_player):
 		_player.incoming_damage_multiplier *= DAMAGE_TAKEN_PENALTY
 		_penalty_applied = true
-	print("[Körük] 🔥 Tutuştu — 4 sn çevre yanıyor, alınan hasar +%20")
 
 func _clear_penalty() -> void:
 	if _penalty_applied and is_instance_valid(_player):

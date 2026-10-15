@@ -8,7 +8,6 @@ func _init():
 	item_name = tr("item.ruzgar_hanceri.name")
 	description = tr("item.ruzgar_hanceri.description")
 	flavor_text = "Rüzgar gibi geç"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.DODGE
 	affected_stats = []
 
@@ -20,7 +19,6 @@ func activate(player: CharacterBody2D):
 	if dash_state:
 		# Allow dash to be used in air
 		dash_state.set_meta("allow_air_dash", true)
-		print("[Rüzgar Hançeri] ✅ Dash aktif (havada kullanılabilir)")
 	else:
 		push_warning("[Rüzgar Hançeri] Dash state bulunamadı!")
 
@@ -30,4 +28,3 @@ func deactivate(player: CharacterBody2D):
 	var dash_state = player.get_node_or_null("StateMachine/Dash")
 	if dash_state:
 		dash_state.remove_meta("allow_air_dash")
-		print("[Rüzgar Hançeri] ❌ Dash restored")

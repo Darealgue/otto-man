@@ -16,17 +16,14 @@ func _init():
 	item_name = tr("item.yildirim_zinciri.name")
 	description = tr("item.yildirim_zinciri.description")
 	flavor_text = "Bir ölüm, bir kıvılcım daha doğurur"
-	rarity = ItemRarity.RARE
 	category = ItemCategory.SPECIAL
 	affected_stats = ["lightning_kill_chain"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
-	print("[Yıldırım Zinciri] ✅ Şimşekle ölen düşman, yıldırımı bir sonrakine sıçratır")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
-	print("[Yıldırım Zinciri] ❌ Kaldırıldı")
 
 func on_enemy_killed(enemy: Node2D) -> void:
 	if not is_instance_valid(enemy):

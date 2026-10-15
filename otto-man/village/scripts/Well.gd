@@ -35,10 +35,8 @@ var _collision_original_positions: Dictionary = {}
 # Bu bina için bir işçi atamaya çalışır
 func add_worker() -> bool:
 	if is_upgrading:
-		print("Kuyu: Yükseltme sırasında işlem yapılamaz!")
 		return false
 	if assigned_workers >= max_workers:
-		print("Kuyu: Kapasite dolu!")
 		return false
 
 	var worker_instance: Node = VillageManager.register_generic_worker()
@@ -61,19 +59,13 @@ func add_worker() -> bool:
 		# Mesai saatleri dışında ya da bugün vardiyaya zaten başladıysa, beklemeli
 		worker_instance.current_state = worker_instance.State.AWAKE_IDLE
 
-	print("Kuyu: İşçi (ID: %d) atandı (%d/%d)." % [
-		worker_instance.worker_id, assigned_workers, max_workers
-	])
 	VillageManager.notify_building_state_changed(self)
 	return true
 
 # Bu binadan bir işçi çıkarır
 func remove_worker() -> bool:
-	print("=== WELL REMOVE WORKER DEBUG ===")
-	print("Well: remove_worker() çağrıldı")
 	
 	if is_upgrading:
-		print("Kuyu: Yükseltme sırasında işlem yapılamaz!")
 		return false
 	if assigned_workers <= 0 or assigned_worker_ids.is_empty():
 		print("Kuyu: Çıkarılacak işçi yok!")
@@ -82,12 +74,10 @@ func remove_worker() -> bool:
 	var worker_id_to_remove = assigned_worker_ids.pop_back()
 	if VillageManager.has_method("clear_basic_gather_expedition_for_worker"):
 		VillageManager.clear_basic_gather_expedition_for_worker(worker_id_to_remove)
-	print("Well: Çıkarılacak işçi ID: %d" % worker_id_to_remove)
 	
 	var worker_instance = null
 	if VillageManager.all_workers.has(worker_id_to_remove):
 		worker_instance = VillageManager.all_workers[worker_id_to_remove]["instance"]
-		print("Well: İşçi instance bulundu: %s" % worker_instance)
 	else:
 		print("Well: İşçi VillageManager'da bulunamadı!")
 
@@ -97,13 +87,6 @@ func remove_worker() -> bool:
 		VillageManager.notify_building_state_changed(self)
 		return false
 	
-	print("Well: İşçi %d durumu - Job: '%s', Visible: %s, State: %s, Pos: %s" % [
-		worker_id_to_remove,
-		worker_instance.assigned_job_type,
-		worker_instance.visible,
-		worker_instance.State.keys()[worker_instance.current_state] if worker_instance.current_state >= 0 else "INVALID",
-		worker_instance.global_position
-	])
 	
 	assigned_workers -= 1
 
@@ -115,40 +98,21 @@ func remove_worker() -> bool:
 	worker_instance.assigned_building_node = null
 	worker_instance.move_target_x = worker_instance.global_position.x
 
-	print("Well: İşçi %d job ve building referansı temizlendi" % worker_id_to_remove)
 	
 	if worker_instance.current_state == worker_instance.State.WORKING_OFFSCREEN or \
 	   worker_instance.current_state == worker_instance.State.WAITING_OFFSCREEN or \
 	   worker_instance.current_state == worker_instance.State.GOING_TO_BUILDING_FIRST:
-		print("Well: İşçi %d state değiştiriliyor: %s -> AWAKE_IDLE" % [
-			worker_id_to_remove,
-			worker_instance.State.keys()[worker_instance.current_state] if worker_instance.current_state >= 0 else "INVALID"
-		])
 		worker_instance.current_state = worker_instance.State.AWAKE_IDLE
 		worker_instance.visible = true
-		print("Well: İşçi %d visible=true yapıldı" % worker_id_to_remove)
 	else:
-		print("Well: İşçi %d state değiştirilmedi: %s" % [
-			worker_id_to_remove,
-			worker_instance.State.keys()[worker_instance.current_state] if worker_instance.current_state >= 0 else "INVALID"
-		])
+		pass
 
 	# VillageManager.unregister_generic_worker(worker_id_to_remove) # MissionCenter.gd'de çağrılıyor
 
-	print("Well: İşçi %d son durumu - Job: '%s', Visible: %s, State: %s, Pos: %s, Parent: %s" % [
-		worker_id_to_remove,
-		worker_instance.assigned_job_type,
-		worker_instance.visible,
-		worker_instance.State.keys()[worker_instance.current_state] if worker_instance.current_state >= 0 else "INVALID",
-		worker_instance.global_position,
-		worker_instance.get_parent()
-	])
 	
-	print("%s: İşçi (ID: %d) çıkarıldı (%d/%d)." % [self.name, worker_id_to_remove, assigned_workers, max_workers])
 	emit_signal("worker_removed", worker_id_to_remove)
 	VillageManager.notify_building_state_changed(self)
 
-	print("=== WELL REMOVE WORKER DEBUG BİTTİ ===")
 	return true
 
 # --- Yükseltme Değişkenleri ---
@@ -163,7 +127,6 @@ func _init():
 	add_child(upgrade_timer)
 
 func _ready() -> void:
-	print("Well hazır.")
 	_store_collision_original_positions()
 	_setup_platform_collision()
 	_update_texture()
@@ -199,7 +162,6 @@ func start_upgrade() -> bool:
 func finish_upgrade() -> void:
 	if not is_upgrading: return
 
-	print("Kuyu: Yükseltme tamamlandı (Seviye %d -> %d)" % [level, level + 1])
 	is_upgrading = false
 	level += 1
 	max_workers = level
@@ -213,18 +175,15 @@ func finish_upgrade() -> void:
 	# Texture ve seviyeye göre collision'ı güncelle
 	_update_texture()
 	_update_collision()
-	print("Kuyu: Yeni seviye: %d" % level)
 
 # --- Texture Update ---
 func _update_texture() -> void:
-	print("Well: _update_texture() çağrıldı - Seviye: ", level)
 	
 	var sprite = get_node_or_null("Sprite2D")
 	if not sprite:
 		print("Well: Sprite2D bulunamadı!")
 		return
 	
-	print("Well: Sprite2D bulundu, texture güncelleniyor...")
 	
 	# Seviyeye göre texture yolu belirle (3 seviye)
 	var texture_path = ""
@@ -234,10 +193,8 @@ func _update_texture() -> void:
 		3: texture_path = "res://village/buildings/sprite/well3.png"
 		4: texture_path = "res://village/buildings/sprite/well4.png"
 		_:
-			print("Well: Geçersiz seviye: ", level, " - Varsayılan olarak seviye 1 kullanılıyor")
 			texture_path = "res://village/buildings/sprite/well1.png"
 	
-	print("Well: Texture yolu: ", texture_path)
 	
 	# Texture'ı yükle ve uygula
 	if ResourceLoader.exists(texture_path):
@@ -248,9 +205,8 @@ func _update_texture() -> void:
 			sprite.scale = Vector2(1.0, 1.0)
 			# Texture'ı doğru pozisyona ayarla (alt kenara hizala)
 			sprite.offset = Vector2(0, -texture.get_height() / 2)
-			print("Well: ✅ Texture başarıyla güncellendi - Seviye ", level, " (", texture_path, ")")
 		else:
-			print("Well: ❌ Texture yüklenemedi: ", texture_path)
+			pass
 	else:
 		print("Well: ❌ Texture dosyası bulunamadı: ", texture_path)
 
@@ -272,13 +228,7 @@ func _setup_platform_collision() -> void:
 			child.one_way_collision_margin = 12.0
 			count += 1
 	# Her zaman kısa özet (kuyu runtime'da eklendiğinde Inspector'da debug açılamaz)
-	print("[Well] Platform: pos=%s layer=%d mask=%d shapes=%d one_way=%s" % [
-		global_position, body.collision_layer, body.collision_mask, count, !collision_debug_twoway
-	])
 	if debug_collision:
-		print("[Well DEBUG] _setup_platform_collision: body=%s layer=%d mask=%d shapes=%d one_way=%s" % [
-			body.get_path(), body.collision_layer, body.collision_mask, count, !collision_debug_twoway
-		])
 		for child in body.get_children():
 			if child is CollisionShape2D:
 				var sh = child.shape
@@ -287,9 +237,6 @@ func _setup_platform_collision() -> void:
 					shape_info = "Segment a=%s b=%s" % [sh.a, sh.b]
 				elif sh:
 					shape_info = sh.get_class()
-				print("  - %s disabled=%s one_way=%s pos=%s shape=%s" % [
-					child.name, child.disabled, child.one_way_collision, child.position, shape_info
-				])
 
 # Editördeki collision konumlarını sakla (sadece ilk yüklemede; sprite offset buna göre sonradan eklenir)
 func _store_collision_original_positions() -> void:
@@ -320,12 +267,12 @@ func _update_collision() -> void:
 	var body = get_node_or_null("StaticBody2D")
 	if not body:
 		if debug_collision:
-			print("[Well DEBUG] _update_collision: StaticBody2D yok")
+			pass
 		return
 	_apply_collision_sprite_offset()
 	var names_to_enable: Array = COLLISION_NAMES_BY_LEVEL.get(level, ["CollisionLevel1"])
 	if debug_collision:
-		print("[Well DEBUG] _update_collision: level=%d enable=%s" % [level, names_to_enable])
+		pass
 	# Önce CollisionLevel* ile başlayan tüm shape'leri kapat
 	for child in body.get_children():
 		if child is CollisionShape2D and child.name.begins_with("CollisionLevel"):
@@ -336,7 +283,7 @@ func _update_collision() -> void:
 		if col is CollisionShape2D:
 			col.disabled = false
 			if debug_collision:
-				print("  -> %s ENABLED" % node_name)
+				pass
 		elif debug_collision:
 			print("  -> %s BULUNAMADI" % node_name)
 	# Her zaman kısa özet (segment global koordinatları = oyuncu pozisyonuyla karşılaştır)
@@ -344,29 +291,23 @@ func _update_collision() -> void:
 	for child in body.get_children():
 		if child is CollisionShape2D and child.name.begins_with("CollisionLevel") and not child.disabled:
 			active_list.append(child.name)
-	print("[Well] Collision: level=%d active=%s well_global=%s" % [level, active_list, global_position])
 	for child in body.get_children():
 		if child is CollisionShape2D and child.name.begins_with("CollisionLevel"):
 			if child.shape is SegmentShape2D:
 				var s_seg: SegmentShape2D = child.shape as SegmentShape2D
 				var ga_vec: Vector2 = child.global_position + s_seg.a
 				var gb_vec: Vector2 = child.global_position + s_seg.b
-				print("  %s disabled=%s segment_global: %s .. %s" % [child.name, child.disabled, ga_vec, gb_vec])
 			else:
-				print("  %s disabled=%s" % [child.name, child.disabled])
+				pass
 	if debug_collision:
 		for child in body.get_children():
 			if child is CollisionShape2D and child.name.begins_with("CollisionLevel"):
-				print("  son durum: %s disabled=%s global_pos=%s" % [child.name, child.disabled, child.global_position])
+				pass
 
 func _print_collision_debug() -> void:
 	var body = get_node_or_null("StaticBody2D")
 	if not body:
-		print("[Well DEBUG] (periyodik) StaticBody2D yok")
 		return
-	print("[Well DEBUG] --- Well global_pos=%s level=%d body_layer=%d body_global=%s" % [
-		global_position, level, body.collision_layer, body.global_position
-	])
 	for child in body.get_children():
 		if child is CollisionShape2D and child.name.begins_with("CollisionLevel"):
 			var seg := ""
@@ -375,7 +316,6 @@ func _print_collision_debug() -> void:
 				var ga: Vector2 = child.global_position + s.a
 				var gb: Vector2 = child.global_position + s.b
 				seg = " segment_global: %s .. %s" % [ga, gb]
-			print("  %s disabled=%s global_pos=%s%s" % [child.name, child.disabled, child.global_position, seg])
 
 func _update_ui() -> void:
 	pass

@@ -17,19 +17,16 @@ func _init():
 	item_name = tr("item.tepme.name")
 	description = tr("item.tepme.description")
 	flavor_text = "Her atışın bir de geri tepmesi vardır"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.HEAVY_ATTACK
 	affected_stats = ["air_heavy_recoil"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Tepme] ✅ Havada heavy → ters yöne fırlatır (%3 max can)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_player = null
-	print("[Tepme] ❌ Kaldırıldı")
 
 func _on_heavy_attack_impact(attack_name: String) -> void:
 	if not is_instance_valid(_player) or attack_name != "air_heavy":

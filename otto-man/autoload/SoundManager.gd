@@ -262,10 +262,6 @@ func play_music(track_id: String, loop := true, force_restart := false) -> void:
 	_music_loop_start = SoundCatalog.get_music_loop_start(track_id)
 	_music_loop_end = SoundCatalog.get_music_loop_end(track_id)
 	_start_stream_with_fade(_music_player, stream, linear_to_db(MUSIC_VOLUME_LINEAR), MUSIC_FADE_SEC)
-	print(
-		"[SoundManager] Music play: %s | path=%s | bus=%s | loop=%.1f-%.1f sn"
-		% [track_id, path, _music_player.bus, _music_loop_start, _music_loop_end]
-	)
 
 
 ## Ortam sesi (SFX bus). `assets/audio/bgs/` altından okur, yoksa sentez placeholder.
@@ -290,10 +286,6 @@ func play_ambient(track_id: String, loop := true, force_restart := false) -> voi
 	_ambient_should_loop = loop
 	_current_ambient_id = track_id
 	_start_stream_with_fade(_ambient_player, stream, linear_to_db(AMBIENT_VOLUME_LINEAR), AMBIENT_FADE_SEC)
-	print(
-		"[SoundManager] Ambient play: %s | path=%s | bus=%s"
-		% [track_id, path if not path.is_empty() else "synth", _ambient_player.bus]
-	)
 
 
 func _kill_fade(player: AudioStreamPlayer) -> void:
@@ -349,7 +341,6 @@ func start_loop_sfx(sfx_id: String) -> void:
 	_loop_sfx_player.stream = stream
 	_loop_sfx_player.volume_db = _loop_sfx_volume_db(sfx_id)
 	_loop_sfx_player.play()
-	print("[SoundManager] Loop sfx start: %s | playing=%s" % [sfx_id, _loop_sfx_player.playing])
 
 
 func stop_loop_sfx() -> void:
@@ -395,7 +386,6 @@ func play_ambient_for_scene(scene_path: String) -> void:
 	if _ambient_profile != "menu":
 		_music_locked = false
 		_music_pending_id = ""
-	print("[SoundManager] Ambient profile '%s' for scene: %s" % [_ambient_profile, scene_path])
 	# force_restart YOK: zindan → kamp → zindan → boss geçişlerinde aynı parça
 	# baştan başlamasın, yoksa uzun müziğin sadece ilk saniyeleri duyulur.
 	_refresh_ambient_music(false)
@@ -494,7 +484,6 @@ func _pick_profile_music(profile: String) -> String:
 	# zindanın üst üste aynı parça çıkmasın korumasını sıfırlar.
 	if playlist.size() > 1:
 		_last_run_music_id = _run_music_id
-	print("[SoundManager] Run music picked for profile '%s': %s" % [profile, _run_music_id])
 	return _run_music_id
 
 
@@ -686,10 +675,6 @@ func _apply_saved_volume_from_settings() -> void:
 
 func _log_audio_status() -> void:
 	var status: Dictionary = get_audio_status()
-	print(
-		"[SoundManager] Ready — %d file asset(s), %d synth fallback(s). Music bus=%s SFX bus=%s"
-		% [int(status.get("file_count", 0)), int(status.get("synth_count", 0)), _resolve_bus(MUSIC_BUS), _resolve_bus(SFX_BUS)]
-	)
 
 
 func _percent_to_db(percent: int) -> float:

@@ -16,7 +16,6 @@ func _init():
 	item_name = tr("item.karsi_mermi.name")
 	description = tr("item.karsi_mermi.description")
 	flavor_text = "Kalkanından mermi doğar"
-	rarity = ItemRarity.LEGENDARY
 	category = ItemCategory.PARRY
 	affected_stats = ["parry_projectile"]
 
@@ -26,7 +25,6 @@ func activate(player: CharacterBody2D):
 	if player.has_signal("perfect_parry"):
 		if not player.is_connected("perfect_parry", _on_perfect_parry):
 			player.connect("perfect_parry", _on_perfect_parry)
-	print("[Karşı Mermi] ✅ Perfect parry mermi fırlatır (Uzun Menzil/Ok Yağmuru gerekir)")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -34,7 +32,6 @@ func deactivate(player: CharacterBody2D):
 		if _player.is_connected("perfect_parry", _on_perfect_parry):
 			_player.disconnect("perfect_parry", _on_perfect_parry)
 	_player = null
-	print("[Karşı Mermi] ❌ Kaldırıldı")
 
 func _on_perfect_parry() -> void:
 	if not is_instance_valid(_player):

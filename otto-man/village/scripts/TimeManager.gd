@@ -35,7 +35,6 @@ signal time_advanced(total_minutes: int, start_day: int, start_hour: int, start_
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
-	print("--- TimeManager.gd: _ready() ÇAĞRILDI! TimeManager YÜKLENDİ! ---")
 	pass # Replace with function body.
 
 
@@ -107,7 +106,6 @@ func set_time_scale_index(index: int) -> void:
 	if index >= 0 and index < time_scales.size():
 		current_time_scale_index = index
 		Engine.time_scale = time_scales[current_time_scale_index]
-		print("Time scale set to: x", Engine.time_scale) # Debug
 	else:
 		printerr("Invalid time scale index: ", index)
 

@@ -74,7 +74,7 @@ func physics_update(delta: float):
 		state_machine.transition_to("Jump")
 		return
 	elif Input.is_action_just_pressed("jump") and (player.jump_input_blocked or player.jump_block_timer > 0):
-		print("[IdleState] Jump input BLOCKED by dodge state (blocked:", player.jump_input_blocked, "timer:", player.jump_block_timer, ")")
+		pass
 		
 	var input_dir = InputManager.get_flattened_axis(&"left", &"right")
 	if input_dir != 0:

@@ -17,20 +17,17 @@ func _init():
 	item_name = tr("item.savunma_ofkesi.name")
 	description = tr("item.savunma_ofkesi.description")
 	flavor_text = "Her darbe, bir sonrakinin öfkesi"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.BLOCK
 	affected_stats = ["guard_empower"]
 
 func activate(player: CharacterBody2D):
 	super.activate(player)
 	_player = player
-	print("[Savunma Öfkesi] ✅ Blok: sonraki vuruş 2x, Parry: 3 sn 2x")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	_clear()
 	_player = null
-	print("[Savunma Öfkesi] ❌ Kaldırıldı")
 
 func process(_player_ref: CharacterBody2D, _delta: float) -> void:
 	# Süre gerçek zamanla ölçülür (Zaman Durdurucu yavaşlatması 3 sn'yi uzatmasın)

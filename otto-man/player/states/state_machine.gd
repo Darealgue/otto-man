@@ -56,7 +56,6 @@ func transition_to(target_state_name: String, force: bool = false) -> void:
 				var ap = owner.get_node("AnimationPlayer")
 				if ap:
 					anim_name = ap.current_animation
-			print("[StateMachineDebug] ", prev_name, " -> ", target_state_name, " force=", force, " anim=", anim_name, " vel=", owner.velocity if owner and "velocity" in owner else Vector2.ZERO)
 		if current_state:
 			current_state.exit()
 		previous_state = current_state

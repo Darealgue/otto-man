@@ -15,7 +15,7 @@ const DEBUG_DUNGEON_GOLD_DISPLAY: bool = false
 
 func _dlog(msg: String) -> void:
 	if DEBUG_DUNGEON_GOLD_DISPLAY:
-		print("[DungeonGoldHUD] ", msg)
+		pass
 
 
 func _ready() -> void:
@@ -285,4 +285,6 @@ func _update_position() -> void:
 	global_position = base_corner + _feedback_screen_offset
 	var bg := get_node_or_null("Background")
 	if bg and bg is Control:
-		bg.size = panel_size
+		# Arka plan panelin tamamını kaplar. Doğrudan size atamak, karşıt çapaları eşit olmayan
+		# Control'de "size overridden after _ready" uyarısı veriyordu; çapayla doldur.
+		(bg as Control).set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

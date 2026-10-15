@@ -13,7 +13,6 @@ func _init():
 	item_name = tr("item.kaygan_yag.name")
 	description = tr("item.kaygan_yag.description")
 	flavor_text = "Süper kaygan"
-	rarity = ItemRarity.UNCOMMON
 	category = ItemCategory.SLIDE
 	affected_stats = ["slide_distance"]
 
@@ -28,7 +27,6 @@ func activate(player: CharacterBody2D):
 		_slide_state.set_meta("kaygan_yag_prev_friction", _slide_state.SLIDE_FRICTION)
 		_slide_state.SLIDE_DURATION *= SLIDE_DISTANCE_MULTIPLIER
 		_slide_state.SLIDE_FRICTION *= 0.5
-		print("[Kaygan Yağ] ✅ Slide mesafesi +%100")
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
@@ -39,4 +37,3 @@ func deactivate(player: CharacterBody2D):
 		_slide_state.remove_meta("kaygan_yag_prev_friction")
 	_slide_state = null
 	_player = null
-	print("[Kaygan Yağ] ❌ Kaldırıldı")

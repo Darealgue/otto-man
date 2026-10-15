@@ -175,10 +175,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	parchment.debug_layout = not parchment.debug_layout
 	var vp := get_viewport().get_visible_rect().size
-	print(
-		"[TutorialSpeechBar] debug=%s viewport=%.0fx%.0f bar=%.0fx%.0f (F9)"
-		% [parchment.debug_layout, vp.x, vp.y, _panel.size.x, _panel.size.y]
-	)
 
 
 func _setup_highlight() -> void:
