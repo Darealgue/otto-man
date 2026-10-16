@@ -476,6 +476,8 @@ func _render_modal() -> void:
 	# Yağma gibi görevler köyle ilişkiyi bozar: etkiyi risk satırında göster.
 	if String(o.get("effect", "")).contains("relation:-"):
 		pen_text = (pen_text + ", " if not pen_text.is_empty() else "") + tr("dm.pen.relation")
+	elif String(o.get("effect", "")) == "convoy_raid":
+		pen_text = (pen_text + ", " if not pen_text.is_empty() else "") + tr("dm.pen.convoy_raid")
 	if recruit_heads > 0:
 		pen_text = (pen_text + ", " if not pen_text.is_empty() else "") + (tr("dm.pen.recruit_relation") % (3 * recruit_heads))
 	var locked: String = String(o.get("locked_reason", ""))

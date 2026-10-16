@@ -26,6 +26,8 @@ const KIND_LANDMARK := "landmark"
 const KIND_CAMP := "camp"
 const KIND_WILD := "wild"
 const KIND_HOME := "home"
+## Haritada yürüyen bir ticaret kervanı (hex'te kervan varsa MissionManager boş arazi yerine bunu seçer).
+const KIND_CONVOY := "convoy"
 
 ## match kalıplarında sabit olarak kullanılabilsin diye rol sabitleri.
 const R_NONE := Concubine.Role.NONE
@@ -90,6 +92,20 @@ static func get_options(role: int, target_kind: String, tile: Dictionary) -> Arr
 		if role == R_AJAN:
 			out.append(_opt("agent_scout_fog", MT.KEŞİF, DF.ORTA, 150, 50, 0.62,
 				{"reputation": 1}, {"cariye_injured": true}, {}, {}, EXEC_CARIYE_ONLY, "reveal:3"))
+		return out
+
+	# Kervan: yalnız Komutan yağmalayabilir (oyuncu kendisi yapamaz). Yük kervanın taşıdığı maldır
+	# (su yiyeceğe sayılır); yağma köylerle ilişkiyi bozar, çıkış köyü misilleme yapabilir.
+	if target_kind == KIND_CONVOY:
+		if role == R_KOMUTAN:
+			var cargo: String = String((tile.get("convoy", {}) as Dictionary).get("resource", "food"))
+			if cargo == "water" or cargo.is_empty():
+				cargo = "food"
+			var convoy_raid: Dictionary = _opt("commander_raid_convoy", MT.SAVAŞ, DF.ORTA, 150, 40, 0.6,
+				{"gold": 20, cargo: 12 if cargo == "food" else 6}, {"army_losses": 1, "cariye_injured": true},
+				{"min": 2, "max": -1, "rec": 4}, {}, EXEC_CARIYE_ONLY, "convoy_raid")
+			convoy_raid["loot_scale"] = true
+			out.append(convoy_raid)
 		return out
 
 	match target_kind:

@@ -1,5 +1,8 @@
 extends CanvasLayer
 
+## HUD (200) ve menü (210) katmanlarının üstünde; sahne geçiş bulutlarının (500) altında.
+const CONSOLE_LAYER := 300
+
 @onready var console = $Console
 @onready var line_edit = $Console/VBoxContainer/LineEdit
 @onready var output = $Console/VBoxContainer/RichTextLabel
@@ -10,7 +13,9 @@ var is_open := false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	
+	# Oyuncu arayüzü (HUD 200, menüler 210) konsolun önünde kalıyordu; konsol hepsinin üstünde olsun.
+	layer = CONSOLE_LAYER
+
 	# Make sure we have all required nodes
 	if !console or !line_edit or !output:
 		push_error("Dev console is missing required nodes!")
@@ -298,6 +303,8 @@ func _on_command_submitted(command: String) -> void:
 			handle_force_attack_command(args)
 		"test_battle":
 			handle_test_battle_command(args)
+		"village_war":
+			handle_village_war_command(args)
 		# === VILLAGE EVENT KOMUTLARI ===
 		"trigger_village_event":
 			handle_trigger_village_event_command(args)
@@ -612,6 +619,39 @@ func handle_test_battle_command(args: Array) -> void:
 		print_output("   (Battle story will be generated and posted to news)")
 	else:
 		print_output("❌ test_battle metodu bulunamadı!")
+
+
+## Haritada köyler arası savaş çizimini denemek için: keşfedilmiş en yakın iki komşu köyü verilen
+## duruma sokar. Kullanım: village_war [open_war|cold_war|tension|ceasefire|peace] (varsayılan open_war)
+func handle_village_war_command(args: Array) -> void:
+	var state: String = "open_war"
+	if args.size() > 0:
+		state = String(args[0])
+	var relation_for_state: Dictionary = {"open_war": -70, "cold_war": -40, "tension": -20, "ceasefire": -30, "peace": 0}
+	if not relation_for_state.has(state):
+		print_output("Kullanım: village_war [open_war|cold_war|tension|ceasefire|peace]")
+		return
+	var found: Array = WorldManager.get_discovered_settlements()
+	if found.size() < 2:
+		print_output("En az 2 keşfedilmiş komşu köy gerekli.")
+		return
+	var best_a: Dictionary = {}
+	var best_b: Dictionary = {}
+	var best_d: int = 1 << 30
+	for i in range(found.size()):
+		for j in range(i + 1, found.size()):
+			var d: int = WorldManager._hex_distance(int(found[i].q), int(found[i].r), int(found[j].q), int(found[j].r))
+			if d < best_d:
+				best_d = d
+				best_a = found[i]
+				best_b = found[j]
+	var a_id: String = String(best_a.id)
+	var b_id: String = String(best_b.id)
+	WorldManager.set_settlement_relation(a_id, b_id, int(relation_for_state[state]))
+	WorldManager._set_settlement_diplomacy_state(a_id, b_id, state, WorldManager._last_tick_day, 2 if state == "open_war" else 0)
+	WorldManager.world_map_updated.emit()
+	print_output("%s ve %s arası '%s' yapıldı (mesafe %d hex). Haritaya bak." % [
+		WorldManager._get_settlement_display_name(a_id), WorldManager._get_settlement_display_name(b_id), state, best_d])
 
 
 func _find_barracks() -> Node:
@@ -991,6 +1031,7 @@ func show_help() -> void:
 	barracks_info - Show barracks information
 	force_attack <attacker> <target> - Force an attack (Köy/Kuzey/Güney/etc)
 	test_battle [attacker] - Immediately trigger a battle for testing (default: Kuzey)
+	village_war [open_war|cold_war|tension|ceasefire|peace] - Put the two closest discovered villages into that diplomacy state (map drawing test)
 	
 	=== VILLAGE EVENT SİSTEMİ ===
 	trigger_village_event [type] - Trigger a village event (random if no type)

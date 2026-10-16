@@ -3327,3 +3327,71 @@ wm.settlement.adj.pazar,Pazar,Market
 wm.settlement.adj.cesme,Çeşme,Fountain
 wm.settlement.adj.degirmen,Değirmen,Mill
 wm.settlement.adj.kuyu,Kuyu,Well
+wm.convoy.title,Ticaret kervanı,Trade caravan
+wm.convoy.from,Çıkış: %s,From: %s
+wm.convoy.to,Varış: %s,To: %s
+wm.convoy.cargo,Yük: %s,Cargo: %s
+wm.convoy.eta,Varışa yaklaşık %d gün,About %d days to arrive
+wm.convoy.wreck_title,Yağmalanmış kervan,Plundered caravan
+wm.convoy.unknown_village,Bilinmeyen köy,Unknown village
+wm.war.title.open_war,Savaş cephesi,War front
+wm.war.title.cold_war,Gergin sınır,Tense border
+wm.war.between,%s ve %s arasında,Between %s and %s
+wm.war.duration,%d gündür sürüyor,Going on for %d days
+wm.war.intensity,Şiddet: %d,Intensity: %d
+dm.kind.convoy,Ticaret kervanı,Trade caravan
+dm.opt.commander_raid_convoy.title,Kervanı yağmala,Raid the caravan
+dm.opt.commander_raid_convoy.desc,"Komutan kervanı yolda keser ve yükünü alır. Başarırsa kimse kimin yaptığını bilmez, çıktığı köyde yalnızca ufak bir şüphe kalır. Başarısız olursa herkes bilir: iki köyle ilişki ağır bozulur, çıktığı köy büyük olasılıkla karşılık verir.","The commander ambushes the caravan on the road and takes its cargo. If it works, nobody learns who did it and only a small suspicion lingers in the village it left. If it fails everyone knows: relations with both villages worsen badly and the village it left will most likely retaliate."
+dm.pen.convoy_raid,"Başarısızlıkta ilişki ağır bozulur, misilleme gelir","On failure relations worsen badly and retaliation comes"
+dm.news.convoy_gone.title,Kervan kaçtı,The caravan slipped away
+dm.news.convoy_gone.body,"%s kervanı yakalayamadı, kervan çoktan menzile varmıştı.","%s could not catch the caravan, it had already reached its destination."
+wm.tooltip.neighbor.allies,Müttefikleri: %s,Allies: %s
+wm.tooltip.neighbor.at_war,Savaşta: %s,At war with: %s
+wm.personality.warrior,Savaşçı,Warlike
+wm.personality.merchant,Tüccar,Merchant
+wm.personality.cautious,İhtiyatlı,Cautious
+wm.personality.ambitious,Hırslı,Ambitious
+wm.personality.devout,Dindar,Devout
+wm.tooltip.neighbor.leader,Lider: %s (%s),Leader: %s (%s)
+wm.tooltip.neighbor.force_exact,Ordu: %d asker · Hazine: %d altın,Army: %d soldiers · Treasury: %d gold
+wm.tooltip.neighbor.force_fuzzy,Ordu: %s · Hazine: %s,Army: %s · Treasury: %s
+wm.tier.army.weak,zayıf,weak
+wm.tier.army.medium,orta,average
+wm.tier.army.strong,güçlü,strong
+wm.tier.wealth.poor,fakir,poor
+wm.tier.wealth.medium,orta,average
+wm.tier.wealth.rich,zengin,rich
+wm.settlement.action.visit,Köyü ziyaret et,Visit the village
+visit.exit_hint,Haritaya dön,Back to the map
+visit.mode.free,Dost köy: gündüz serbestçe gezebilirsin.,Friendly village: you can wander freely by day.
+visit.mode.night_stealth,Gece: nöbetçilere yakalanma.,Night: do not get caught by the guards.
+visit.mode.hostile_day,"Düşman köy, gündüz: nöbetçilerin görüş alanı çok geniş, çok riskli.","Hostile village by day: the guards see very far, extremely risky."
+visit.mode.hostile_night,"Düşman köy, gece: gizli kal.",Hostile village by night: stay hidden.
+visit.alarm,"ALARM! Yakalandın, ganimet elden gitti","ALARM! You were spotted, the loot is lost"
+visit.loot.treasure,Hazineden %d altın aldın,You took %d gold from the treasure
+visit.loot.storage,Depodan %d erzak aldın,You took %d food from the storehouse
+visit.loot.prison,"%d esiri serbest bıraktın, seni takip edecekler","You freed %d prisoners, they will follow you"
+visit.loot.empty,Burada alınacak bir şey kalmamış,There is nothing left to take here
+visit.loot.hud,"Ganimet: %d altın, %d erzak, %d esir","Loot: %d gold, %d food, %d prisoners"
+visit.talk.leader,Köyümüzü %s yönetir. Haksızlık etmez derler.,%s leads our village. They say the leader is fair.
+visit.talk.generic.1,Hoş geldin yabancı. Yolun uzundu herhalde.,"Welcome, stranger. You must have come a long way."
+visit.talk.generic.2,Bu aralar yollar eskisi kadar güvenli değil.,The roads are not as safe as they used to be.
+visit.talk.generic.3,"Hasat iyi geçsin, gerisi kolay.","If the harvest goes well, the rest is easy."
+visit.talk.personality.warrior.a,Bizim köyde herkes kılıç tutmayı bilir.,In our village everyone knows how to hold a sword.
+visit.talk.personality.warrior.b,"Komşular bizden çekinir, iyi de olur.","The neighbors fear us, and that is good."
+visit.talk.personality.merchant.a,"Pazarımız her zaman dolu, bir bak istersen.","Our market is always full, take a look."
+visit.talk.personality.merchant.b,"Altın konuşur, gerisi lafı güzaf.","Gold talks, the rest is just chatter."
+visit.talk.personality.cautious.a,Burada her şeyi iki kere düşünürüz.,Here we think everything over twice.
+visit.talk.personality.cautious.b,Kapılarımızı geceleri sıkı kilitleriz.,We lock our doors tight at night.
+visit.talk.personality.ambitious.a,Köyümüz bir gün bu bölgenin başı olacak.,One day our village will rule this region.
+visit.talk.personality.ambitious.b,Büyümek isteyen risk almalı.,Whoever wants to grow must take risks.
+visit.talk.personality.devout.a,"Sabah akşam dua ederiz, huzur bundan gelir.","We pray morning and evening, peace comes from that."
+visit.talk.personality.devout.b,Misafir Allah'ın emanetidir.,A guest is a trust from God.
+visit.talk.wealth.poor,"Bu yıl keselerimiz boş, zor günler yaşıyoruz.","Our purses are empty this year, times are hard."
+visit.talk.wealth.rich,Hazinemiz dolu ama nöbetçiler de boşuna durmuyor.,"Our treasury is full, and the guards do not stand idle."
+visit.talk.army.weak,"Askerimiz az, Allah korusun.","We have few soldiers, may God protect us."
+visit.talk.army.strong,Nöbetçilerimiz gece gündüz uyanık.,Our guards are awake day and night.
+visit.talk.prisoners,"Savaştan esirler getirdik, zindan şimdi dolu.","We brought prisoners back from the war, the dungeon is full."
+visit.talk.relation.high,"Senin köyünle dostluğumuz eskidir, hoş geldin.","Your village and ours are old friends, welcome."
+visit.talk.relation.low,Köyünüzden hoşlanmıyoruz ama misafirsin.,"We do not like your village, but you are a guest."
+visit.save_blocked,"Köy ziyaretinde kayıt yapılamaz, haritaya dönünce otomatik kaydedilir.","You cannot save during a village visit, the game autosaves when you return to the map."

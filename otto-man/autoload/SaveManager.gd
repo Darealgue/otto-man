@@ -79,6 +79,9 @@ func _can_autosave_now() -> bool:
 		return false
 	if is_instance_valid(SceneManager) and p == SceneManager.TUTORIAL_DUNGEON_SCENE:
 		return false
+	# Köy ziyareti yarım kalmış bir soygundur: kayıt yazma, son kayıt haritaya girişteki kalsın.
+	if p == SceneManager.VILLAGE_VISIT_SCENE:
+		return false
 	return true
 
 

@@ -1,5 +1,7 @@
 # 🎮 Otto-Man Beta Entegrasyon Yol Haritası
 
+> **ESKİ (tarihî kayıt).** Buradaki fazların hepsi yapıldı (menü, SceneManager, SaveManager, geçişler). Güncel durum: `docs/DURUM.md`.
+
 ## 📋 Genel Amaç
 Village, Dungeon ve Forest sahnelerini tek bir oynanabilir oyun olarak birleştirmek ve beta testi için hazırlamak.
 

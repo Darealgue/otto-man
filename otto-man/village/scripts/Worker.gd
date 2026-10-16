@@ -2820,7 +2820,8 @@ func _is_on_night_watch() -> bool:
 	for n in get_tree().get_nodes_in_group("Villagers"):
 		if not is_instance_valid(n):
 			continue
-		if String(n.get("assigned_job_type")) != "soldier":
+		# Grupta Worker olmayan düğümler de olabilir (get null döner): String(null) hata verir
+		if str(n.get("assigned_job_type")) != "soldier":
 			continue
 		if bool(n.get("is_deployed")) or bool(n.get("is_sick")) or bool(n.get("is_guest_villager")):
 			continue

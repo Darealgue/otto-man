@@ -13,6 +13,8 @@ const DUNGEON_SCENE: String = "res://scenes/test_level.tscn"
 const CAMP_SCENE: String = "res://scenes/CampScene.tscn"
 const BOSS_ROOM_SCENE: String = "res://scenes/boss_rooms/orb_scatter_boss_room.tscn"
 const FOREST_SCENE: String = "res://scenes/forest.tscn"
+## Dünya haritasından girilen komşu köy ziyareti (bkz. docs/VILLAGE_VISIT_PLAN.md).
+const VILLAGE_VISIT_SCENE: String = "res://village/visit/VillageVisitScene.tscn"
 const WORLD_MAP_SCENE: String = "res://worldmap/scenes/WorldMapScene.tscn"
 const PortalAreaScript = preload("res://village/scripts/PortalArea.gd")
 const LoadingScreenScene = preload("res://ui/LoadingScreen.tscn")
@@ -486,6 +488,14 @@ func change_to_forest(payload: Dictionary = {}, force_reload: bool = false) -> v
 	# Record entry time AFTER travel time has been applied (so we track time inside the level)
 	_record_level_entry_time(FOREST_SCENE)
 	_change_scene(FOREST_SCENE, force_reload)
+
+## Dünya haritasında bir komşu köyün hex'inden köye girer. payload: {"settlement_id": String}.
+## Köy bilgisi sahnede WorldManager.get_village_visit_info ile okunur; çıkış dünya haritasına döner.
+func change_to_village_visit(payload: Dictionary = {}, force_reload: bool = false) -> void:
+	current_payload = payload.duplicate(true)
+	_record_level_entry_time(VILLAGE_VISIT_SCENE)
+	_change_scene(VILLAGE_VISIT_SCENE, force_reload)
+
 
 func change_to_world_map(payload: Dictionary = {}, force_reload: bool = false) -> void:
 	var src: String = String(payload.get("source", ""))
@@ -1179,6 +1189,7 @@ func _update_ui_visibility(scene_path: String) -> void:
 		scene_path == DUNGEON_SCENE
 		or scene_path == TUTORIAL_DUNGEON_SCENE
 		or scene_path == FOREST_SCENE
+		or scene_path == VILLAGE_VISIT_SCENE
 		or scene_path == CAMP_SCENE
 		or BossRoomRegistry.is_boss_room_path(scene_path)
 		or ChallengeRoomRegistry.is_challenge_room_path(scene_path)

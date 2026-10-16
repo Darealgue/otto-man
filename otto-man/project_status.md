@@ -1,5 +1,7 @@
 # Otto-Man Project Status
 
+> **ESKİ (tarihî kayıt).** Güncel durum: `docs/DURUM.md`.
+
 ## Recently Implemented Features
 
 ### Enemy System

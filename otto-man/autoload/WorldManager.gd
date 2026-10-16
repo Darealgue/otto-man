@@ -110,6 +110,30 @@ var world_settlement_diplomacy: Dictionary = {}
 var world_player_alliances: Dictionary = {}
 # Geçiş hakları: settlement_id -> son geçerli gün (dünya haritası seyahat maliyeti indirimi)
 var _passage_rights: Dictionary = {}
+## Köyler arası ticaret kervanları: haritada hex hex yürüyen varlıklar (bkz. _launch_trade_convoy).
+## Kervan: {id, sender_id, receiver_id, resource, path[{q,r}], step, fate_step (-1 = varır), start_day}
+const CONVOY_HEX_PER_DAY: int = 3
+const MAX_ACTIVE_CONVOYS: int = 8
+const CONVOY_WRECK_DAYS: int = 3
+## Bu kadar hex'ten kısa yol anında çözülür (zaten bir günden kısa sürer).
+const CONVOY_MIN_ROUTE_HEXES: int = 5
+var world_trade_convoys: Array[Dictionary] = []
+## Yağmalanmış kervanın haritada kalan izi: {q, r, sender_id, receiver_id, resource, until_day}
+var world_convoy_wrecks: Array[Dictionary] = []
+var _next_convoy_id: int = 1
+var _convoy_route_cache: Dictionary = {}
+## Cariyenin yağmaladığı kervanın çıkış köyünün planlanan misillemesi: {settlement_id, due_day}
+## Başarılı yağma sessizdir (kimse kimin yaptığını bilmez, ufak şüphe); başarısız girişimi herkes
+## görür ve kimin yaptığı bilinir: ilişki ağır bozulur, çıkış köyü büyük olasılıkla karşılık verir.
+const CONVOY_RAID_QUIET_SENDER_RELATION_LOSS: int = 2
+const CONVOY_RAID_QUIET_RECEIVER_RELATION_LOSS: int = 0
+const CONVOY_RAID_QUIET_RETALIATION_CHANCE: float = 0.08
+const CONVOY_RAID_CAUGHT_SENDER_RELATION_LOSS: int = 12
+const CONVOY_RAID_CAUGHT_RECEIVER_RELATION_LOSS: int = 6
+const CONVOY_RAID_CAUGHT_RETALIATION_CHANCE: float = 0.70
+## Çıkış köyü zaten oyuncuya düşmansa misilleme olasılığına eklenir.
+const CONVOY_RETALIATION_HOSTILE_BONUS: float = 0.25
+var world_retaliations: Array[Dictionary] = []
 
 # --- Internal ---
 var _last_tick_day: int = 0
@@ -161,6 +185,13 @@ func reset_world_map_state() -> void:
 	world_settlement_diplomacy.clear()
 	world_player_alliances.clear()
 	_passage_rights.clear()
+	world_trade_convoys.clear()
+	world_convoy_wrecks.clear()
+	world_retaliations.clear()
+	world_settlement_alliances.clear()
+	world_settlement_grudges.clear()
+	_convoy_route_cache.clear()
+	_next_convoy_id = 1
 	pending_attacks.clear()
 	combat_history.clear()
 	_playable_defense_battle_active = false
@@ -528,6 +559,11 @@ func get_world_map_state() -> Dictionary:
 		"settlement_diplomacy": world_settlement_diplomacy.duplicate(true),
 		"player_alliances": world_player_alliances.duplicate(true),
 		"passage_rights": _passage_rights.duplicate(true),
+		"trade_convoys": world_trade_convoys.duplicate(true),
+		"convoy_wrecks": world_convoy_wrecks.duplicate(true),
+		"retaliations": world_retaliations.duplicate(true),
+		"settlement_alliances": world_settlement_alliances.duplicate(true),
+		"settlement_grudges": world_settlement_grudges.duplicate(true),
 		"pending_attacks": _serialize_pending_attacks(),
 		"next_periodic_raid_day": _next_periodic_raid_day,
 		"next_periodic_raid_hour": _next_periodic_raid_hour,
@@ -569,6 +605,18 @@ func set_world_map_state(state: Dictionary) -> void:
 	world_settlement_diplomacy = state.get("settlement_diplomacy", {}).duplicate(true)
 	world_player_alliances = state.get("player_alliances", {}).duplicate(true)
 	_passage_rights = state.get("passage_rights", {}).duplicate(true)
+	_restore_trade_convoys(state.get("trade_convoys", []), state.get("convoy_wrecks", []))
+	world_settlement_alliances = state.get("settlement_alliances", {}).duplicate(true)
+	world_settlement_grudges = state.get("settlement_grudges", {}).duplicate(true)
+	world_retaliations.clear()
+	var raw_retaliations: Variant = state.get("retaliations", [])
+	if raw_retaliations is Array:
+		for ret in raw_retaliations:
+			if ret is Dictionary:
+				world_retaliations.append({
+					"settlement_id": String(ret.get("settlement_id", "")),
+					"due_day": int(ret.get("due_day", 0)),
+				})
 	_deserialize_pending_attacks(state.get("pending_attacks", []))
 	_next_periodic_raid_day = int(state.get("next_periodic_raid_day", -1))
 	_next_periodic_raid_hour = float(state.get("next_periodic_raid_hour", 0.0))
@@ -591,6 +639,47 @@ func set_world_map_state(state: Dictionary) -> void:
 	if mm_map and mm_map.has_method("sync_settlement_relations_from_world_map"):
 		mm_map.sync_settlement_relations_from_world_map()
 	world_map_updated.emit()
+
+## Kayıttan kervanları geri yükler. JSON sayıları float döndürebilir, hepsi int'e çevrilir.
+func _restore_trade_convoys(raw_convoys: Variant, raw_wrecks: Variant) -> void:
+	world_trade_convoys.clear()
+	world_convoy_wrecks.clear()
+	_convoy_route_cache.clear()
+	_next_convoy_id = 1
+	if raw_convoys is Array:
+		for c in raw_convoys:
+			if not (c is Dictionary):
+				continue
+			var path: Array = []
+			for node in c.get("path", []):
+				if node is Dictionary:
+					path.append({"q": int(node.get("q", 0)), "r": int(node.get("r", 0))})
+			if path.size() < 2:
+				continue
+			var convoy: Dictionary = {
+				"id": int(c.get("id", 0)),
+				"sender_id": String(c.get("sender_id", "")),
+				"receiver_id": String(c.get("receiver_id", "")),
+				"resource": String(c.get("resource", "")),
+				"path": path,
+				"step": int(c.get("step", 0)),
+				"fate_step": int(c.get("fate_step", -1)),
+				"start_day": int(c.get("start_day", 0)),
+			}
+			world_trade_convoys.append(convoy)
+			_next_convoy_id = maxi(_next_convoy_id, int(convoy["id"]) + 1)
+	if raw_wrecks is Array:
+		for w in raw_wrecks:
+			if w is Dictionary:
+				world_convoy_wrecks.append({
+					"q": int(w.get("q", 0)),
+					"r": int(w.get("r", 0)),
+					"sender_id": String(w.get("sender_id", "")),
+					"receiver_id": String(w.get("receiver_id", "")),
+					"resource": String(w.get("resource", "")),
+					"until_day": int(w.get("until_day", 0)),
+				})
+
 
 func _serialize_pending_attacks() -> Array:
 	var out: Array = []
@@ -817,6 +906,227 @@ func _place_settlements_on_map() -> void:
 			"faction": faction_id
 		}
 
+# === Köy kimliği: kişilik, lider, ordu, hazine (Aşama B) ===
+# Kişilik üç eğilimi değiştirir: aggression (sınır çatışması / savaş), trade (kervan çıkarma),
+# alliance (dostluk / ittifak). army = nüfusa oranla ordu büyüklüğü, gold = hazine çarpanı.
+const SETTLEMENT_PERSONALITIES: Array[String] = ["warrior", "merchant", "cautious", "ambitious", "devout"]
+const PERSONALITY_TRAITS: Dictionary = {
+	"warrior": {"aggression": 1.6, "trade": 0.8, "alliance": 1.0, "army": 0.20, "gold": 0.8, "title": "Bey"},
+	"merchant": {"aggression": 0.6, "trade": 1.6, "alliance": 1.2, "army": 0.10, "gold": 1.5, "title": "Çelebi"},
+	"cautious": {"aggression": 0.5, "trade": 1.0, "alliance": 1.3, "army": 0.14, "gold": 1.0, "title": "Kethüda"},
+	"ambitious": {"aggression": 1.3, "trade": 1.2, "alliance": 0.8, "army": 0.16, "gold": 1.1, "title": "Paşa"},
+	"devout": {"aggression": 0.8, "trade": 0.9, "alliance": 1.5, "army": 0.12, "gold": 1.0, "title": "Şeyh"},
+}
+const LEADER_MALE_NAMES: Array[String] = ["Hasan", "Mehmet", "Ali", "Yusuf", "Osman", "Ahmet", "Mustafa", "İbrahim", "Kemal", "Selim", "Murat", "Rüstem", "Davut", "Orhan", "Tahir", "Zeki", "Nuri", "Faruk", "Emin", "Cevdet"]
+const LEADER_FEMALE_NAMES: Array[String] = ["Ayşe", "Fatma", "Hatice", "Zeynep", "Emine", "Hürrem", "Meryem", "Safiye", "Nigâr", "Kösem"]
+const SETTLEMENT_GOLD_CAP: int = 600
+const SETTLEMENT_TAX_PER_POP: float = 0.10
+const SETTLEMENT_UPKEEP_PER_SOLDIER: float = 0.3
+const SETTLEMENT_GOLD_SPEND_ABOVE: int = 250
+const SETTLEMENT_GOLD_SPEND_RATE: float = 0.04
+const SETTLEMENT_RECRUIT_GOLD: int = 15
+const SETTLEMENT_WAR_GOLD_COST: int = 3
+const SETTLEMENT_WAR_CASUALTY_RATE: float = 0.07
+## Savaşta ordusu bu sayının altına inen köy barış ister (ilişkisi hızla düzelir).
+const SETTLEMENT_ARMY_COLLAPSE: int = 3
+## Müttefik desteği (ordu birleşmez): günlük olasılık x kişiliğin ittifak eğilimi, erzak/altın yardımı, saldırgana kin.
+const SETTLEMENT_ALLY_SUPPORT_CHANCE: float = 0.5
+const SETTLEMENT_ALLY_AID_GOLD: int = 4
+const SETTLEMENT_ALLY_AID_FOOD: int = 3
+const SETTLEMENT_ALLY_AID_MIN_GOLD: int = 140
+const SETTLEMENT_ALLY_AID_MIN_FOOD: int = 110
+const SETTLEMENT_ALLY_GRUDGE_STEP: int = 6
+## Köy bir baskına çıkarken ordusunun bu oranını gönderir (bkz. _get_attacker_force_for_defense).
+const SETTLEMENT_RAID_ARMY_SHARE: float = 0.55
+## Savaş / çatışma nedeni: "idA|idB" -> {reason: "hunger"|"border", instigator: id}
+var world_settlement_grudges: Dictionary = {}
+
+
+func _personality_traits(settlement_id: String) -> Dictionary:
+	var p: String = String(world_settlement_states.get(settlement_id, {}).get("personality", "cautious"))
+	return PERSONALITY_TRAITS.get(p, PERSONALITY_TRAITS["cautious"])
+
+
+## Köyün kişiliği, lideri, ordusu ve hazinesi yoksa (yeni köy ya da eski kayıt) dünya tohumundan
+## kararlı biçimde üretir: aynı kayıt her yüklendiğinde aynı lider çıkar.
+func _ensure_settlement_identity(settlement_id: String) -> void:
+	if not world_settlement_states.has(settlement_id):
+		return
+	var state: Dictionary = world_settlement_states[settlement_id]
+	if state.has("personality") and state.has("soldiers") and state.has("gold"):
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = absi(hash("%s@%d" % [settlement_id, world_map_seed]))
+	var personality: String = String(state.get("personality", ""))
+	if personality.is_empty():
+		personality = SETTLEMENT_PERSONALITIES[rng.randi() % SETTLEMENT_PERSONALITIES.size()]
+	var traits: Dictionary = PERSONALITY_TRAITS[personality]
+	if not state.has("leader"):
+		if rng.randf() < 0.25:
+			state["leader"] = "%s Hatun" % LEADER_FEMALE_NAMES[rng.randi() % LEADER_FEMALE_NAMES.size()]
+		else:
+			state["leader"] = "%s %s" % [LEADER_MALE_NAMES[rng.randi() % LEADER_MALE_NAMES.size()], String(traits["title"])]
+	var pop: int = int(state.get("population", 80))
+	state["personality"] = personality
+	if not state.has("soldiers"):
+		state["soldiers"] = maxi(2, int(round(float(pop) * float(traits["army"]) * rng.randf_range(0.85, 1.15))))
+	if not state.has("gold"):
+		state["gold"] = int(round(float(pop) * 1.4 * float(traits["gold"]) * rng.randf_range(0.8, 1.2)))
+	world_settlement_states[settlement_id] = state
+
+
+## Haritadaki bilgi balonu için: kişilik, lider ve ordu / hazine (gerçek sayı + kaba kademe).
+func get_settlement_profile(settlement_id: String) -> Dictionary:
+	_ensure_settlement_identity(settlement_id)
+	var st: Dictionary = world_settlement_states.get(settlement_id, {})
+	if st.is_empty():
+		return {}
+	var pop: int = maxi(1, int(st.get("population", 80)))
+	var soldiers: int = int(st.get("soldiers", 0))
+	var gold: int = int(st.get("gold", 0))
+	var ratio: float = float(soldiers) / float(pop)
+	return {
+		"personality": String(st.get("personality", "cautious")),
+		"leader": String(st.get("leader", "")),
+		"soldiers": soldiers,
+		"gold": gold,
+		"army_tier": "weak" if ratio < 0.08 else ("medium" if ratio < 0.15 else "strong"),
+		"wealth_tier": "poor" if gold < 60 else ("medium" if gold < 200 else "rich"),
+	}
+
+
+## Köy ziyareti sahnesinin ihtiyaç duyduğu tüm köy verisi (düzen üretimi ve kip kararı için).
+## "hostile": oyuncuyla ilişki gergin ya da daha kötü (<= -15). "coastal": köyün yanında deniz karosu var.
+func get_village_visit_info(settlement_id: String) -> Dictionary:
+	if not world_map_settlement_positions.has(settlement_id) or not world_settlement_states.has(settlement_id):
+		return {}
+	var pos: Dictionary = world_map_settlement_positions[settlement_id]
+	var q: int = int(pos.get("q", 0))
+	var r: int = int(pos.get("r", 0))
+	var st: Dictionary = world_settlement_states[settlement_id]
+	var profile: Dictionary = get_settlement_profile(settlement_id)
+	var name: String = _get_settlement_display_name(settlement_id)
+	var rel: int = get_relation("Köy", name)
+	var coastal: bool = false
+	for n in _get_hex_neighbors(q, r):
+		var nt: Dictionary = world_map_tiles.get(_hex_key(int(n.get("q", 0)), int(n.get("r", 0))), {})
+		if String(nt.get("terrain_type", "")) == "deniz":
+			coastal = true
+			break
+	return {
+		"settlement_id": settlement_id,
+		"name": name,
+		"q": q,
+		"r": r,
+		"population": int(st.get("population", 80)),
+		"personality": String(profile.get("personality", "cautious")),
+		"leader": String(profile.get("leader", "")),
+		"soldiers": int(profile.get("soldiers", 0)),
+		"gold": int(profile.get("gold", 0)),
+		"wealth_tier": String(profile.get("wealth_tier", "medium")),
+		"army_tier": String(profile.get("army_tier", "medium")),
+		"relation": rel,
+		"hostile": rel <= DIPLOMACY_TENSION_THRESHOLD,
+		"coastal": coastal,
+		"terrain": String(st.get("economy_profile", {}).get("terrain", "ova")),
+		"prisoners": int(st.get("prisoners", 0)),
+		"world_seed": world_map_seed,
+	}
+
+
+## Günlük köy ekonomisi: vergi gelir, ordu maaş yer, hazine doluysa asker alınır, boşsa asker kaçar.
+func _simulate_settlement_economy(_day: int) -> void:
+	for sid in world_settlement_states.keys():
+		_ensure_settlement_identity(String(sid))
+		var st: Dictionary = world_settlement_states[sid]
+		var traits: Dictionary = _personality_traits(String(sid))
+		var pop: int = int(st.get("population", 80))
+		var soldiers: int = int(st.get("soldiers", 0))
+		var gold: int = int(st.get("gold", 0))
+		var tax: float = float(pop) * SETTLEMENT_TAX_PER_POP * clampf(float(int(st.get("stability", 60))) / 70.0, 0.4, 1.3)
+		var upkeep: float = float(soldiers) * SETTLEMENT_UPKEEP_PER_SOLDIER
+		# Hazine şişmesin: eşiğin üstündeki kısım yolda, surda, şenlikte harcanır.
+		var spending: float = maxf(0.0, float(gold - SETTLEMENT_GOLD_SPEND_ABOVE)) * SETTLEMENT_GOLD_SPEND_RATE
+		var raw_gold: int = gold + int(round(tax - upkeep - spending))
+		# Asker yalnız gerçekten ödeme güçsüzlüğü olunca (maaş hazineyi eksiye düşürünce) kaçar.
+		var insolvent: bool = raw_gold < 0
+		gold = clampi(raw_gold, 0, SETTLEMENT_GOLD_CAP)
+		var soldier_cap: int = int(round(float(pop) * float(traits["army"]) * 1.4))
+		if insolvent and soldiers > 0 and randf() < 0.5:
+			soldiers -= 1
+		elif gold >= 120 and soldiers < soldier_cap and randf() < 0.5:
+			soldiers += 1
+			gold -= SETTLEMENT_RECRUIT_GOLD
+		st["gold"] = gold
+		st["soldiers"] = soldiers
+		# Esirler zamanla fidyeyle ya da takasla serbest kalır.
+		if int(st.get("prisoners", 0)) > 0 and randf() < SETTLEMENT_PRISONER_RELEASE_CHANCE:
+			st["prisoners"] = int(st.get("prisoners", 0)) - 1
+		world_settlement_states[sid] = st
+
+
+## Açık savaştaki her çift birbirinin ordusunu yıpratır; hazine ve erzak erir. Ordusu çöken taraf
+## barış ister (ilişki düzelir, durum makinesi ateşkese geçer).
+func _simulate_settlement_wars(_day: int) -> void:
+	for key in world_settlement_diplomacy.keys():
+		if String(world_settlement_diplomacy[key].get("state", "")) != DIPLOMACY_STATE_OPEN_WAR:
+			continue
+		var ids: PackedStringArray = String(key).split("|")
+		if ids.size() < 2 or not world_settlement_states.has(ids[0]) or not world_settlement_states.has(ids[1]):
+			continue
+		var sa: Dictionary = world_settlement_states[ids[0]]
+		var sb: Dictionary = world_settlement_states[ids[1]]
+		var power_a: float = float(int(sa.get("soldiers", 0))) * randf_range(0.8, 1.2)
+		var power_b: float = float(int(sb.get("soldiers", 0))) * randf_range(0.8, 1.2)
+		var loss_b: int = mini(int(sb.get("soldiers", 0)), int(ceil(power_a * SETTLEMENT_WAR_CASUALTY_RATE)))
+		var loss_a: int = mini(int(sa.get("soldiers", 0)), int(ceil(power_b * SETTLEMENT_WAR_CASUALTY_RATE)))
+		for pair in [[ids[0], sa, loss_a], [ids[1], sb, loss_b]]:
+			var s: Dictionary = pair[1]
+			s["soldiers"] = maxi(0, int(s.get("soldiers", 0)) - int(pair[2]))
+			s["gold"] = maxi(0, int(s.get("gold", 0)) - SETTLEMENT_WAR_GOLD_COST)
+			s["food_stock"] = clampi(int(s.get("food_stock", 100)) - 2, 0, 260)
+			s["stability"] = clampi(int(s.get("stability", 60)) - 1, 5, 100)
+			world_settlement_states[String(pair[0])] = s
+		# Üstün gelen taraf bazen bir savaş esiri alır (ziyaret edilen köyde hücrede tutulur).
+		if randf() < SETTLEMENT_PRISONER_CAPTURE_CHANCE:
+			var winner: Dictionary = sa if power_a >= power_b else sb
+			winner["prisoners"] = mini(SETTLEMENT_PRISONER_CAP, int(winner.get("prisoners", 0)) + 1)
+		_apply_war_ally_support(ids[0], ids[1])
+		_apply_war_ally_support(ids[1], ids[0])
+		if int(sa.get("soldiers", 0)) < SETTLEMENT_ARMY_COLLAPSE or int(sb.get("soldiers", 0)) < SETTLEMENT_ARMY_COLLAPSE:
+			change_settlement_relation(ids[0], ids[1], 5)
+
+
+## Savaşan bir köyün müttefikleri, ordularını birleştirmeden destek verir: erzak ve altın yollar,
+## saldırgana ilişkisini bozar. İlişki yeterince çökerse köy sürüsü düzeni ona savaş açtırabilir
+## (müttefik böylece savaşa girer). Her iki tarafın da müttefiği olan köy tarafsız kalır.
+func _apply_war_ally_support(defender_id: String, enemy_id: String) -> void:
+	for ally_id in get_settlement_allies(defender_id):
+		if ally_id == enemy_id or are_settlements_allied(ally_id, enemy_id):
+			continue
+		if not world_settlement_states.has(ally_id) or not world_settlement_states.has(defender_id):
+			continue
+		var traits: Dictionary = _personality_traits(ally_id)
+		if randf() >= SETTLEMENT_ALLY_SUPPORT_CHANCE * float(traits["alliance"]):
+			continue
+		var ally: Dictionary = world_settlement_states[ally_id]
+		var helped: Dictionary = world_settlement_states[defender_id]
+		if int(ally.get("gold", 0)) >= SETTLEMENT_ALLY_AID_MIN_GOLD:
+			ally["gold"] = int(ally.get("gold", 0)) - SETTLEMENT_ALLY_AID_GOLD
+			helped["gold"] = clampi(int(helped.get("gold", 0)) + SETTLEMENT_ALLY_AID_GOLD, 0, SETTLEMENT_GOLD_CAP)
+		if int(ally.get("food_stock", 0)) >= SETTLEMENT_ALLY_AID_MIN_FOOD:
+			ally["food_stock"] = int(ally.get("food_stock", 0)) - SETTLEMENT_ALLY_AID_FOOD
+			helped["food_stock"] = clampi(int(helped.get("food_stock", 0)) + SETTLEMENT_ALLY_AID_FOOD, 0, 260)
+		world_settlement_states[ally_id] = ally
+		world_settlement_states[defender_id] = helped
+		if get_settlement_relation(ally_id, enemy_id) > DIPLOMACY_OPEN_WAR_THRESHOLD:
+			change_settlement_relation(ally_id, enemy_id, -SETTLEMENT_ALLY_GRUDGE_STEP)
+		# Kin soğuk savaş eşiğine varınca müttefik savaşa girer (olağan durum makinesi savaşı ilan eder).
+		var rel: int = get_settlement_relation(ally_id, enemy_id)
+		if rel <= DIPLOMACY_COLD_WAR_THRESHOLD and rel > DIPLOMACY_OPEN_WAR_THRESHOLD:
+			change_settlement_relation(ally_id, enemy_id, DIPLOMACY_OPEN_WAR_THRESHOLD - rel)
+
+
 func _initialize_world_settlement_states() -> void:
 	for settlement_id in world_map_settlement_positions.keys():
 		var info: Dictionary = world_map_settlement_positions[settlement_id]
@@ -824,12 +1134,17 @@ func _initialize_world_settlement_states() -> void:
 		var r: int = int(info.get("r", 0))
 		var tile: Dictionary = world_map_tiles.get(_hex_key(q, r), {})
 		var terrain: String = String(tile.get("terrain_type", "ova"))
+		# Köyler hep düzlüğe kurulduğu için kendi karolarının arazisi herkese aynı "ova koyu" profilini
+		# veriyordu ve hiçbir ticaret çifti oluşmuyordu; üretim çevredeki araziden okunur.
+		var economy_terrain: String = _dominant_economy_terrain_near(q, r)
 		if world_settlement_states.has(settlement_id):
-			# Geriye donuk uyumluluk: profil yoksa ekle.
+			# Geriye donuk uyumluluk: profil yoksa ekle, eski (v1) profili çevre arazisine göre yenile.
 			var existing: Dictionary = world_settlement_states[settlement_id]
-			if not existing.has("economy_profile"):
-				existing["economy_profile"] = _build_settlement_economy_profile(terrain)
+			var old_profile: Dictionary = existing.get("economy_profile", {})
+			if not existing.has("economy_profile") or int(old_profile.get("v", 1)) < ECONOMY_PROFILE_VERSION:
+				existing["economy_profile"] = _build_settlement_economy_profile(economy_terrain)
 				world_settlement_states[settlement_id] = existing
+			_ensure_settlement_identity(String(settlement_id))
 			continue
 		var base_food: int = 120
 		match terrain:
@@ -849,9 +1164,32 @@ func _initialize_world_settlement_states() -> void:
 			"security": randi_range(45, 80),
 			"stability": randi_range(45, 85),
 			"crisis_pressure": 0.0,
-			"economy_profile": _build_settlement_economy_profile(terrain),
+			"economy_profile": _build_settlement_economy_profile(economy_terrain),
 			"last_updated_day": _last_tick_day
 		}
+		_ensure_settlement_identity(String(settlement_id))
+
+const ECONOMY_PROFILE_VERSION: int = 2
+const ECONOMY_NEIGHBORHOOD_RADIUS: int = 2
+
+## Köyün çevresindeki (2 hex) baskın üretim arazisi: dağ > akarsu > orman, yoksa ova.
+func _dominant_economy_terrain_near(q: int, r: int) -> String:
+	var counts: Dictionary = {"dag": 0, "akarsu": 0, "orman": 0}
+	for dq in range(-ECONOMY_NEIGHBORHOOD_RADIUS, ECONOMY_NEIGHBORHOOD_RADIUS + 1):
+		for dr in range(-ECONOMY_NEIGHBORHOOD_RADIUS, ECONOMY_NEIGHBORHOOD_RADIUS + 1):
+			if _hex_distance(0, 0, dq, dr) > ECONOMY_NEIGHBORHOOD_RADIUS:
+				continue
+			var t: Dictionary = world_map_tiles.get(_hex_key(q + dq, r + dr), {})
+			var terrain: String = String(t.get("terrain_type", ""))
+			if counts.has(terrain):
+				counts[terrain] = int(counts[terrain]) + 1
+	if int(counts["dag"]) >= 2:
+		return "dag"
+	if int(counts["akarsu"]) >= 2:
+		return "akarsu"
+	if int(counts["orman"]) >= 5:
+		return "orman"
+	return "ova"
 
 func _build_settlement_economy_profile(terrain: String) -> Dictionary:
 	var produces: Array[String] = []
@@ -867,8 +1205,10 @@ func _build_settlement_economy_profile(terrain: String) -> Dictionary:
 			produces = ["wood", "food"]
 			scarce = ["stone"]
 		_:
+			# Düzlük köyü ormanı olmadığı için odun da ister; böylece orman ve nehir köylerinden
+			# odun kervanı gelir (yoksa dağı olmayan bir haritada hiç ticaret çifti çıkmıyordu).
 			produces = ["food"]
-			scarce = ["stone"]
+			scarce = ["stone", "wood"]
 	var label: String = ""
 	match terrain:
 		"orman":
@@ -880,6 +1220,7 @@ func _build_settlement_economy_profile(terrain: String) -> Dictionary:
 		_:
 			label = "ova koyu"
 	return {
+		"v": ECONOMY_PROFILE_VERSION,
 		"label": label,
 		"terrain": terrain,
 		"produces": produces,
@@ -3079,9 +3420,12 @@ func _on_new_day(day: int) -> void:
 	_apply_world_events_to_village(day)
 
 func _simulate_day(day: int) -> void:
+	_process_convoy_retaliations(day)
 	_simulate_neighbor_settlements(day)
 	_simulate_settlement_diplomacy(day)
 	_simulate_settlement_trade_flows(day)
+	_simulate_settlement_economy(day)
+	_simulate_settlement_wars(day)
 	_simulate_event_chains(day)
 	_simulate_settlement_migrations(day)
 	_simulate_player_alliances(day)
@@ -3244,6 +3588,7 @@ func _apply_settlement_incident_start_effects(incident: Dictionary) -> void:
 	world_settlement_states[settlement_id] = state
 
 func _simulate_settlement_trade_flows(day: int) -> void:
+	_advance_trade_convoys(day)
 	if world_settlement_states.size() < 2:
 		return
 	var attempts: int = 1
@@ -3258,13 +3603,18 @@ func _simulate_settlement_trade_flows(day: int) -> void:
 		var resource: String = String(pair.get("resource", ""))
 		if sender_id.is_empty() or receiver_id.is_empty() or resource.is_empty():
 			continue
-		_resolve_trade_convoy(day, sender_id, receiver_id, resource)
+		_launch_trade_convoy(day, sender_id, receiver_id, resource)
 
 func _pick_trade_pair() -> Dictionary:
 	var ids: Array = world_settlement_states.keys()
 	if ids.size() < 2:
 		return {}
-	ids.shuffle()
+	# Tüccar kişilikli köyler kervan çıkarmada öne geçer (trade eğilimi çarpanı), yine de sıra rastgele.
+	var scored: Array = []
+	for sid in ids:
+		scored.append({"id": sid, "s": randf() * float(_personality_traits(String(sid))["trade"])})
+	scored.sort_custom(func(x, y): return float(x["s"]) > float(y["s"]))
+	ids = scored.map(func(x): return x["id"])
 	for sender_id in ids:
 		var sender_state: Dictionary = world_settlement_states[sender_id]
 		var sender_economy: Dictionary = sender_state.get("economy_profile", {})
@@ -3294,13 +3644,11 @@ func _pick_trade_pair() -> Dictionary:
 			}
 	return {}
 
-func _resolve_trade_convoy(day: int, sender_id: String, receiver_id: String, resource: String) -> void:
-	if not world_settlement_states.has(sender_id) or not world_settlement_states.has(receiver_id):
-		return
+## Kervanın yolda başına gelecekleri çıkışta zarla belirlenir (başarı şansı aşağıda); kervan o
+## ana kadar haritada gerçek bir varlık olarak yürür. Şans formülü eskiden anlık çözümdeki ile aynı.
+func _compute_convoy_success_chance(sender_id: String, receiver_id: String) -> float:
 	var sender_pos: Dictionary = world_map_settlement_positions.get(sender_id, {})
 	var receiver_pos: Dictionary = world_map_settlement_positions.get(receiver_id, {})
-	if sender_pos.is_empty() or receiver_pos.is_empty():
-		return
 	var distance: int = _hex_distance(
 		int(sender_pos.get("q", 0)),
 		int(sender_pos.get("r", 0)),
@@ -3312,7 +3660,9 @@ func _resolve_trade_convoy(day: int, sender_id: String, receiver_id: String, res
 	var sender_security: int = int(sender_state.get("security", 60))
 	var receiver_security: int = int(receiver_state.get("security", 60))
 	var avg_security: float = (float(sender_security) + float(receiver_security)) * 0.5
-	var success_chance: float = clampf(0.92 - 0.025 * float(distance) - (60.0 - avg_security) * 0.004, 0.35, 0.97)
+	# Kervanlar artık haritada görünüp yürüdüğü için eski mesafe cezası (hex başına 0.025) yolların
+	# yarısını yağmalatıyordu; haritada her yerde yağma izi olmasın diye 0.011'e indirildi.
+	var success_chance: float = clampf(0.93 - 0.011 * float(distance) - (60.0 - avg_security) * 0.004, 0.5, 0.97)
 	# Komsu krizleri konvoy guvenligini etkiler.
 	var sender_incident: Dictionary = get_active_settlement_incident(sender_id)
 	var receiver_incident: Dictionary = get_active_settlement_incident(receiver_id)
@@ -3331,17 +3681,466 @@ func _resolve_trade_convoy(day: int, sender_id: String, receiver_id: String, res
 			success_chance -= 0.05
 		_:
 			pass
-	success_chance = clampf(success_chance, 0.15, 0.97)
-	var sender_name: String = String(sender_state.get("name", sender_id))
-	var receiver_name: String = String(receiver_state.get("name", receiver_id))
-	var sender_discovered: bool = _is_settlement_discovered_for_news(sender_id)
-	var receiver_discovered: bool = _is_settlement_discovered_for_news(receiver_id)
-	if randf() < success_chance:
+	return clampf(success_chance, 0.15, 0.97)
+
+
+## Bir ticaret kervanı yola çıkarır. Yol bulunamayacak ya da çok kısa (günden kısa) ise eskisi gibi
+## anında çözülür; yoksa haritada yürüyen bir varlık olur (bkz. get_visible_trade_convoys).
+func _launch_trade_convoy(day: int, sender_id: String, receiver_id: String, resource: String) -> void:
+	if not world_settlement_states.has(sender_id) or not world_settlement_states.has(receiver_id):
+		return
+	var sender_pos: Dictionary = world_map_settlement_positions.get(sender_id, {})
+	var receiver_pos: Dictionary = world_map_settlement_positions.get(receiver_id, {})
+	if sender_pos.is_empty() or receiver_pos.is_empty():
+		return
+	var success: bool = randf() < _compute_convoy_success_chance(sender_id, receiver_id)
+	var path: Array = _get_convoy_route(sender_id, receiver_id)
+	if path.size() < CONVOY_MIN_ROUTE_HEXES:
+		_finish_trade_convoy(day, sender_id, receiver_id, resource, success)
+		return
+	if world_trade_convoys.size() >= MAX_ACTIVE_CONVOYS:
+		return
+	var fate_step: int = -1
+	if not success:
+		# Yağma yolun ortalarında olur; çıkış ve varış köyünün hex'inde değil.
+		fate_step = randi_range(1, maxi(1, path.size() - 2))
+	world_trade_convoys.append({
+		"id": _next_convoy_id,
+		"sender_id": sender_id,
+		"receiver_id": receiver_id,
+		"resource": resource,
+		"path": path,
+		"step": 0,
+		"fate_step": fate_step,
+		"start_day": day,
+	})
+	_next_convoy_id += 1
+
+
+## İki köy arasındaki en kısa kara yolu (hex listesi). Arazi sabit olduğu için önbelleğe alınır.
+func _get_convoy_route(sender_id: String, receiver_id: String) -> Array:
+	var key: String = "%s>%s" % [sender_id, receiver_id]
+	if _convoy_route_cache.has(key):
+		return _convoy_route_cache[key]
+	var sp: Dictionary = world_map_settlement_positions.get(sender_id, {})
+	var rp: Dictionary = world_map_settlement_positions.get(receiver_id, {})
+	var route: Dictionary = find_world_map_path(
+		int(sp.get("q", 0)), int(sp.get("r", 0)), int(rp.get("q", 0)), int(rp.get("r", 0)), "shortest")
+	var path: Array = []
+	if bool(route.get("ok", false)):
+		for node in route.get("path", []):
+			path.append({"q": int(node.get("q", 0)), "r": int(node.get("r", 0))})
+	_convoy_route_cache[key] = path
+	return path
+
+
+## Günlük ilerleme: kervanlar CONVOY_HEX_PER_DAY hex yürür; yağma noktasına ya da varışa gelince
+## sonuç uygulanır. Yağmalanan kervanın izi birkaç gün haritada kalır.
+func _advance_trade_convoys(day: int) -> void:
+	var kept_wrecks: Array[Dictionary] = []
+	for wreck in world_convoy_wrecks:
+		if day < int(wreck.get("until_day", 0)):
+			kept_wrecks.append(wreck)
+	world_convoy_wrecks = kept_wrecks
+	var remaining: Array[Dictionary] = []
+	for convoy in world_trade_convoys:
+		var sender_id: String = String(convoy.get("sender_id", ""))
+		var receiver_id: String = String(convoy.get("receiver_id", ""))
+		var path: Array = convoy.get("path", [])
+		if path.size() < 2 or not world_settlement_states.has(sender_id) or not world_settlement_states.has(receiver_id):
+			continue
+		var step: int = int(convoy.get("step", 0)) + CONVOY_HEX_PER_DAY
+		var fate_step: int = int(convoy.get("fate_step", -1))
+		if fate_step >= 0 and step >= fate_step:
+			var at: Dictionary = path[mini(fate_step, path.size() - 1)]
+			world_convoy_wrecks.append({
+				"q": int(at.get("q", 0)),
+				"r": int(at.get("r", 0)),
+				"sender_id": sender_id,
+				"receiver_id": receiver_id,
+				"resource": String(convoy.get("resource", "")),
+				"until_day": day + CONVOY_WRECK_DAYS,
+			})
+			_finish_trade_convoy(day, sender_id, receiver_id, String(convoy.get("resource", "")), false)
+			continue
+		if step >= path.size() - 1:
+			_finish_trade_convoy(day, sender_id, receiver_id, String(convoy.get("resource", "")), true)
+			continue
+		convoy["step"] = step
+		remaining.append(convoy)
+	world_trade_convoys = remaining
+
+
+## Kervanın sonucunu köy durumlarına ve haberlere uygular.
+func _finish_trade_convoy(day: int, sender_id: String, receiver_id: String, resource: String, success: bool) -> void:
+	if not world_settlement_states.has(sender_id) or not world_settlement_states.has(receiver_id):
+		return
+	var sender_name: String = String(world_settlement_states[sender_id].get("name", sender_id))
+	var receiver_name: String = String(world_settlement_states[receiver_id].get("name", receiver_id))
+	var allow_full: bool = _is_settlement_discovered_for_news(sender_id) or _is_settlement_discovered_for_news(receiver_id)
+	if success:
 		_apply_trade_convoy_success(sender_id, receiver_id, resource)
-		_post_trade_convoy_news(day, sender_name, receiver_name, resource, true, sender_discovered or receiver_discovered)
 	else:
 		_apply_trade_convoy_failure(sender_id, receiver_id, resource)
-		_post_trade_convoy_news(day, sender_name, receiver_name, resource, false, sender_discovered or receiver_discovered)
+	_post_trade_convoy_news(day, sender_name, receiver_name, resource, success, allow_full)
+
+
+## Günün ne kadarı geçti (0..1), kervanın hex'ler arasındaki konumunu yumuşatmak için.
+func _convoy_day_fraction() -> float:
+	var tm: Node = get_node_or_null("/root/TimeManager")
+	if tm == null or not tm.has_method("get_hour"):
+		return 0.0
+	var minutes: float = float(tm.call("get_hour")) * 60.0
+	if tm.has_method("get_minute"):
+		minutes += float(tm.call("get_minute"))
+	return clampf(minutes / 1440.0, 0.0, 1.0)
+
+
+func _convoy_settlement_label(settlement_id: String) -> String:
+	if not is_settlement_discovered(settlement_id):
+		return ""
+	return _get_settlement_display_name(settlement_id)
+
+
+## Harita çizimi için: oyuncunun görebildiği (keşfedilmiş hex üstündeki) kervanlar. Konum, günün
+## saatine göre iki hex arasında yumuşatılır (seg_a, seg_b, t). Bilinmeyen köyün adı boş döner.
+func get_visible_trade_convoys() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var frac: float = _convoy_day_fraction()
+	for convoy in world_trade_convoys:
+		var path: Array = convoy.get("path", [])
+		if path.size() < 2:
+			continue
+		var last: int = path.size() - 1
+		var fate_step: int = int(convoy.get("fate_step", -1))
+		var limit: float = float(last if fate_step < 0 else mini(fate_step, last))
+		var f: float = minf(float(int(convoy.get("step", 0))) + frac * float(CONVOY_HEX_PER_DAY), limit)
+		var i: int = clampi(int(floor(f)), 0, last)
+		var i2: int = mini(i + 1, last)
+		var t: float = f - float(i)
+		var near: Dictionary = path[i2] if t >= 0.5 else path[i]
+		var nq: int = int(near.get("q", 0))
+		var nr: int = int(near.get("r", 0))
+		var tile: Dictionary = world_map_tiles.get(_hex_key(nq, nr), {})
+		if not bool(tile.get("discovered", false)):
+			continue
+		var sid: String = String(convoy.get("sender_id", ""))
+		var rid: String = String(convoy.get("receiver_id", ""))
+		out.append({
+			"id": int(convoy.get("id", 0)),
+			"q": nq,
+			"r": nr,
+			"seg_a": path[i],
+			"seg_b": path[i2],
+			"t": t,
+			"path": path,
+			"sender_id": sid,
+			"receiver_id": rid,
+			"f": f,
+			"progress": f / float(last),
+			"eta_days": maxi(1, int(ceil((float(last) - f) / float(CONVOY_HEX_PER_DAY)))),
+			"resource": String(convoy.get("resource", "")),
+			"sender_name": _convoy_settlement_label(sid),
+			"receiver_name": _convoy_settlement_label(rid),
+		})
+	return out
+
+
+## Oyuncunun görebildiği bir kervan bu hex'te mi? (Komutan cariyenin yağma hedefi.) Yoksa {}.
+func find_visible_convoy_at(q: int, r: int) -> Dictionary:
+	for convoy in get_visible_trade_convoys():
+		if int(convoy.get("q", 0)) == q and int(convoy.get("r", 0)) == r:
+			return {
+				"id": int(convoy.id),
+				"resource": String(convoy.resource),
+				"sender_id": String(convoy.sender_id),
+				"receiver_id": String(convoy.receiver_id),
+			}
+	return {}
+
+
+## Oyuncunun cariyesi kervana saldırdı.
+## succeeded=true: sessiz yağma. Kervan kaldırılır, izi haritada kalır, haberlerde yalnız "kervan yolda
+##   kayboldu" yazar; çıkış köyü ufak bir şüpheye kapılır (ilişki az düşer, misilleme ihtimali düşük).
+## succeeded=false: girişim ortaya çıkar, kervan yoluna devam eder, ama herkes kimin yaptığını bilir:
+##   iki köyle ilişki ağır bozulur, çıkış köyü büyük olasılıkla karşılık verir, haber çıkar.
+## Kervan çoktan varmış / yağmalanmışsa {"ok": false} (ceza da yok, kimse görmedi).
+func raid_trade_convoy(convoy_id: int, succeeded: bool = true) -> Dictionary:
+	var idx: int = -1
+	for i in range(world_trade_convoys.size()):
+		if int(world_trade_convoys[i].get("id", -1)) == convoy_id:
+			idx = i
+			break
+	if idx < 0:
+		return {"ok": false}
+	var convoy: Dictionary = world_trade_convoys[idx]
+	var sender_id: String = String(convoy.get("sender_id", ""))
+	var receiver_id: String = String(convoy.get("receiver_id", ""))
+	var resource: String = String(convoy.get("resource", ""))
+	var sender_name: String = _get_settlement_display_name(sender_id)
+	var receiver_name: String = _get_settlement_display_name(receiver_id)
+	if not succeeded:
+		change_relation_by_player("Köy", sender_name, -CONVOY_RAID_CAUGHT_SENDER_RELATION_LOSS)
+		change_relation_by_player("Köy", receiver_name, -CONVOY_RAID_CAUGHT_RECEIVER_RELATION_LOSS)
+		_maybe_schedule_convoy_retaliation(sender_id, CONVOY_RAID_CAUGHT_RETALIATION_CHANCE)
+		var allow_full: bool = _is_settlement_discovered_for_news(sender_id) or _is_settlement_discovered_for_news(receiver_id)
+		if allow_full:
+			_post_world_news({
+				"category": "world",
+				"subcategory": "warning",
+				"title": "Kervana Saldiri",
+				"content": "%s'tan %s'a giden kervana saldirildi, saldiri puskurtuldu. Saldirganlarin bizim koyden oldugu anlasildi." % [sender_name, receiver_name],
+				"day": _last_tick_day,
+			})
+		world_map_updated.emit()
+		return {"ok": true, "caught": true, "sender_id": sender_id, "receiver_id": receiver_id, "resource": resource}
+	var path: Array = convoy.get("path", [])
+	var at: Dictionary = path[clampi(int(convoy.get("step", 0)), 0, maxi(0, path.size() - 1))] if not path.is_empty() else {}
+	world_trade_convoys.remove_at(idx)
+	if not at.is_empty():
+		world_convoy_wrecks.append({
+			"q": int(at.get("q", 0)), "r": int(at.get("r", 0)),
+			"sender_id": sender_id, "receiver_id": receiver_id, "resource": resource,
+			"until_day": _last_tick_day + CONVOY_WRECK_DAYS,
+		})
+	# Köylerin kendi durumuna yansıma (kayıp erzak) ve "kervan yolda kayboldu" haberi (fail yolu).
+	_finish_trade_convoy(_last_tick_day, sender_id, receiver_id, resource, false)
+	# Ufak şüphe: çıkış köyü hafif soğur.
+	change_relation_by_player("Köy", sender_name, -CONVOY_RAID_QUIET_SENDER_RELATION_LOSS)
+	if CONVOY_RAID_QUIET_RECEIVER_RELATION_LOSS > 0:
+		change_relation_by_player("Köy", receiver_name, -CONVOY_RAID_QUIET_RECEIVER_RELATION_LOSS)
+	_maybe_schedule_convoy_retaliation(sender_id, CONVOY_RAID_QUIET_RETALIATION_CHANCE)
+	world_map_updated.emit()
+	return {"ok": true, "caught": false, "sender_id": sender_id, "receiver_id": receiver_id, "resource": resource}
+
+
+# === Köy soygunu (ziyaret sahnesi, bkz. village/visit/) ===
+## Sessiz soygun (kimse bilmez): ufak şüphe. Alarm: herkes bilir, ağır ilişki kaybı, oyuncu prestij kaybeder.
+const HEIST_GOLD_SHARE: float = 0.30
+const HEIST_GOLD_MIN: int = 15
+const HEIST_GOLD_CAP: int = 180
+const HEIST_FOOD_SHARE: float = 0.25
+const HEIST_FOOD_MIN: int = 8
+const HEIST_FOOD_CAP: int = 60
+const HEIST_MAX_RESCUED: int = 3
+const HEIST_QUIET_RELATION_LOSS: int = 2
+const HEIST_QUIET_RETALIATION_CHANCE: float = 0.08
+const HEIST_ALARM_RELATION_LOSS: int = 12
+const HEIST_ALARM_RETALIATION_CHANCE: float = 0.70
+const HEIST_ALARM_REPUTATION_LOSS: int = 5
+## Savaşı kazanan taraf günde bu olasılıkla bir esir alır; esirler zamanla serbest kalır.
+const SETTLEMENT_PRISONER_CAPTURE_CHANCE: float = 0.12
+const SETTLEMENT_PRISONER_RELEASE_CHANCE: float = 0.05
+const SETTLEMENT_PRISONER_CAP: int = 6
+
+
+## Bir köyden çalınabilecek en çok miktarlar: hazinenin %30'u (15..180), ambarın %25'i (8..60), esir sayısı.
+func get_heist_loot_amounts(settlement_id: String) -> Dictionary:
+	var st: Dictionary = world_settlement_states.get(settlement_id, {})
+	var gold_have: int = int(st.get("gold", 0))
+	var food_have: int = int(st.get("food_stock", 0))
+	return {
+		"gold": mini(gold_have, clampi(int(float(gold_have) * HEIST_GOLD_SHARE), HEIST_GOLD_MIN, HEIST_GOLD_CAP)),
+		"food": mini(food_have, clampi(int(float(food_have) * HEIST_FOOD_SHARE), HEIST_FOOD_MIN, HEIST_FOOD_CAP)),
+		"prisoners": mini(int(st.get("prisoners", 0)), HEIST_MAX_RESCUED),
+	}
+
+
+## Ziyaret sonucu. outcome: "success" (ganimetle çıkış), "alarm" (alarm, ganimetin hepsi gider), "empty" (eli boş çıkış).
+## loot: {gold, food, prisoners}. Başarıda ganimet köyden düşer, oyuncuya geçer; esirler kurtarılan köylü olarak
+## DungeonRunState'e yazılır (köye dönünce işlenir). Alarmda ilişki ağır bozulur, prestij düşer, misilleme olası.
+func resolve_village_heist(settlement_id: String, outcome: String, loot: Dictionary = {}) -> Dictionary:
+	var result: Dictionary = {"outcome": outcome, "gold": 0, "food": 0, "prisoners": 0}
+	if not world_settlement_states.has(settlement_id):
+		return result
+	var name: String = _get_settlement_display_name(settlement_id)
+	var mm: Node = get_node_or_null("/root/MissionManager")
+	var discovered: bool = _is_settlement_discovered_for_news(settlement_id)
+	if outcome == "alarm":
+		change_relation_by_player("Köy", name, -HEIST_ALARM_RELATION_LOSS)
+		_maybe_schedule_convoy_retaliation(settlement_id, HEIST_ALARM_RETALIATION_CHANCE)
+		if mm != null and mm.has_method("update_player_reputation"):
+			mm.call("update_player_reputation", -HEIST_ALARM_REPUTATION_LOSS)
+		if discovered:
+			_post_world_news({
+				"category": "world",
+				"subcategory": "warning",
+				"title": "Hirsizlik Girisimi",
+				"content": "%s koyunde hirsizlik girisimi alarma yol acti. Hirsizlarin bizim koyden oldugu anlasildi." % name,
+				"day": _last_tick_day,
+			})
+		world_map_updated.emit()
+		return result
+	if outcome != "success":
+		return result
+	var st: Dictionary = world_settlement_states[settlement_id]
+	var gold: int = mini(int(loot.get("gold", 0)), int(st.get("gold", 0)))
+	var food: int = mini(int(loot.get("food", 0)), int(st.get("food_stock", 0)))
+	var prisoners: int = mini(int(loot.get("prisoners", 0)), int(st.get("prisoners", 0)))
+	if gold <= 0 and food <= 0 and prisoners <= 0:
+		return result
+	st["gold"] = int(st.get("gold", 0)) - gold
+	st["food_stock"] = clampi(int(st.get("food_stock", 0)) - food, 0, 260)
+	st["prisoners"] = int(st.get("prisoners", 0)) - prisoners
+	world_settlement_states[settlement_id] = st
+	if mm != null:
+		if gold > 0 and mm.has_method("_apply_reward"):
+			mm.call("_apply_reward", "gold", gold)
+		if food > 0 and mm.has_method("_grant_village_resource"):
+			mm.call("_grant_village_resource", "food", food)
+	var drs: Node = get_node_or_null("/root/DungeonRunState")
+	if drs != null and drs.has_method("add_pending_villager"):
+		for _i in range(prisoners):
+			drs.call("add_pending_villager")
+	change_relation_by_player("Köy", name, -HEIST_QUIET_RELATION_LOSS)
+	_maybe_schedule_convoy_retaliation(settlement_id, HEIST_QUIET_RETALIATION_CHANCE)
+	if discovered:
+		_post_world_news({
+			"category": "world",
+			"subcategory": "info",
+			"title": "Gizemli Hirsizlik",
+			"content": "%s koyunde hirsizlik oldu, kimin yaptigi bilinmiyor." % name,
+			"day": _last_tick_day,
+		})
+	result["gold"] = gold
+	result["food"] = food
+	result["prisoners"] = prisoners
+	world_map_updated.emit()
+	return result
+
+
+## Çıkış köyü, verilen olasılıkla (oyuncuya zaten düşmansa biraz daha yüksek) 1-3 gün sonra
+## oyuncunun köyüne baskın yapar (mevcut düşman köy baskını akışı).
+func _maybe_schedule_convoy_retaliation(sender_id: String, base_chance: float) -> void:
+	var rel: int = get_relation("Köy", _get_settlement_display_name(sender_id))
+	var chance: float = base_chance
+	if rel <= ALLIANCE_HOSTILITY_THRESHOLD:
+		chance = minf(chance + CONVOY_RETALIATION_HOSTILE_BONUS, 0.95)
+	if randf() >= chance:
+		return
+	for pending in world_retaliations:
+		if String(pending.get("settlement_id", "")) == sender_id:
+			return
+	world_retaliations.append({
+		"settlement_id": sender_id,
+		"due_day": _last_tick_day + randi_range(1, 3),
+	})
+
+
+## Günlük tik: vadesi gelen misillemeleri baskına çevirir.
+func _process_convoy_retaliations(day: int) -> void:
+	if world_retaliations.is_empty():
+		return
+	var remaining: Array[Dictionary] = []
+	for pending in world_retaliations:
+		if day < int(pending.get("due_day", 0)):
+			remaining.append(pending)
+			continue
+		var sid: String = String(pending.get("settlement_id", ""))
+		if world_settlement_states.has(sid):
+			_trigger_hostile_settlement_attack(_get_settlement_display_name(sid), sid, day)
+	world_retaliations = remaining
+
+
+## İki hex arasındaki düz çizgi üzerinde t (0..1) noktasına en yakın hex (küp koordinatı yuvarlama).
+func _hex_line_point(aq: int, ar: int, bq: int, br: int, t: float) -> Dictionary:
+	var fx: float = lerpf(float(aq), float(bq), t)
+	var fz: float = lerpf(float(ar), float(br), t)
+	var fy: float = -fx - fz
+	var rx: float = roundf(fx)
+	var ry: float = roundf(fy)
+	var rz: float = roundf(fz)
+	var dx: float = absf(rx - fx)
+	var dy: float = absf(ry - fy)
+	var dz: float = absf(rz - fz)
+	if dx > dy and dx > dz:
+		rx = -ry - rz
+	elif dy > dz:
+		ry = -rx - rz
+	else:
+		rz = -rx - ry
+	return {"q": int(rx), "r": int(rz)}
+
+
+## Savaş cephesi: iki köyü bağlayan çizginin ortasına en yakın, keşfedilmiş kara hex'i.
+func _find_war_front_hex(aq: int, ar: int, bq: int, br: int) -> Dictionary:
+	for k in [0, 1, -1, 2, -2, 3, -3]:
+		var t: float = 0.5 + float(k) * 0.06
+		var h: Dictionary = _hex_line_point(aq, ar, bq, br, t)
+		var tile: Dictionary = world_map_tiles.get(_hex_key(int(h.q), int(h.r)), {})
+		if tile.is_empty() or not bool(tile.get("discovered", false)):
+			continue
+		if String(tile.get("terrain_type", "")) == "deniz":
+			continue
+		return h
+	return {}
+
+
+## Harita çizimi için: iki ucu da keşfedilmiş köy olan, barış dışı komşu köy çiftleri. Her biri
+## {a_id, b_id, a_name, b_name, a_q, a_r, b_q, b_r, state, intensity, days, has_front, front_q, front_r}.
+func get_visible_war_fronts() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for key in world_settlement_diplomacy.keys():
+		var entry: Dictionary = world_settlement_diplomacy[key]
+		var state: String = String(entry.get("state", DIPLOMACY_STATE_PEACE))
+		if state == DIPLOMACY_STATE_PEACE:
+			continue
+		var ids: PackedStringArray = String(key).split("|")
+		if ids.size() < 2 or not is_settlement_discovered(ids[0]) or not is_settlement_discovered(ids[1]):
+			continue
+		var pa: Dictionary = world_map_settlement_positions[ids[0]]
+		var pb: Dictionary = world_map_settlement_positions[ids[1]]
+		var front: Dictionary = _find_war_front_hex(int(pa.q), int(pa.r), int(pb.q), int(pb.r))
+		out.append({
+			"a_id": ids[0],
+			"b_id": ids[1],
+			"a_name": _get_settlement_display_name(ids[0]),
+			"b_name": _get_settlement_display_name(ids[1]),
+			"a_q": int(pa.q), "a_r": int(pa.r), "b_q": int(pb.q), "b_r": int(pb.r),
+			"state": state,
+			"intensity": int(entry.get("war_intensity", 0)),
+			"days": maxi(0, _last_tick_day - int(entry.get("since_day", _last_tick_day))),
+			"has_front": not front.is_empty(),
+			"front_q": int(front.get("q", 0)),
+			"front_r": int(front.get("r", 0)),
+		})
+	return out
+
+
+## Baskın zincirinin "baskın" ve "baskın sonrası" evresindeki keşfedilmiş köyler (haritada alev simgesi).
+func get_visible_raided_settlements() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for chain in world_event_chains:
+		if String(chain.get("chain_type", "")) != "raid_chain":
+			continue
+		var stage: String = String(chain.get("stage", ""))
+		if stage != "raid" and stage != "raid_aftermath":
+			continue
+		var sid: String = String(chain.get("settlement_id", ""))
+		if not is_settlement_discovered(sid):
+			continue
+		var pos: Dictionary = world_map_settlement_positions[sid]
+		out.append({"id": sid, "q": int(pos.q), "r": int(pos.r), "stage": stage})
+	return out
+
+
+## Yağmalanmış kervan izleri (keşfedilmiş hex'te olanlar).
+func get_visible_convoy_wrecks() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for wreck in world_convoy_wrecks:
+		var q: int = int(wreck.get("q", 0))
+		var r: int = int(wreck.get("r", 0))
+		var tile: Dictionary = world_map_tiles.get(_hex_key(q, r), {})
+		if not bool(tile.get("discovered", false)):
+			continue
+		out.append({
+			"q": q,
+			"r": r,
+			"resource": String(wreck.get("resource", "")),
+			"sender_name": _convoy_settlement_label(String(wreck.get("sender_id", ""))),
+			"receiver_name": _convoy_settlement_label(String(wreck.get("receiver_id", ""))),
+		})
+	return out
 
 func _apply_trade_convoy_success(sender_id: String, receiver_id: String, resource: String) -> void:
 	var sender_state: Dictionary = world_settlement_states[sender_id]
@@ -3350,6 +4149,9 @@ func _apply_trade_convoy_success(sender_id: String, receiver_id: String, resourc
 		sender_state["food_stock"] = clamp(int(sender_state.get("food_stock", 100)) - randi_range(8, 14), 0, 260)
 		receiver_state["food_stock"] = clamp(int(receiver_state.get("food_stock", 100)) + randi_range(8, 14), 0, 260)
 	receiver_state["stability"] = clamp(int(receiver_state.get("stability", 60)) + randi_range(0, 2), 5, 100)
+	# Mal satıldı: satıcı köy kazanır, alıcı köy öder.
+	sender_state["gold"] = clampi(int(sender_state.get("gold", 0)) + randi_range(6, 10), 0, SETTLEMENT_GOLD_CAP)
+	receiver_state["gold"] = maxi(0, int(receiver_state.get("gold", 0)) - randi_range(3, 6))
 	world_settlement_states[sender_id] = sender_state
 	world_settlement_states[receiver_id] = receiver_state
 	change_settlement_relation(sender_id, receiver_id, 1)
@@ -3360,6 +4162,8 @@ func _apply_trade_convoy_failure(sender_id: String, receiver_id: String, resourc
 	if resource == "food":
 		sender_state["food_stock"] = clamp(int(sender_state.get("food_stock", 100)) - randi_range(6, 12), 0, 260)
 	receiver_state["stability"] = clamp(int(receiver_state.get("stability", 60)) - randi_range(1, 3), 5, 100)
+	# Yağmalanan mal bedelsiz gitti: satıcı hazinesi eksilir.
+	sender_state["gold"] = maxi(0, int(sender_state.get("gold", 0)) - randi_range(2, 5))
 	world_settlement_states[sender_id] = sender_state
 	world_settlement_states[receiver_id] = receiver_state
 	# Yagmalanan konvoy iliskiyi az da olsa zedeler.
@@ -4219,9 +5023,178 @@ func _set_settlement_diplomacy_state(a: String, b: String, new_state: String, da
 func get_world_settlement_diplomacy() -> Dictionary:
 	return world_settlement_diplomacy.duplicate(true)
 
+## Komşu köyler arası günlük sürtüşme. Bu olmadan ilişkiler hiç -15'in altına inmiyordu ve
+## köyler arası gerginlik / savaş kendiliğinden hiç çıkmıyordu (yalnız oyuncu müdahalesi çıkarırdı).
+## Sınır çatışmaları ilişkiyi düşürür, zamanla yavaşça soğur; açlık çeken köy tok komşusuna kızar.
+const VILLAGE_FRICTION_RANGE_HEXES: int = 14
+const VILLAGE_FRICTION_CLASH_CHANCE: float = 0.0045
+const VILLAGE_FRICTION_HUNGER_CLASH_CHANCE: float = 0.011
+const VILLAGE_FRICTION_COOLING_CHANCE: float = 0.30
+const VILLAGE_FRICTION_ESCALATION_MULT: float = 4.0
+const VILLAGE_FRICTION_WAR_WEARINESS_CHANCE: float = 0.6
+## Köyler arası dostluk ve ittifak: ilişki 40'a varınca iki köy müttefik olur, 20'nin altına inince bozulur.
+const VILLAGE_FRIENDSHIP_CHANCE: float = 0.012
+const VILLAGE_COMMON_ENEMY_CHANCE: float = 0.05
+const VILLAGE_FRIENDSHIP_CAP: int = 60
+const VILLAGE_ALLY_CLASH_MULT: float = 0.3
+const VILLAGE_ALLIANCE_FORM_RELATION: int = 40
+const VILLAGE_ALLIANCE_BREAK_RELATION: int = 20
+## Köyler arası ittifaklar: "idA|idB" -> {since_day}
+var world_settlement_alliances: Dictionary = {}
+
+## Bazı komşu çiftler birbirine doğuştan yakındır (kan bağı, ortak gelenek): dünya tohumundan
+## türetilir, kayda yazılmaz. Böyle çiftler zamanla dostlaşıp ittifak kurar, seyrek kavga eder.
+const VILLAGE_KINDRED_PERCENT: int = 12
+const VILLAGE_KINDRED_CHANCE: float = 0.2
+
+func _settlements_are_kindred(a: String, b: String) -> bool:
+	return absi(hash("%s#%d" % [_settlement_rel_key(a, b), world_map_seed])) % 100 < VILLAGE_KINDRED_PERCENT
+
+
+func are_settlements_allied(a: String, b: String) -> bool:
+	return world_settlement_alliances.has(_settlement_rel_key(a, b))
+
+
+func get_settlement_allies(settlement_id: String) -> Array[String]:
+	var out: Array[String] = []
+	for key in world_settlement_alliances.keys():
+		var ids: PackedStringArray = String(key).split("|")
+		if ids.size() < 2:
+			continue
+		if ids[0] == settlement_id:
+			out.append(ids[1])
+		elif ids[1] == settlement_id:
+			out.append(ids[0])
+	return out
+
+
+## Günlük: ilişkisi eşiği aşan komşu çiftler müttefik olur, düşenlerin ittifakı dağılır (haber çıkar).
+func _update_settlement_alliances(day: int) -> void:
+	var ids: Array = world_settlement_states.keys()
+	for i in range(ids.size()):
+		for j in range(i + 1, ids.size()):
+			var a: String = String(ids[i])
+			var b: String = String(ids[j])
+			var key: String = _settlement_rel_key(a, b)
+			var rel: int = get_settlement_relation(a, b)
+			var allied: bool = world_settlement_alliances.has(key)
+			if not allied and rel >= VILLAGE_ALLIANCE_FORM_RELATION:
+				world_settlement_alliances[key] = {"since_day": day}
+				_post_village_alliance_news(a, b, true, day)
+			elif allied and rel < VILLAGE_ALLIANCE_BREAK_RELATION:
+				world_settlement_alliances.erase(key)
+				_post_village_alliance_news(a, b, false, day)
+
+
+func _post_village_alliance_news(a: String, b: String, formed: bool, day: int) -> void:
+	var name_a: String = _get_settlement_display_name(a)
+	var name_b: String = _get_settlement_display_name(b)
+	if not (_is_settlement_discovered_for_news(a) or _is_settlement_discovered_for_news(b)):
+		return
+	_post_world_news({
+		"category": "world",
+		"subcategory": "info" if formed else "warning",
+		"title": "Koyler Ittifak Kurdu" if formed else "Ittifak Bozuldu",
+		"content": ("%s ve %s ittifak kurdu." if formed else "%s ve %s arasindaki ittifak dagildi.") % [name_a, name_b],
+		"day": day,
+	})
+
+
+## Haritada çizilecek bağlar: oyuncunun köyüyle müttefik köyler ve müttefik komşu köy çiftleri
+## (iki ucu da keşfedilmiş olanlar). Her biri {kind: "player"|"village", a_q, a_r, b_q, b_r}.
+func get_visible_settlement_bonds() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var home: Dictionary = _get_player_village_position()
+	if not home.is_empty():
+		for sid in world_player_alliances.keys():
+			if not is_settlement_discovered(String(sid)):
+				continue
+			var p: Dictionary = world_map_settlement_positions[String(sid)]
+			out.append({"kind": "player", "a_q": int(home.q), "a_r": int(home.r), "b_q": int(p.q), "b_r": int(p.r)})
+	for key in world_settlement_alliances.keys():
+		var ids: PackedStringArray = String(key).split("|")
+		if ids.size() < 2 or not is_settlement_discovered(ids[0]) or not is_settlement_discovered(ids[1]):
+			continue
+		var pa: Dictionary = world_map_settlement_positions[ids[0]]
+		var pb: Dictionary = world_map_settlement_positions[ids[1]]
+		out.append({"kind": "village", "a_q": int(pa.q), "a_r": int(pa.r), "b_q": int(pb.q), "b_r": int(pb.r)})
+	return out
+
+func _drift_settlement_relations(_day: int) -> void:
+	var ids: Array = world_settlement_states.keys()
+	# Ortak düşman: iki köyün de gergin olduğu bir üçüncü köy varsa onları birbirine yaklaştırır.
+	var enemies: Dictionary = {}
+	for sid in ids:
+		enemies[String(sid)] = []
+	for ei in range(ids.size()):
+		for ej in range(ei + 1, ids.size()):
+			if get_settlement_relation(String(ids[ei]), String(ids[ej])) <= DIPLOMACY_TENSION_THRESHOLD:
+				enemies[String(ids[ei])].append(String(ids[ej]))
+				enemies[String(ids[ej])].append(String(ids[ei]))
+	for i in range(ids.size()):
+		for j in range(i + 1, ids.size()):
+			var a: String = String(ids[i])
+			var b: String = String(ids[j])
+			var pa: Dictionary = world_map_settlement_positions.get(a, {})
+			var pb: Dictionary = world_map_settlement_positions.get(b, {})
+			if pa.is_empty() or pb.is_empty():
+				continue
+			var dist: int = _hex_distance(int(pa.get("q", 0)), int(pa.get("r", 0)), int(pb.get("q", 0)), int(pb.get("r", 0)))
+			if dist > VILLAGE_FRICTION_RANGE_HEXES:
+				continue
+			var rel: int = get_settlement_relation(a, b)
+			# Savaşan çift yıpranır: yeni çatışma çıkmaz, ilişki hızla toparlanır, savaş ateşkese varır.
+			if String(get_settlement_diplomacy_state(a, b).get("state", "")) == DIPLOMACY_STATE_OPEN_WAR:
+				if randf() < VILLAGE_FRICTION_WAR_WEARINESS_CHANCE:
+					change_settlement_relation(a, b, 2)
+				continue
+			var fa: int = int(world_settlement_states[a].get("food_stock", 100))
+			var fb: int = int(world_settlement_states[b].get("food_stock", 100))
+			var hungry_vs_fed: bool = (mini(fa, fb) < 60 and maxi(fa, fb) > 130)
+			var clash_chance: float = VILLAGE_FRICTION_HUNGER_CLASH_CHANCE if hungry_vs_fed else VILLAGE_FRICTION_CLASH_CHANCE
+			# Zaten gergin çiftte yeni çatışma daha olası: kıvılcım bazen savaşa dönüşür, çoğu soğur.
+			if rel <= DIPLOMACY_TENSION_THRESHOLD:
+				clash_chance *= VILLAGE_FRICTION_ESCALATION_MULT
+			# Kişilik: saldırgan liderlerin köyleri daha sık çatışır, ihtiyatlılar daha seyrek.
+			var traits_a: Dictionary = _personality_traits(a)
+			var traits_b: Dictionary = _personality_traits(b)
+			clash_chance *= (float(traits_a["aggression"]) + float(traits_b["aggression"])) * 0.5
+			var alliance_desire: float = (float(traits_a["alliance"]) + float(traits_b["alliance"])) * 0.5
+			# Müttefikler arasında sınır çatışması çok daha seyrek çıkar.
+			if are_settlements_allied(a, b) or _settlements_are_kindred(a, b):
+				clash_chance *= VILLAGE_ALLY_CLASH_MULT
+			if randf() < clash_chance:
+				change_settlement_relation(a, b, -randi_range(12, 30))
+				# Çatışmanın nedeni ve kışkırtanı kayda geçer: savaş çıkarsa haber gerekçeyi söyler.
+				var instigator: String = a if float(traits_a["aggression"]) >= float(traits_b["aggression"]) else b
+				if hungry_vs_fed:
+					instigator = a if fa < fb else b
+				world_settlement_grudges[_settlement_rel_key(a, b)] = {
+					"reason": "hunger" if hungry_vs_fed else "border",
+					"instigator": instigator,
+				}
+			elif rel < 0 and randf() < VILLAGE_FRICTION_COOLING_CHANCE:
+				change_settlement_relation(a, b, 1)
+			elif rel > DIPLOMACY_TENSION_THRESHOLD and rel < VILLAGE_FRIENDSHIP_CAP:
+				# Dostluk: kervan alışverişiyle ısınmış komşular yavaşça yakınlaşır; ortak düşman hızlandırır.
+				var common_enemy: bool = false
+				for foe in enemies[a]:
+					if enemies[b].has(foe):
+						common_enemy = true
+						break
+				if common_enemy and randf() < VILLAGE_COMMON_ENEMY_CHANCE * alliance_desire:
+					change_settlement_relation(a, b, 1)
+				elif _settlements_are_kindred(a, b) and randf() < VILLAGE_KINDRED_CHANCE * alliance_desire:
+					change_settlement_relation(a, b, 2)
+				elif rel >= 3 and randf() < VILLAGE_FRIENDSHIP_CHANCE * alliance_desire:
+					change_settlement_relation(a, b, 1)
+
+
 func _simulate_settlement_diplomacy(day: int) -> void:
 	if world_settlement_states.size() < 2:
 		return
+	_drift_settlement_relations(day)
+	_update_settlement_alliances(day)
 	var ids: Array = world_settlement_states.keys()
 	for i in range(ids.size()):
 		for j in range(i + 1, ids.size()):
@@ -4317,10 +5290,18 @@ func _post_diplomacy_transition_news(a: String, b: String, prev_state: String, n
 		DIPLOMACY_STATE_OPEN_WAR:
 			title = "Savas Ilani"
 			content = "%s ile %s arasinda savas patlak verdi." % [name_a, name_b]
+			content += _war_reason_text(a, b)
 			subcategory = "critical"
 		DIPLOMACY_STATE_CEASEFIRE:
 			title = "Ateskes"
 			content = "%s ve %s ateskes ilan etti." % [name_a, name_b]
+			# Gerekçe: ordusu çöken taraf barış istemiş olabilir.
+			var weak_id: String = ""
+			for cid in [a, b]:
+				if int(world_settlement_states.get(cid, {}).get("soldiers", 99)) < SETTLEMENT_ARMY_COLLAPSE:
+					weak_id = cid
+			if not weak_id.is_empty():
+				content += " %s ordusu daginik halde, baris istedi." % _get_settlement_display_name(weak_id)
 			subcategory = "success"
 		DIPLOMACY_STATE_PEACE:
 			title = "Baris"
@@ -4339,6 +5320,25 @@ func _post_diplomacy_transition_news(a: String, b: String, prev_state: String, n
 		"content": content,
 		"day": day
 	})
+
+## Savaş haberine eklenen gerekçe: son çatışmanın nedeni ve savaşı hangi lider kışkırttı.
+## İsimlere ek getirilmez (Türkçe ek dinamik isme yapışmasın diye cümleler ayrı kurulur).
+func _war_reason_text(a: String, b: String) -> String:
+	var grudge: Dictionary = world_settlement_grudges.get(_settlement_rel_key(a, b), {})
+	if grudge.is_empty():
+		return ""
+	var instigator: String = String(grudge.get("instigator", ""))
+	var other: String = b if instigator == a else a
+	var leader: String = String(world_settlement_states.get(instigator, {}).get("leader", ""))
+	var text: String = ""
+	if String(grudge.get("reason", "")) == "hunger":
+		text = " Sebep: aclik. %s halki acliktan kirilirken %s ambarlarini doldurmus." % [_get_settlement_display_name(instigator), _get_settlement_display_name(other)]
+	else:
+		text = " Sebep: sinir anlasmazligi kanli bir catismaya donustu."
+	if not leader.is_empty():
+		text += " Savasi %s istedi." % leader
+	return text
+
 
 func _get_settlement_display_name(settlement_id: String) -> String:
 	var stored := settlement_id
@@ -5929,6 +6929,10 @@ func _get_attacker_force_for_defense(attacker_faction: String) -> Dictionary:
 		# İlişkiye göre saldırgan gücü belirle
 		var relation = get_relation("Köy", attacker_faction)
 		base_strength = 5 + abs(relation) / 10  # Daha düşman = daha güçlü saldırı
+		# Saldıran bir komşu köyse baskın gücü gerçek ordusundan gelir (ordusunun bir kısmı).
+		var raider_id: String = _find_settlement_id_for_diplomacy_target(attacker_faction)
+		if not raider_id.is_empty() and world_settlement_states.has(raider_id) and world_settlement_states[raider_id].has("soldiers"):
+			base_strength = clampf(float(int(world_settlement_states[raider_id]["soldiers"])) * SETTLEMENT_RAID_ARMY_SHARE, 3.0, 30.0)
 	var vce := get_node_or_null("/root/VillageCardEffects")
 	if vce:
 		base_strength = vce.modify_incoming_attacker_strength(base_strength)
@@ -5950,6 +6954,12 @@ func _process_defense_result(attacker_faction: String, battle_result: Dictionary
 	var resource_losses: Dictionary = {}
 	var is_periodic_bandit: bool = attacker_faction == PERIODIC_RAID_BANDIT_NAME
 	var is_periodic_wolf: bool = attacker_faction == PERIODIC_RAID_WOLF_NAME
+	# Saldıran bir komşu köyse baskında verdiği kayıp ordusundan düşer.
+	var raider_sid: String = _find_settlement_id_for_diplomacy_target(attacker_faction)
+	if not raider_sid.is_empty() and world_settlement_states.has(raider_sid):
+		var raider_state: Dictionary = world_settlement_states[raider_sid]
+		raider_state["soldiers"] = maxi(0, int(raider_state.get("soldiers", 0)) - int(attacker_losses))
+		world_settlement_states[raider_sid] = raider_state
 
 	# Generate battle story using LLM
 	_generate_battle_story(attacker_faction, battle_result, day, attacker_force, defender_force)

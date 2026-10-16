@@ -1,5 +1,7 @@
 # Battle Story System - TODO for Next Session
 
+> **ESKİ.** NPC-NPC diyalog ve çoklu dil yapıldı. Açık kalan: NPC'lerin köy haber tahtasını okuması. Güncel durum: `docs/DURUM.md`.
+
 ## ✅ Completed Today
 - Added optional `useGrammar` parameter to `LlamaService.GenerateResponseAsync()` for grammar-free generation
 - Created battle story generation system in `WorldManager.gd`

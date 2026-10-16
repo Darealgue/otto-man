@@ -9,6 +9,230 @@ Her sürüm için oyuncuya dönük kısa notlar. Biçim `tools/push_itch.ps1` ta
 
 Bu dosya 0.26.5 ile başladı, öncesi kayıt altında değil.
 
+## 0.47.0 - 2026-10-17
+
+### TR
+- Ön çalılar artık zemine göre hizalı: kamera nasıl oynarsa oynasın, zıplayınca ya da binanın üstüne çıkınca yerlerinde kalıyor.
+- Komşu köylerin köylüleri artık sebepsiz dükkâna girip çıkmıyor. Çalışanlar işyerinde kalıyor ve ara sıra iş için dışarı çıkıyor: kaynak binalarından ambara, dükkânlardan ambara ya da başka bir dükkâna elinde mal taşıyarak yürüyor, teslim edip boş elle işyerine dönüyor.
+- Duran köylüler artık adım atma pozunda donmuyor, bacakları birleşik dik duruyor.
+
+### EN
+- The front bushes are now aligned to the ground: however the camera moves, they stay in place when you jump or climb onto a building.
+- Villagers of neighboring villages no longer walk in and out of shops for no reason. Workers stay at their workplace and now and then go out on a job: from gathering buildings to the storehouse, from shops to the storehouse or another shop, carrying goods, then they deliver and walk back empty handed.
+- Standing villagers no longer freeze in a stride, they stand upright with their legs together.
+
+## 0.46.4 - 2026-10-17
+
+### TR
+- Ön çalılar artık ekranın en altına tam oturuyor, altlarında boşluk kalmıyor. Çatıdayken çalılar yine yerlerinde kalıyor.
+- Komşu köylerin köylülerinin başındaki boş siyah isim şeridi kaldırıldı.
+- Duran köylüler artık yürüme ya da oturma adımının ortasında donup kalmıyor, dik duruşa geçiyorlar.
+
+### EN
+- The front bushes now sit exactly at the bottom of the screen, with no gap beneath them. On a roof the bushes still stay in place.
+- The empty black name strip above the heads of villagers in neighboring villages is gone.
+- Standing villagers no longer freeze mid step or mid sit, they return to an upright pose.
+
+## 0.46.3 - 2026-10-17
+
+### TR
+- Komşu köylerde arkadaki ağaç ve tepe katmanlarının uçlarında kesik kalan kısımlar, yatay çevrilmiş komşu parçayla tamamlanıyor.
+- Ekranın altındaki ön çalılar oyuncu zıplayınca ya da çatıya çıkınca onunla yükselmiyor, yerinde kalıyor.
+
+### EN
+- In neighboring villages, cut-off parts at the ends of the background tree and hill layers are now completed by a horizontally mirrored neighbor piece.
+- The front bushes at the bottom of the screen no longer rise with the player when jumping or climbing a roof, they stay in place.
+
+## 0.46.2 - 2026-10-17
+
+### TR
+- Komşu köylerde arka plandaki çalı ve çimenler artık binaların önüne geçmiyor, zeminin üstünde ama binaların arkasında duruyor.
+- Ekranın altındaki ön çalı şeridinde uçlarda kesik kalan çalı, yatay çevrilmiş komşu şeritle tamamlanıyor.
+
+### EN
+- In neighboring villages the background bushes and grass no longer draw in front of buildings, they sit above the ground but behind the buildings.
+- In the front bush strip at the bottom of the screen, a bush cut off at the strip's end is now completed by a horizontally mirrored neighbor strip.
+
+## 0.46.1 - 2026-10-16
+
+### TR
+- Kıyıda olmayan komşu köyler artık tam çimen zeminle çiziliyor, zeminin altı da çimen rengi. Kıyı köylerinde eski zemin ve su kalıyor.
+- Ziyaret ettiğin köylerde ekranın en altına yapışık, kameraya en yakın görünen çalılar var. Çizimin kendi boyutunda durur, oyuncunun önünden geçer ve kamera hareketine göre biraz daha hızlı kayarak derinlik verir.
+
+### EN
+- Inland neighboring villages are now drawn with a full grass ground, and the area below the ground is grass colored too. Coastal villages keep the old ground and the water.
+- Villages you visit now have bushes pinned to the very bottom of the screen, closest to the camera. They keep the drawing's own size, pass in front of the player and slide a little faster than the camera moves to add depth.
+
+## 0.46.0 - 2026-10-16
+
+### TR
+- Köyler arası ittifaklar artık savaşı etkiliyor: bir köy saldırıya uğrayınca müttefikleri ona erzak ve altın yolluyor ve saldırgana kin besliyor. Ordular yine birleşmiyor.
+- Kin yeterince büyürse müttefik de saldırgana savaş açıyor, böylece haritada savaşlar birden fazla köyü içine alabiliyor. İki tarafın da müttefiği olan köy tarafsız kalıyor.
+- Dostluk ve savaşın üst üste gelmesi seyrek, bu yüzden bunu sık görmeyebilirsin.
+
+### EN
+- Alliances between villages now affect wars: when a village is attacked, its allies send it food and gold and grow resentful of the attacker. Armies still do not merge.
+- If the resentment grows large enough the ally declares war on the attacker too, so wars on the map can pull in several villages. A village allied to both sides stays neutral.
+- Friendships and wars rarely overlap, so you may not see this often.
+
+## 0.45.1 - 2026-10-16
+
+### TR
+- Komşu köy ziyareti sırasında oyun kendiliğinden kayıt yapmıyor ve duraklatma menüsündeki Kaydet kapalı. Yarım kalmış bir soygun kayda girmesin diye son kayıt, haritaya girdiğin andaki kalıyor. Haritaya dönünce otomatik kayıt yine çalışır.
+
+### EN
+- The game no longer autosaves during a neighboring village visit and Save in the pause menu is disabled. An unfinished heist can't end up in a save, so the last save stays the one from when you entered the map. Autosave resumes when you return to the map.
+
+## 0.45.0 - 2026-10-16
+
+### TR
+- Dost köyde gündüz köylülerle konuşabilirsin: dışarıdaki bir köylünün yanına gidince üstünde ok çıkar, etkileşim tuşuyla durup sana bir şey söyler.
+- Söyledikleri köyün kişiliğine, zenginliğine, ordusuna, esir tutup tutmadığına ve seninle ilişkisine göre değişir. Gece ve düşman köyde kimse seninle konuşmaz.
+
+### EN
+- You can talk to villagers by day in friendly villages: walk up to a villager outside, an arrow appears above them, and the interact key makes them stop and say something.
+- What they say depends on the village's personality, wealth, army, whether it holds prisoners and its relation with you. At night and in hostile villages nobody talks to you.
+
+## 0.44.0 - 2026-10-16
+
+### TR
+- Komşu köylere gece soygunu: dost köyde gündüz serbestsin, gece nöbetçiler görüş konileriyle devriye geziyor. Düşman köyde gündüz de gizli kalmak zorundasın ve gündüz görüş konileri çok daha geniş.
+- Nöbetçiler köyün askerleri gibi giyinir, köye göre hafif renk farkı taşır. Köyün asker sayısı kadar nöbetçi var, bir kısmı hazine binasının çevresinde dolaşır.
+- Üç hedef: rastgele bir binanın çatısındaki hazine kapağı (çatıya çıkman gerek), depo kapısı ve savaş esiri tutan köylerde zindan. Hedefin yanında ok çıkar, etkileşim tuşuyla alırsın.
+- Ganimet köyün kenarındaki çıkıştan çıkınca senin olur. Alarm çalarsa ganimetin tamamı gider, prestij kaybedersin, köyle ilişkin ağır bozulur, çoğunlukla misilleme gelir ve haritaya dönersin. Sessiz soygunda ilişki az düşer ve haber "gizemli hırsızlık" olarak duyulur.
+- Savaşı kazanan köyler artık esir tutuyor, esirler zamanla salınıyor. Kurtardığın esirler köyüne yerleşmeye gelir.
+
+### EN
+- Night heists on neighboring villages: by day you roam freely in friendly villages, by night guards patrol with vision cones. In hostile villages you must stay hidden even by day, and the daytime cones are much wider.
+- Guards wear the village soldier look with a slight tint per village. There are as many guards as the village has soldiers, some of them loiter around the treasure building.
+- Three targets: a treasure hatch on the roof of a random building (you must climb up), the storehouse door, and a prison in villages that hold war prisoners. An arrow appears next to a target and the interact key takes the loot.
+- Loot becomes yours when you leave through the village edge exit. If the alarm rings you lose all loot and some prestige, relations with the village drop hard, retaliation is likely and you return to the map. A quiet heist costs little relation and is reported as a mysterious theft.
+- Villages that win wars now hold prisoners, and prisoners are released over time. Freed prisoners come to settle in your village.
+
+## 0.43.1 - 2026-10-16
+
+### TR
+- Komşu köyler artık senin köyündeki gerçek binalarla kuruluyor: aynı 22 inşa parseli, odun kampı, taş ocağı, avcı kulübesi, depo, fırın, dokumacı, demirci, kışla gibi dükkânlar ve kat kat evler. Eski şehir evleri kaldırıldı.
+- Köyün nüfusu kaç ev ve kaç kat gerektirdiğini belirliyor (kat başına 4 kişi, en çok 4 kat, sığmayan katlar dükkânların üstüne ekleniyor). Zengin ve kalabalık köylerde kaynak binaları yüksek seviyede, görseli ve çatısı seviyeye göre değişiyor.
+- Hangi dükkânların olacağı köyün kişiliğine bağlı: savaşçı köyde kışla ve demirci, tüccar köyde çayhane, terzi ve dokumacı daha çok çıkıyor.
+- Köylüler artık yaşıyor: sabah evden çıkıp işyerlerine giriyor, ara sıra kapıya çıkıyor, akşam meydanda dolaşıyor, gece evlerine girip uyuyor. Evlerde birileri varken pencereler yanıyor.
+- Ziyaret ettiğin köyün binaları senin köyünün üretimine, işçilerine ya da kaynaklarına karışmıyor.
+
+### EN
+- Neighboring villages are now built from the real buildings of your own village: the same 22 build plots, woodcutter camp, stone mine, hunter hut, storage, bakery, weaver, blacksmith, barracks and other shops, and multi-floor houses. The old city houses are gone.
+- The village's population decides how many houses and floors it needs (4 people per floor, at most 4 floors, floors that do not fit are added on top of shops). Rich and crowded villages have high-level gathering buildings whose look and roof change with level.
+- Which shops appear depends on the village's personality: warlike villages get more barracks and smithies, merchant villages more tea houses, tailors and weavers.
+- Villagers now live: they leave their homes in the morning and enter their workplaces, step out to the door now and then, wander the square in the evening and go home to sleep at night. Windows light up while someone is home.
+- The buildings of a village you visit never touch your own village's production, workers or resources.
+
+## 0.43.0 - 2026-10-16
+
+### TR
+- Komşu köyleri ziyaret edebilirsin. Dünya haritasında keşfettiğin bir köyün hex'inde köy menüsünden "Köyü ziyaret et" de.
+- Köy sahnesi senin köyünün görünümünde: düz zemin, arka plan, gün ve gece, kıyıdaki köylerde su. Binalar köyün nüfusuna göre, zenginliğine göre fakir, orta ya da zengin evlerden dizilir. Çalılar, çimenler ve çamlar rastgele serpiştirilir. Aynı köy her ziyarette aynı görünür.
+- Girişte köyün adı, lideri, kişiliği ve bu saatteki durum yazar: dost köyde gündüz serbestsin, gece ve düşman köyde gizlenmen gerekecek (nöbetçiler ve hedefler sonraki sürümde).
+- Köyün iki ucundaki çıkışta yukarı tuşuyla haritaya dönersin.
+
+### EN
+- You can visit neighboring villages. On the hex of a village you have discovered on the world map, choose "Visit the village" in the village menu.
+- The village scene looks like your own village: flat ground, backdrop, day and night, and water in coastal villages. Buildings are lined up by the village's population, using poor, average or rich houses depending on its wealth. Bushes, grass and pines are scattered at random. The same village looks the same on every visit.
+- On entry you see the village name, its leader, personality and the current situation: in a friendly village you move freely by day, at night and in a hostile village you will have to stay hidden (guards and objectives come in a later version).
+- Press up at the exit on either end of the village to return to the map.
+
+## 0.42.0 - 2026-10-16
+
+### TR
+- Komşu köylerin artık kendi lideri, kişiliği, ordusu ve hazinesi var. Kişilikler: Savaşçı, Tüccar, İhtiyatlı, Hırslı, Dindar. Lider adı ve kişilik köyün bilgi balonunda görünüyor.
+- Kişilik davranışı değiştiriyor: savaşçı ve hırslı köyler daha sık çatışır, ihtiyatlılar daha az; tüccar köyler daha çok kervan çıkarır; dindar ve ihtiyatlı köyler daha kolay ittifak kurar.
+- Köylerin hazinesi var: halk vergi verir, ordu maaş yer, kervan satışı altın getirir. Hazine boşalınca asker kaçar, dolunca yeni asker alınır.
+- Köyler arası savaşta iki ordu da yıpranır, hazine ve erzak erir. Ordusu çöken köy barış ister.
+- Savaş haberleri artık nedenini ve savaşı hangi liderin istediğini söylüyor.
+- Köyün sana yaptığı baskının gücü artık gerçek ordusundan geliyor, baskında verdiği kayıp ordusundan düşüyor.
+- Köyün ordusu ve hazinesi balonda kaba ifadeyle yazıyor (zayıf, orta, güçlü / fakir, orta, zengin). Ajanın bilgi ağındaki köylerde gerçek sayı görünüyor.
+
+### EN
+- Neighboring villages now have their own leader, personality, army and treasury. Personalities: Warlike, Merchant, Cautious, Ambitious, Devout. The leader's name and personality show in the village tooltip.
+- Personality changes behavior: warlike and ambitious villages clash more often, cautious ones less; merchant villages send more caravans; devout and cautious villages form alliances more easily.
+- Villages have a treasury: the people pay taxes, the army draws pay, caravan sales bring gold. When the treasury runs dry soldiers desert, and when it is full new soldiers are recruited.
+- In a war between villages both armies wear down and treasury and food drain. A village whose army collapses asks for peace.
+- War news now states the cause and which leader wanted the war.
+- The strength of a raid on your village now comes from the attacking village's real army, and its losses come off that army.
+- A village's army and treasury show as rough terms in the tooltip (weak, average, strong / poor, average, rich). Villages in your agent's intel network show the real numbers.
+
+## 0.41.0 - 2026-10-16
+
+### TR
+- Komşu köyler arasında ittifaklar kuruluyor. Birbirine yakın köyler zamanla dostlaşıyor, ortak düşmanı olanlar daha hızlı yakınlaşıyor, ilişkisi yüksek çiftler müttefik oluyor. İttifak bozulabiliyor da.
+- Haritada ittifaklar çiziliyor: iki müttefik köyü ya da köyünle müttefik olduğun bir köyü bağlayan düz çizgi ve ortasında küçük bir kalkan (köyler arası mavi, seninle altın).
+- Her komşu köyün üstünde seninle ilişkisini gösteren küçük bir bayrak duruyor: müttefik altın, dostane yeşil, gergin turuncu, düşman kırmızı. Nötr köyde bayrak yok.
+- Köyün bilgi balonunda müttefikleri ve savaştığı köyler yazıyor.
+- İttifak kurulunca ve bozulunca haber çıkıyor.
+
+### EN
+- Neighboring villages now form alliances. Villages close to each other grow friendly over time, those sharing an enemy grow closer faster, and pairs with high relations become allies. Alliances can break.
+- Alliances are drawn on the map: a solid line with a small shield in the middle connecting two allied villages or your village and an ally (blue between villages, gold with you).
+- A small flag above each neighboring village shows its relation with you: gold for allies, green for friendly, orange for tense, red for hostile. Neutral villages have no flag.
+- A village's tooltip lists its allies and the villages it is at war with.
+- News appears when an alliance forms or breaks.
+
+## 0.40.1 - 2026-10-16
+
+### TR
+- Kervan yağması artık iki yüzlü: başarılı yağmada kimse kimin yaptığını öğrenmez, kervan yolda kaybolmuş sayılır ve çıktığı köyde yalnızca ufak bir şüphe kalır.
+- Başarısız girişimi herkes bilir. Kervanın çıktığı ve vardığı köyle ilişki ağır bozulur, haberlerde kimin yaptığı yazar ve çıktığı köy büyük olasılıkla köyüne baskın yaparak karşılık verir.
+- Kervan cariye varmadan menzile ulaşmışsa başarısız girişim sayılmaz, ceza yok.
+
+### EN
+- Caravan raids now have two faces: when a raid succeeds nobody learns who did it, the caravan is simply lost on the road and only a small suspicion lingers in the village it left.
+- A failed attempt is known to everyone. Relations with the village the caravan left and the one it was heading to worsen badly, the news names who did it, and the village it left will most likely retaliate with a raid on your village.
+- If the caravan reached its destination before the concubine arrived, it does not count as a failed attempt and there is no penalty.
+
+## 0.40.0 - 2026-10-16
+
+### TR
+- Komutan cariye artık yolda yürüyen ticaret kervanlarını yağmalayabiliyor. Cariyeyi göreve yollarken haritada kervanın üstündeki hex'i seç.
+- Yağmada kervanın yükü (yiyecek, odun ya da taş) ve biraz altın köye gelir. Kervan cariye varmadan menzile ulaşırsa yağma boşa gider.
+- Kervanın çıktığı köyle ilişki ciddi, vardığı köyle hafif bozulur. Çıktığı köy birkaç gün sonra köyüne baskın yaparak karşılık verebilir.
+- Yağmalanan kervanın izi haritada birkaç gün kırmızı çarpı olarak kalır.
+
+### EN
+- The commander concubine can now raid trade caravans walking the road. When sending a concubine on a mission, pick the hex the caravan is on.
+- A raid brings the caravan's cargo (food, wood or stone) and some gold to the village. If the caravan reaches its destination before the concubine arrives, the raid comes to nothing.
+- Relations worsen badly with the village the caravan left and slightly with the one it was heading to. The village it left may retaliate with a raid on your village a few days later.
+- A raided caravan leaves a red cross on the map for a few days.
+
+## 0.39.0 - 2026-10-16
+
+### TR
+- Komşu köyler arasındaki gerginlik ve savaşlar dünya haritasında çiziliyor: iki köyü bağlayan renkli kesik çizgi (savaş kırmızı, soğuk savaş turuncu, gerginlik sarı, ateşkes mavi).
+- Savaşan iki köyün arasındaki bir hex'te cephe işareti duruyor. İmleci üstüne getirince hangi köyler arasında olduğu ve kaç gündür sürdüğü yazıyor.
+- Baskına uğrayan köyün üstünde alev beliriyor.
+- Komşu köyler artık kendi aralarında da kavga ediyor: sınır çatışmaları ilişkiyi bozuyor, aç köy tok komşusuna kızıyor, bazı gerginlikler savaşa dönüp ateşkesle bitiyor. Eskiden köyler arasında kendiliğinden hiç savaş çıkmıyordu.
+- Kervan balonlarında köy adları artık doğru yazılıyor.
+- Yalnızca keşfettiğin iki köy arasındaki gerginlik görünür.
+
+### EN
+- Tension and wars between neighboring villages are now drawn on the world map: a colored dashed line connecting the two villages (war red, cold war orange, tension yellow, ceasefire blue).
+- A front marker sits on a hex between two villages at war. Hover it to see which villages are involved and how many days it has lasted.
+- A flame appears above a village that has been raided.
+- Neighboring villages now fight among themselves too: border clashes sour relations, a hungry village resents a well-fed neighbor, and some tensions grow into wars that end in a ceasefire. Before, wars between villages never started on their own.
+- Village names in the caravan tooltip are now written correctly.
+- You only see tension between two villages you have both discovered.
+
+## 0.38.0 - 2026-10-16
+
+### TR
+- Komşu köyler arasındaki ticaret kervanları artık dünya haritasında görünüyor. Kervan yolda her gün birkaç hex ilerliyor, yolu soluk noktalarla çiziliyor.
+- İmleci kervanın üstüne getirince nereden çıktığı, nereye gittiği, ne taşıdığı ve kaç gün sonra varacağı yazıyor.
+- Yolda yağmalanan kervanın izi birkaç gün haritada kırmızı çarpı olarak kalıyor.
+- Yalnızca keşfettiğin yerlerdeki kervanları görürsün. Kervan yolu keşfetmediğin bir köyün yerini ele vermez.
+
+### EN
+- Trade caravans between neighboring villages are now visible on the world map. A caravan moves a few hexes each day and its route is drawn with faint dots.
+- Hover a caravan to see where it set out from, where it is going, what it carries and how many days until it arrives.
+- A caravan plundered on the road leaves a red cross on the map for a few days.
+- You only see caravans on ground you have discovered. A caravan route never reveals the location of a village you have not found.
+
 ## 0.37.18 - 2026-10-15
 
 ### TR

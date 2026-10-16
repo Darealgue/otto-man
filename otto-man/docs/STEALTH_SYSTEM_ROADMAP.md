@@ -1,5 +1,7 @@
 # Zindan Stealth Sistemi – Yol Haritası
 
+> **ESKİ.** `StealthManager` ve `stealth_perception` kodda mevcut; aşağıdaki işaretsiz maddelerin çoğu yapıldı. Güncel durum: `docs/DURUM.md`.
+
 Bu doküman, zindanlara **gizlilik / suikast / alarm** oynanışının faz faz uygulanması için referans notudur.  
 Uygulama sırası: **Faz 1 → Faz 2 → Faz 3 → Faz 4**. Her faz bitince oynanabilir test yapılır; sonraki faza geçilir.
 

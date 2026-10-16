@@ -3586,7 +3586,15 @@ func get_projected_daily_resource_nets() -> Dictionary:
 				var bscript: Script = building.get_script()
 				if bscript is GDScript:
 					var bpath: String = (bscript as GDScript).resource_path
-					if bpath in RESOURCE_PRODUCER_SCRIPTS.values():
+					# Yalnızca temel toplama binaları (odun/taş/yiyecek) sefer sisteminde sayıldı.
+					# Eskiden TÜM üretici scriptler atlanıyordu: Silahçı, Demirci vb. işleme
+					# binalarının üretim/tüketimi göstergelere hiç yansımıyordu.
+					var is_basic_gatherer := false
+					for base_res in BASE_RESOURCE_TYPES:
+						if String(RESOURCE_PRODUCER_SCRIPTS.get(base_res, "")) == bpath:
+							is_basic_gatherer = true
+							break
+					if is_basic_gatherer:
 						continue
 			var workers_assigned := int(building.assigned_workers)
 			if workers_assigned <= 0:

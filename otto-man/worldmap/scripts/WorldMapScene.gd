@@ -863,10 +863,14 @@ func _draw() -> void:
 			draw_circle(center, 2.0, Color(1.0, 0.92, 0.55, 1.0))
 		if discovered and poi == "neighbor_village":
 			_draw_settlement_incident_marker(center, tile)
+			_draw_settlement_relation_flag(center, tile)
 		if discovered and String(tile.get("travel_feature", "")) == "kopru":
 			draw_circle(center, 2.8, Color(0.85, 0.65, 0.35, 1.0))
 	_draw_active_unit_markers()
 	_draw_mission_objective_markers()
+	_draw_alliance_bonds()
+	_draw_war_fronts()
+	_draw_trade_convoys()
 	_draw_path_preview()
 	if _directed_mission_ctrl != null:
 		_directed_mission_ctrl.draw_overlay(self, Callable(self, "_axial_to_pixel"), Callable(self, "_hex_top_surface_points"))
@@ -905,6 +909,7 @@ func _redraw_cursor_tile_poi(cursor_center: Vector2) -> void:
 	# Olay uyarısı normalde simgenin üstünde duruyor; yeniden çizerken de öyle kalmalı.
 	if poi == "neighbor_village":
 		_draw_settlement_incident_marker(cursor_center, tile)
+		_draw_settlement_relation_flag(cursor_center, tile)
 
 
 ## Yürüyüş animasyonu sürerken her hex adımı world_map_updated yayar; her seferinde bütün harita
@@ -1971,6 +1976,12 @@ func _build_hex_hover_tooltip_text(cq: int, cr: int) -> String:
 	var mission_lines: PackedStringArray = _build_world_mission_objective_tooltip_lines_at(cq, cr)
 	if not mission_lines.is_empty():
 		blocks.append("\n".join(mission_lines))
+	var convoy_lines: PackedStringArray = _build_convoy_tooltip_lines_at(cq, cr)
+	if not convoy_lines.is_empty():
+		blocks.append("\n".join(convoy_lines))
+	var front_lines: PackedStringArray = _build_war_front_tooltip_lines_at(cq, cr)
+	if not front_lines.is_empty():
+		blocks.append("\n".join(front_lines))
 	var tile: Dictionary = _get_tile(cq, cr)
 	if tile.is_empty():
 		return "\n\n".join(blocks) if not blocks.is_empty() else ""
@@ -2006,6 +2017,65 @@ func _build_hex_hover_tooltip_text(cq: int, cr: int) -> String:
 	if blocks.is_empty():
 		return ""
 	return "\n\n".join(blocks)
+
+## İmlecin durduğu hex'teki kervan ya da kervan izi için bilgi balonu satırları.
+func _build_convoy_tooltip_lines_at(q: int, r: int) -> PackedStringArray:
+	var lines: PackedStringArray = PackedStringArray()
+	if _world_manager == null:
+		return lines
+	if _world_manager.has_method("get_visible_trade_convoys"):
+		for convoy in _world_manager.call("get_visible_trade_convoys"):
+			if int(convoy.get("q", 0)) != q or int(convoy.get("r", 0)) != r:
+				continue
+			if not lines.is_empty():
+				lines.append("")
+			lines.append(tr("wm.convoy.title"))
+			lines.append(tr("wm.convoy.from") % _convoy_village_label(String(convoy.get("sender_name", ""))))
+			lines.append(tr("wm.convoy.to") % _convoy_village_label(String(convoy.get("receiver_name", ""))))
+			lines.append(tr("wm.convoy.cargo") % _convoy_cargo_label(String(convoy.get("resource", ""))))
+			lines.append(tr("wm.convoy.eta") % int(convoy.get("eta_days", 1)))
+	if _world_manager.has_method("get_visible_convoy_wrecks"):
+		for wreck in _world_manager.call("get_visible_convoy_wrecks"):
+			if int(wreck.get("q", 0)) != q or int(wreck.get("r", 0)) != r:
+				continue
+			if not lines.is_empty():
+				lines.append("")
+			lines.append(tr("wm.convoy.wreck_title"))
+			lines.append(tr("wm.convoy.from") % _convoy_village_label(String(wreck.get("sender_name", ""))))
+			lines.append(tr("wm.convoy.cargo") % _convoy_cargo_label(String(wreck.get("resource", ""))))
+	return lines
+
+
+## İmlecin cephe işaretinin üstünde olduğu savaş / soğuk savaş için bilgi balonu satırları.
+func _build_war_front_tooltip_lines_at(q: int, r: int) -> PackedStringArray:
+	var lines: PackedStringArray = PackedStringArray()
+	if _world_manager == null or not _world_manager.has_method("get_visible_war_fronts"):
+		return lines
+	for front in _world_manager.call("get_visible_war_fronts"):
+		var st: String = String(front.get("state", ""))
+		if not bool(front.get("has_front", false)) or (st != "open_war" and st != "cold_war"):
+			continue
+		if int(front.get("front_q", 0)) != q or int(front.get("front_r", 0)) != r:
+			continue
+		if not lines.is_empty():
+			lines.append("")
+		lines.append(tr("wm.war.title.open_war") if st == "open_war" else tr("wm.war.title.cold_war"))
+		lines.append(tr("wm.war.between") % [String(front.get("a_name", "")), String(front.get("b_name", ""))])
+		lines.append(tr("wm.war.duration") % int(front.get("days", 0)))
+		if st == "open_war":
+			lines.append(tr("wm.war.intensity") % int(front.get("intensity", 1)))
+	return lines
+
+
+func _convoy_village_label(village_name: String) -> String:
+	return village_name if not village_name.is_empty() else tr("wm.convoy.unknown_village")
+
+
+func _convoy_cargo_label(resource: String) -> String:
+	var key: String = "resource.%s" % resource
+	var label: String = tr(key)
+	return label if label != key else resource
+
 
 func _find_world_mission_objective_at_hex(q: int, r: int) -> Dictionary:
 	for m in _mission_objective_markers:
@@ -2222,6 +2292,40 @@ func _build_neighbor_village_hex_tooltip_lines(tile: Dictionary) -> PackedString
 		stats.append(relation)
 	if not stats.is_empty():
 		lines.append(" · ".join(stats))
+	# Köyün komşu köylerle bağları: yalnız keşfedilmiş köyler adıyla yazılır.
+	if _world_manager != null and not sid.is_empty():
+		var ally_names: PackedStringArray = PackedStringArray()
+		if _world_manager.has_method("get_settlement_allies"):
+			for ally_id in _world_manager.call("get_settlement_allies", sid):
+				if _world_manager.call("is_settlement_discovered", String(ally_id)):
+					ally_names.append(String(_world_manager.call("_get_settlement_display_name", String(ally_id))))
+		if not ally_names.is_empty():
+			lines.append(tr("wm.tooltip.neighbor.allies") % ", ".join(ally_names))
+		var foe_names: PackedStringArray = PackedStringArray()
+		if _world_manager.has_method("get_visible_war_fronts"):
+			for front in _world_manager.call("get_visible_war_fronts"):
+				if String(front.get("state", "")) != "open_war":
+					continue
+				if String(front.get("a_id", "")) == sid:
+					foe_names.append(String(front.get("b_name", "")))
+				elif String(front.get("b_id", "")) == sid:
+					foe_names.append(String(front.get("a_name", "")))
+		if not foe_names.is_empty():
+			lines.append(tr("wm.tooltip.neighbor.at_war") % ", ".join(foe_names))
+		# Lider ve kişilik her zaman bilinir; ordu ve hazine ise yalnız istihbaratı olan (ajan) köyde
+		# gerçek sayıdır, diğerlerinde kaba kademe ("zayıf / orta / güçlü", "fakir / orta / zengin").
+		if _world_manager.has_method("get_settlement_profile"):
+			var prof: Dictionary = _world_manager.call("get_settlement_profile", sid)
+			if not prof.is_empty():
+				lines.append(tr("wm.tooltip.neighbor.leader") % [String(prof.leader), tr("wm.personality." + String(prof.personality))])
+				var intel_ok: bool = true
+				var mm_prof: Node = get_node_or_null("/root/MissionManager")
+				if mm_prof != null and mm_prof.has_method("is_settlement_intel_visible"):
+					intel_ok = bool(mm_prof.call("is_settlement_intel_visible", sid))
+				if intel_ok:
+					lines.append(tr("wm.tooltip.neighbor.force_exact") % [int(prof.soldiers), int(prof.gold)])
+				else:
+					lines.append(tr("wm.tooltip.neighbor.force_fuzzy") % [tr("wm.tier.army." + String(prof.army_tier)), tr("wm.tier.wealth." + String(prof.wealth_tier))])
 	# Bela VARSA yazılır. Eskiden "Kriz: yok" satırı da basılıyordu; balon söyleyecek bir şey
 	# olmadığında büyümesin diye kaldırıldı.
 	var mm_tip: Node = get_node_or_null("/root/MissionManager")
@@ -3615,6 +3719,210 @@ func _draw_active_unit_markers() -> void:
 		var font: Font = _get_world_map_font()
 		draw_string(font, base_pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, 15, Color(0.95, 0.98, 1.0, 1.0))
 
+## İttifak bağları: oyuncunun köyüyle müttefik köyler ve müttefik komşu köy çiftleri arasında düz,
+## kalın değil, çift katmanlı çizgi (oyuncu ittifakı altın, köyler arası ittifak mavi). Kesik çizgi
+## savaş, noktalı çizgi kervan olduğu için ittifak tek parça çizilir. Ortada küçük bir kalkan durur.
+const BOND_PLAYER_COLOR := Color(1.0, 0.82, 0.3, 1.0)
+const BOND_VILLAGE_COLOR := Color(0.45, 0.72, 1.0, 1.0)
+
+func _draw_alliance_bonds() -> void:
+	if _world_manager == null or not _world_manager.has_method("get_visible_settlement_bonds"):
+		return
+	for bond in _world_manager.call("get_visible_settlement_bonds"):
+		var col: Color = BOND_PLAYER_COLOR if String(bond.get("kind", "")) == "player" else BOND_VILLAGE_COLOR
+		var pa: Vector2 = _axial_to_pixel(int(bond.a_q), int(bond.a_r))
+		var pb: Vector2 = _axial_to_pixel(int(bond.b_q), int(bond.b_r))
+		draw_line(pa, pb, Color(0.05, 0.04, 0.03, 0.55), 5.0)
+		draw_line(pa, pb, Color(col.r, col.g, col.b, 0.8), 2.4)
+		var mid: Vector2 = pa.lerp(pb, 0.5)
+		# Küçük kalkan: koyu çerçeve, renkli gövde, açık orta çizgi.
+		var shield := PackedVector2Array([
+			mid + Vector2(-6.0, -6.0), mid + Vector2(6.0, -6.0), mid + Vector2(6.0, 1.0),
+			mid + Vector2(0.0, 8.0), mid + Vector2(-6.0, 1.0)])
+		draw_colored_polygon(shield, Color(0.05, 0.04, 0.03, 0.95))
+		var inner := PackedVector2Array([
+			mid + Vector2(-4.2, -4.2), mid + Vector2(4.2, -4.2), mid + Vector2(4.2, 0.5),
+			mid + Vector2(0.0, 5.8), mid + Vector2(-4.2, 0.5)])
+		draw_colored_polygon(inner, col)
+		draw_line(mid + Vector2(0.0, -4.0), mid + Vector2(0.0, 4.5), Color(1, 1, 1, 0.55), 1.2)
+
+
+## Komşu köyün üstünde, oyuncuyla ilişkisini gösteren küçük bayrak: müttefik altın, dostane yeşil,
+## gergin turuncu, düşman kırmızı. Nötr köyde bayrak yok (harita kalabalıklaşmasın).
+func _draw_settlement_relation_flag(center: Vector2, tile: Dictionary) -> void:
+	if _world_manager == null:
+		return
+	var sid: String = String(tile.get("settlement_id", ""))
+	if sid.is_empty() or not _world_manager.has_method("get_relation"):
+		return
+	var s_name: String = String(_world_manager.call("_get_settlement_display_name", sid))
+	var rel: int = int(_world_manager.call("get_relation", "Köy", s_name))
+	var allied: bool = _world_manager.has_method("is_player_allied") and bool(_world_manager.call("is_player_allied", sid))
+	var col: Color
+	if allied:
+		col = BOND_PLAYER_COLOR
+	elif rel >= 20:
+		col = Color(0.45, 0.85, 0.45, 1.0)
+	elif rel <= -30:
+		col = Color(0.92, 0.25, 0.22, 1.0)
+	elif rel <= -15:
+		col = Color(0.95, 0.6, 0.22, 1.0)
+	else:
+		return
+	var base: Vector2 = center + Vector2(-13.0, -8.0)
+	draw_line(base, base + Vector2(0.0, -17.0), Color(0.05, 0.04, 0.03, 0.95), 3.0)
+	draw_line(base, base + Vector2(0.0, -17.0), Color(0.82, 0.78, 0.68, 1.0), 1.4)
+	var flag := PackedVector2Array([base + Vector2(0.5, -17.0), base + Vector2(10.0, -13.0), base + Vector2(0.5, -9.0)])
+	draw_colored_polygon(flag, Color(0.05, 0.04, 0.03, 0.95))
+	var flag_in := PackedVector2Array([base + Vector2(1.5, -15.5), base + Vector2(7.5, -13.0), base + Vector2(1.5, -10.5)])
+	draw_colored_polygon(flag_in, col)
+
+
+## Köyler arası gerginlik ve savaşlar: iki keşfedilmiş köyü bağlayan renkli kesik çizgi (savaş kırmızı
+## ve kalın, soğuk savaş turuncu, gerginlik sarı ve silik, ateşkes mavi). Savaşta ve soğuk savaşta
+## çizginin ortasındaki keşfedilmiş hex'te cephe işareti durur; baskına uğrayan köyde alev yanar.
+const WAR_COLORS: Dictionary = {
+	"open_war": Color(0.92, 0.22, 0.2, 1.0),
+	"cold_war": Color(0.95, 0.58, 0.2, 1.0),
+	"tension": Color(0.95, 0.85, 0.35, 1.0),
+	"ceasefire": Color(0.45, 0.7, 0.95, 1.0),
+}
+
+func _draw_war_fronts() -> void:
+	if _world_manager == null:
+		return
+	if _world_manager.has_method("get_visible_war_fronts"):
+		for front in _world_manager.call("get_visible_war_fronts"):
+			var state: String = String(front.get("state", ""))
+			var col: Color = WAR_COLORS.get(state, Color(1, 1, 1, 1))
+			var pa: Vector2 = _axial_to_pixel(int(front.a_q), int(front.a_r))
+			var pb: Vector2 = _axial_to_pixel(int(front.b_q), int(front.b_r))
+			var width: float = 3.4 if state == "open_war" else (2.2 if state == "cold_war" else 1.6)
+			var alpha: float = 0.9 if state == "open_war" else (0.75 if state == "cold_war" else 0.5)
+			_draw_dashed_line(pa, pb, Color(col.r, col.g, col.b, alpha), width)
+		for front2 in _world_manager.call("get_visible_war_fronts"):
+			var st2: String = String(front2.get("state", ""))
+			if not bool(front2.get("has_front", false)) or (st2 != "open_war" and st2 != "cold_war"):
+				continue
+			_draw_front_marker(_axial_to_pixel(int(front2.front_q), int(front2.front_r)), st2, int(front2.get("intensity", 1)))
+	if _world_manager.has_method("get_visible_raided_settlements"):
+		for raided in _world_manager.call("get_visible_raided_settlements"):
+			_draw_raid_flame(_axial_to_pixel(int(raided.q), int(raided.r)) + Vector2(0.0, -26.0), String(raided.stage) == "raid")
+
+
+func _draw_dashed_line(a: Vector2, b: Vector2, color: Color, width: float) -> void:
+	var total: float = a.distance_to(b)
+	if total <= 1.0:
+		return
+	var dir: Vector2 = (b - a) / total
+	var dash: float = 14.0
+	var gap: float = 9.0
+	var d: float = 0.0
+	while d < total:
+		var end_d: float = minf(d + dash, total)
+		draw_line(a + dir * d, a + dir * end_d, Color(0.05, 0.03, 0.03, color.a * 0.6), width + 2.0)
+		draw_line(a + dir * d, a + dir * end_d, color, width)
+		d += dash + gap
+
+
+func _draw_front_marker(at: Vector2, state: String, intensity: int) -> void:
+	var col: Color = WAR_COLORS.get(state, Color(1, 1, 1, 1))
+	var r: float = 11.0 + minf(float(maxi(intensity, 1) - 1), 3.0) * 1.5
+	draw_circle(at, r + 2.0, Color(0.05, 0.03, 0.03, 0.9))
+	draw_circle(at, r, Color(col.r * 0.55, col.g * 0.4, col.b * 0.4, 0.95))
+	if state == "open_war":
+		# Çapraz iki kılıç.
+		var blade := Color(0.93, 0.93, 0.95, 1.0)
+		draw_line(at + Vector2(-6.0, 6.0), at + Vector2(6.0, -6.0), Color(0.05, 0.03, 0.03, 1.0), 4.5)
+		draw_line(at + Vector2(-6.0, -6.0), at + Vector2(6.0, 6.0), Color(0.05, 0.03, 0.03, 1.0), 4.5)
+		draw_line(at + Vector2(-5.5, 5.5), at + Vector2(5.5, -5.5), blade, 2.4)
+		draw_line(at + Vector2(-5.5, -5.5), at + Vector2(5.5, 5.5), blade, 2.4)
+	else:
+		# Soğuk savaş: iki karşılıklı üçgen (gergin sınır).
+		draw_colored_polygon(PackedVector2Array([at + Vector2(-7.0, -5.0), at + Vector2(-1.0, 0.0), at + Vector2(-7.0, 5.0)]), Color(0.97, 0.9, 0.7, 1.0))
+		draw_colored_polygon(PackedVector2Array([at + Vector2(7.0, -5.0), at + Vector2(1.0, 0.0), at + Vector2(7.0, 5.0)]), Color(0.97, 0.9, 0.7, 1.0))
+
+
+func _draw_raid_flame(at: Vector2, fresh: bool) -> void:
+	var s: float = 1.0 if fresh else 0.7
+	var outer := Color(0.95, 0.35, 0.12, 1.0) if fresh else Color(0.6, 0.3, 0.2, 0.9)
+	var inner := Color(1.0, 0.85, 0.3, 1.0) if fresh else Color(0.85, 0.6, 0.3, 0.9)
+	draw_colored_polygon(PackedVector2Array([
+		at + Vector2(0.0, -12.0) * s, at + Vector2(7.0, 0.0) * s, at + Vector2(4.0, 8.0) * s,
+		at + Vector2(-4.0, 8.0) * s, at + Vector2(-7.0, 0.0) * s]), Color(0.05, 0.03, 0.03, 0.9))
+	draw_colored_polygon(PackedVector2Array([
+		at + Vector2(0.0, -10.0) * s, at + Vector2(5.5, 0.0) * s, at + Vector2(3.0, 6.5) * s,
+		at + Vector2(-3.0, 6.5) * s, at + Vector2(-5.5, 0.0) * s]), outer)
+	draw_colored_polygon(PackedVector2Array([
+		at + Vector2(0.0, -4.0) * s, at + Vector2(2.6, 1.0) * s, at + Vector2(1.5, 5.0) * s,
+		at + Vector2(-1.5, 5.0) * s, at + Vector2(-2.6, 1.0) * s]), inner)
+
+
+## Köyler arası ticaret kervanları: yolları soluk noktalarla, kendileri küçük birer araba simgesiyle
+## çizilir. Yalnız keşfedilmiş hex'lerdeki kervanlar ve yolun keşfedilmiş kısmı görünür; böylece
+## rota keşfedilmemiş bir köyün yerini ele vermez. Yağmalanmış kervanın izi kırmızı çarpıdır.
+const CONVOY_COLOR := Color(0.93, 0.78, 0.38, 1.0)
+const CONVOY_WRECK_COLOR := Color(0.92, 0.36, 0.3, 1.0)
+
+func _draw_trade_convoys() -> void:
+	if _world_manager == null:
+		return
+	if _world_manager.has_method("get_visible_convoy_wrecks"):
+		for wreck in _world_manager.call("get_visible_convoy_wrecks"):
+			_draw_convoy_wreck(_axial_to_pixel(int(wreck.get("q", 0)), int(wreck.get("r", 0))))
+	if not _world_manager.has_method("get_visible_trade_convoys"):
+		return
+	var convoys: Array = _world_manager.call("get_visible_trade_convoys")
+	for convoy in convoys:
+		var hovered: bool = int(convoy.get("q", 0)) == _cursor_q and int(convoy.get("r", 0)) == _cursor_r
+		var run: Dictionary = _convoy_discovered_run(convoy)
+		var run_path: Array = run.get("path", [])
+		if run_path.size() >= 2:
+			_draw_unit_route(run_path, CONVOY_COLOR, float(run.get("progress", 0.0)), not hovered, hovered)
+	for convoy2 in convoys:
+		var pa: Vector2 = _axial_to_pixel(int(convoy2["seg_a"].get("q", 0)), int(convoy2["seg_a"].get("r", 0)))
+		var pb: Vector2 = _axial_to_pixel(int(convoy2["seg_b"].get("q", 0)), int(convoy2["seg_b"].get("r", 0)))
+		var at: Vector2 = pa.lerp(pb, float(convoy2.get("t", 0.0)))
+		var is_hovered: bool = int(convoy2.get("q", 0)) == _cursor_q and int(convoy2.get("r", 0)) == _cursor_r
+		_draw_convoy_icon(at, is_hovered)
+
+
+## Yolun, kervanın bulunduğu yerden iki yana keşfedilmiş hex'lerle sınırlı kesintisiz parçası.
+func _convoy_discovered_run(convoy: Dictionary) -> Dictionary:
+	var path: Array = convoy.get("path", [])
+	var f: float = float(convoy.get("f", 0.0))
+	var idx: int = clampi(int(floor(f)), 0, path.size() - 1)
+	var lo: int = idx
+	var hi: int = idx
+	while lo > 0 and _is_hex_discovered(int(path[lo - 1].get("q", 0)), int(path[lo - 1].get("r", 0))):
+		lo -= 1
+	while hi < path.size() - 1 and _is_hex_discovered(int(path[hi + 1].get("q", 0)), int(path[hi + 1].get("r", 0))):
+		hi += 1
+	if hi <= lo:
+		return {}
+	return {"path": path.slice(lo, hi + 1), "progress": clampf((f - float(lo)) / float(hi - lo), 0.0, 1.0)}
+
+
+func _draw_convoy_icon(at: Vector2, hovered: bool) -> void:
+	if hovered:
+		draw_circle(at, 11.0, Color(1.0, 0.95, 0.7, 0.25))
+	# Gövde (koyu çerçeve + sarı kasa + açık renk branda), iki tekerlek.
+	draw_rect(Rect2(at + Vector2(-8.0, -7.0), Vector2(16.0, 10.0)), Color(0.07, 0.05, 0.03, 0.95), true)
+	draw_rect(Rect2(at + Vector2(-7.0, -6.0), Vector2(14.0, 8.0)), CONVOY_COLOR, true)
+	draw_rect(Rect2(at + Vector2(-7.0, -6.0), Vector2(14.0, 3.0)), Color(1.0, 0.94, 0.7, 1.0), true)
+	for wx in [-4.5, 4.5]:
+		draw_circle(at + Vector2(wx, 3.5), 3.1, Color(0.07, 0.05, 0.03, 0.95))
+		draw_circle(at + Vector2(wx, 3.5), 1.6, Color(0.55, 0.38, 0.2, 1.0))
+
+
+func _draw_convoy_wreck(at: Vector2) -> void:
+	var dark := Color(0.07, 0.05, 0.03, 0.9)
+	draw_line(at + Vector2(-6.0, -6.0), at + Vector2(6.0, 6.0), dark, 6.0)
+	draw_line(at + Vector2(6.0, -6.0), at + Vector2(-6.0, 6.0), dark, 6.0)
+	draw_line(at + Vector2(-5.0, -5.0), at + Vector2(5.0, 5.0), CONVOY_WRECK_COLOR, 3.0)
+	draw_line(at + Vector2(5.0, -5.0), at + Vector2(-5.0, 5.0), CONVOY_WRECK_COLOR, 3.0)
+
+
 func _draw_mission_objective_markers() -> void:
 	if _mission_objective_markers.is_empty():
 		return
@@ -4179,6 +4487,7 @@ func _setup_settlement_action_menu() -> void:
 	_settlement_action_menu.add_item(tr("wm.settlement.action.propose_alliance"), 7)
 	_settlement_action_menu.add_item(tr("wm.settlement.action.break_alliance"), 8)
 	_settlement_action_menu.add_item(tr("wm.settlement.action.offensive_raid"), 10)
+	_settlement_action_menu.add_item(tr("wm.settlement.action.visit"), 11)
 	_settlement_action_menu.add_separator()
 	_settlement_action_menu.add_item(tr("wm.cancel"), 9)
 	_settlement_action_menu.id_pressed.connect(_on_settlement_action_selected)
@@ -4208,8 +4517,20 @@ func _on_settlement_action_selected(action_id: int) -> void:
 			_execute_settlement_alliance_break()
 		10:
 			_execute_settlement_offensive_raid()
+		11:
+			_execute_settlement_visit()
 		_:
 			_update_status_label(tr("wm.settlement.cancelled") % _pending_settlement_name)
+
+## Komşu köye girer (bkz. village/visit/VillageVisitScene.gd). Gündüz / gece kipi köyde saate göre belirlenir.
+func _execute_settlement_visit() -> void:
+	if _pending_settlement_id.is_empty():
+		return
+	var scene_manager: Node = get_node_or_null("/root/SceneManager")
+	if scene_manager == null or not scene_manager.has_method("change_to_village_visit"):
+		return
+	var payload: Dictionary = {"source": "world_map", "settlement_id": _pending_settlement_id}
+	_exit_with_clouds(func(): scene_manager.change_to_village_visit(payload))
 
 func _refresh_aid_menu_item() -> void:
 	if _settlement_action_menu == null:

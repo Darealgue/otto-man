@@ -1569,11 +1569,21 @@ func get_world_map_active_unit_markers() -> Array[Dictionary]:
 		var target_q: int = int(target_info.get("q", origin_q))
 		var target_r: int = int(target_info.get("r", origin_r))
 		var out_path_pts: Array[Dictionary] = _get_world_path_points(wm, origin_q, origin_r, target_q, target_r)
+		# Görev süresi gidiş + dönüşü kapsar: ilk yarı hedefe yürüyüş, ikinci yarı köye dönüş.
+		# Görev bittiği anda cariye zaten köye varmış olur (köydeki durumla tutarlı).
+		var is_return_leg: bool = progress >= 0.5
+		var leg_progress: float = clampf(progress * 2.0, 0.0, 1.0)
+		var leg_path_pts: Array[Dictionary] = out_path_pts
+		if is_return_leg:
+			leg_progress = clampf((progress - 0.5) * 2.0, 0.0, 1.0)
+			leg_path_pts = []
+			for pi in range(out_path_pts.size() - 1, -1, -1):
+				leg_path_pts.append(out_path_pts[pi])
 		var current_coords: Dictionary = _sample_world_position_on_path(
-			out_path_pts,
-			progress,
-			origin_q,
-			origin_r
+			leg_path_pts,
+			leg_progress,
+			target_q if is_return_leg else origin_q,
+			target_r if is_return_leg else origin_r
 		)
 		var current_q: int = int(current_coords.get("q", origin_q))
 		var current_r: int = int(current_coords.get("r", origin_r))
@@ -1588,21 +1598,21 @@ func get_world_map_active_unit_markers() -> Array[Dictionary]:
 			if c and "role" in c:
 				cariye_role = int(c.role)
 		out.append({
-			"unit_type": "mission_team",
+			"unit_type": "returning_team" if is_return_leg else "mission_team",
 			"cariye_id": int(cariye_id),
 			"cariye_name": cariye_name,
 			"role": cariye_role,
-			"path": out_path_pts,
+			"path": leg_path_pts,
 			"mission_id": mission_id,
 			"mission_name": _get_mission_name_safe(mission_data, mission_id),
 			"mission_type_tag": mission_type_tag,
-			"progress": progress,
+			"progress": leg_progress,
 			"q": current_q,
 			"r": current_r,
-			"origin_q": origin_q,
-			"origin_r": origin_r,
-			"target_q": target_q,
-			"target_r": target_r,
+			"origin_q": target_q if is_return_leg else origin_q,
+			"origin_r": target_r if is_return_leg else origin_r,
+			"target_q": origin_q if is_return_leg else target_q,
+			"target_r": origin_r if is_return_leg else target_r,
 			"target_name": String(target_info.get("name", "Bilinmeyen"))
 		})
 	var returning_to_remove: Array = []
@@ -2095,7 +2105,14 @@ func _get_mission_name_safe(mission_data, fallback_id: String) -> String:
 		return get_mission_display_name(mission_data)
 	return fallback_id
 
+## Dönüş yolculuğunu haritada göstermek için true yap. Kapalı: cariye görev bittiği anda köyde
+## belirdiği için haritada hâlâ "yolda" görünmesi çelişki yaratıyordu.
+const SHOW_RETURNING_UNITS_ON_MAP := false
+
 func _register_world_map_returning_unit(cariye_id: int, mission_id: String, mission_data) -> void:
+	if not SHOW_RETURNING_UNITS_ON_MAP:
+		_world_map_returning_units.erase(cariye_id)
+		return
 	var wm: Node = get_node_or_null("/root/WorldManager")
 	var tm: Node = get_node_or_null("/root/TimeManager")
 	if not wm or not ("world_map_settlement_positions" in wm):
@@ -4752,6 +4769,17 @@ func get_directed_mission_options(cariye_id: int, q: int, r: int) -> Dictionary:
 					tile["near_settlement_name"] = String(sp.get("name", ""))
 					result["tile"] = tile
 					break
+	# Hex'te oyuncunun görebildiği bir ticaret kervanı varsa hedef o: Komutan yolda yağmalayabilir.
+	if kind == DirectedMissionCatalog.KIND_WILD:
+		var wm_cv: Node = get_node_or_null("/root/WorldManager")
+		if wm_cv != null and wm_cv.has_method("find_visible_convoy_at"):
+			var cv: Dictionary = wm_cv.call("find_visible_convoy_at", q, r)
+			if not cv.is_empty():
+				kind = DirectedMissionCatalog.KIND_CONVOY
+				tile = tile.duplicate()
+				tile["convoy"] = cv
+				result["tile"] = tile
+				result["kind"] = kind
 	var origin: Vector2i = _directed_village_origin()
 	var dist: int = _hex_distance_local(origin.x, origin.y, q, r)
 	result["distance"] = dist
@@ -4951,6 +4979,8 @@ func _build_directed_mission(cariye: Concubine, option: Dictionary, tile: Dictio
 	m.set_meta("directed_gift", gift_amount)
 	m.set_meta("directed_gift_res", String((option.get("gift", {}) as Dictionary).get("res", "gold")))
 	m.set_meta("directed_soldiers", soldier_count)
+	if tile.has("convoy"):
+		m.set_meta("directed_convoy_id", int((tile["convoy"] as Dictionary).get("id", -1)))
 	return m
 
 
@@ -5038,9 +5068,13 @@ func create_player_directed_mission(cariye_id: int, q: int, r: int, option_id: S
 
 ## Görev bitince (başarı/başarısızlık) seçeneğin etkisini uygular. Etki dizgesi "a:1;b".
 func _apply_directed_effect(mission: Mission, cariye: Concubine, successful: bool) -> void:
+	var effect: String = String(mission.get_meta("directed_effect", ""))
+	# Kervan yağması başarısızlıkta da dünyaya yansır (girişim ortaya çıkar), o yüzden erken dönüşten önce.
+	if effect == "convoy_raid":
+		_apply_convoy_raid_effect(mission, cariye, successful)
+		return
 	if not successful:
 		return
-	var effect: String = String(mission.get_meta("directed_effect", ""))
 	if effect.is_empty():
 		return
 	var gift: int = int(mission.get_meta("directed_gift", 0))
@@ -5113,6 +5147,19 @@ func _apply_directed_effect(mission: Mission, cariye: Concubine, successful: boo
 						wm_ch.call("remove_challenge_at", cq, cr)
 			_:
 				pass
+
+
+## Kervan yağması sonucu. Başarı sessizdir (ufak şüphe), başarısızlıkta kimin yaptığı bilinir ve
+## ilişki ağır bozulur (bkz. WorldManager.raid_trade_convoy). Kervan cariye varana kadar menzile
+## ulaştıysa yağma boşa gider: başarıda ödül yok, başarısızlıkta ceza da yok (kimse görmedi).
+func _apply_convoy_raid_effect(mission: Mission, cariye: Concubine, successful: bool) -> void:
+	var wm_cv: Node = get_node_or_null("/root/WorldManager")
+	var raid_res: Dictionary = {}
+	if wm_cv != null and wm_cv.has_method("raid_trade_convoy"):
+		raid_res = wm_cv.call("raid_trade_convoy", int(mission.get_meta("directed_convoy_id", -1)), successful)
+	if successful and not bool(raid_res.get("ok", false)):
+		mission.rewards = {}
+		post_news("village", tr("dm.news.convoy_gone.title"), tr("dm.news.convoy_gone.body") % cariye.name, Color(1.0, 0.85, 0.7), "info")
 
 
 ## ─── Faz 3: sonuç kademeleri, yaralanma, esirlik, süreli etkiler ────────────────

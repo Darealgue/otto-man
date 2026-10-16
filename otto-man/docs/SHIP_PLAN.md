@@ -1,5 +1,7 @@
 # Otto-man — Bitirme Planı (Ship Plan)
 
+> **Güncel durum için `docs/DURUM.md` dosyasına bak.** Bu plan haziran 2026 tarihli, kısmen eski.
+
 > **Oluşturulma:** 2026-06-29  
 > **Amaç:** Projeyi oynanabilir “bitmiş” release’e taşımak.  
 > **Durum:** `[ ]` bekliyor · `[~]` devam · `[x]` bitti
@@ -23,7 +25,7 @@
 | Bayrak | Dosya | Etki |
 |--------|-------|------|
 | `BOSS_FIGHTS_ENABLED = true` | `boss_room_registry.gd` | Orb Scatter boss aktif |
-| `DUNGEON_BOSS_ARENAS_ENABLED = true` | `scenes/level_generator.gd` | Son segment mini-boss arena |
+| `DUNGEON_BOSS_ARENAS_ENABLED = false` | `scenes/level_generator.gd` | Son segment mini-boss arena (2026-10-16: kodda KAPALI) |
 | `SoundManager` | `autoload/SoundManager.gd` | Procedural SFX (click/hurt/death/kapı) |
 
 ---

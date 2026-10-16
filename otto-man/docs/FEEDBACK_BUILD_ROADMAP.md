@@ -1,5 +1,7 @@
 # Geri Bildirim Build'i — İçerik Yol Haritası
 
+> **ESKİ (2026-06).** Birçok işaretsiz madde sonradan yapıldı. Güncel durum: `docs/DURUM.md`.
+
 > **Amaç:** Resmi demo değil; tanıdıklara atılıp “oyun nasıl hissettiriyor?” fikri alınacak build.
 > **Durum:** Fikir listesi — sırayla ele alınacak. Tamamlanan maddeler `[x]`, devam eden `[~]`, bekleyen `[ ]`.
 
