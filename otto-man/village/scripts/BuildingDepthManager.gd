@@ -7,7 +7,7 @@ const SLAB_SCRIPT = preload("res://village/scripts/BuildingDepthSlab.gd")
 
 # Kalınlık verilecek bina sahneleri (dosya adıyla). Yeni dükkân eklemek için buraya yaz.
 const ALLOWED_SCENES: Array[String] = [
-	"House.tscn", "Bakery.tscn", "Blacksmith.tscn", "Armorer.tscn", "Gunsmith.tscn",
+	"House.tscn", "Bakery.tscn", "Blacksmith.tscn", "Gunsmith.tscn",
 	"Herbalist.tscn", "Tailor.tscn", "TeaHouse.tscn", "Weaver.tscn", "SoapMaker.tscn",
 ]
 

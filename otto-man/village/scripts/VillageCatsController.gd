@@ -60,6 +60,12 @@ func _ready() -> void:
 		set_process(false)
 		return
 	randomize()
+	# Kalıcı kedi kaydı (CatRoster): önceki oturumlardaki kediler (aynı ad, renk, bağ) yeniden doğabilsin.
+	var roster := get_node_or_null("/root/CatRoster")
+	if roster != null:
+		for id in roster.ids():
+			_cat_profiles[id] = {"color": roster.get_color(id)} if roster.has_color(id) else {}
+		_next_cat_profile_seq = maxi(_next_cat_profile_seq, int(roster.next_seq()))
 	if cat_scene == null:
 		cat_scene = preload("res://village/scenes/CatPrototype.tscn")
 	_spawn_timer = randf_range(min_spawn_interval, max_spawn_interval)
@@ -133,9 +139,7 @@ func _try_spawn_cat() -> void:
 	_cats_container.add_child(cat)
 	_active_cat_profile_ids[profile_id] = true
 	if not profile_data.has("color") and cat.has_method("get_current_color_variant"):
-		_cat_profiles[profile_id] = {
-			"color": cat.get_current_color_variant()
-		}
+		_store_profile_color(profile_id, cat.get_current_color_variant())
 	_spawn_timer = randf_range(min_spawn_interval, max_spawn_interval)
 
 func _despawn_one_cat() -> void:
@@ -300,10 +304,24 @@ func _acquire_profile_id_for_spawn() -> String:
 
 
 func _create_new_profile_id() -> String:
-	var new_id := "cat_%03d" % _next_cat_profile_seq
-	_next_cat_profile_seq += 1
+	var new_id: String = ""
+	var roster := get_node_or_null("/root/CatRoster")
+	if roster != null:
+		new_id = String(roster.create_cat_id())
+		_next_cat_profile_seq = maxi(_next_cat_profile_seq, int(roster.next_seq()))
+	else:
+		new_id = "cat_%03d" % _next_cat_profile_seq
+		_next_cat_profile_seq += 1
 	_cat_profiles[new_id] = {}
 	return new_id
+
+
+## Kedinin rengini hem yerel profile hem kalıcı kayda yazar (sonraki oturumlarda aynı renkle dönsün).
+func _store_profile_color(profile_id: String, color: Color) -> void:
+	_cat_profiles[profile_id] = {"color": color}
+	var roster := get_node_or_null("/root/CatRoster")
+	if roster != null and roster.has_method("set_color"):
+		roster.set_color(profile_id, color)
 
 
 func _get_profile_id_from_cat(cat_node: Node) -> String:
@@ -333,8 +351,8 @@ func _refresh_active_cat_profile_ids() -> void:
 				fallback_color = child.get_current_color_variant()
 			if child.has_method("set_persistent_identity"):
 				child.set_persistent_identity(profile_id, fallback_color)
-			if not _cat_profiles.has(profile_id):
-				_cat_profiles[profile_id] = {"color": fallback_color}
+			if not _cat_profiles.has(profile_id) or not (_cat_profiles[profile_id] as Dictionary).has("color"):
+				_store_profile_color(profile_id, fallback_color)
 		_active_cat_profile_ids[profile_id] = true
 
 

@@ -1533,6 +1533,10 @@ func _finalize_player_death() -> void:
 		return
 	is_dead = true
 	pending_death = false
+	# Eşlik eden kedi (varsa) oyuncu ölünce birkaç sefer dinlenir.
+	var cat_companion: Node = get_node_or_null("/root/CatCompanion")
+	if cat_companion != null and cat_companion.has_method("on_player_died"):
+		cat_companion.call("on_player_died")
 	if is_instance_valid(SoundManager) and SoundManager.has_method("play_sfx"):
 		SoundManager.play_sfx("death", global_position)
 	

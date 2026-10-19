@@ -6,17 +6,28 @@ const TRACK_DAMAGE := "damage"
 const TRACK_HEALTH := "health"
 const TRACK_STAMINA := "stamina"
 
+## Her yol 10 seviyeye kadar geliştirilebilir (oyuncu istediği kadar gelişebilsin); ilk seviyeler eskisi gibi, sonrakilerin bedeli
+## kademeli artar. Bu değerler eşlikçi kedilerin bonuslarının da kaynağıdır (bir kedi = bir seviyelik bonus, bkz. CatCompanion).
+const MAX_LEVEL: int = 10
+
 const TRACKS: Dictionary = {
 	TRACK_DAMAGE: {
 		"title": "Kılıç Tezgâhı",
 		"description": "Saldırı gücünü kalıcı artırır.",
 		"stat": "base_damage",
 		"bonus_per_level": 5.0,
-		"max_level": 3,
+		"max_level": MAX_LEVEL,
 		"levels": {
 			1: {"rusty_weapon": 10},
 			2: {"rusty_weapon": 20, "metal": 1},
 			3: {"rusty_weapon": 30, "metal": 5, "weapon_t1": 1},
+			4: {"rusty_weapon": 40, "metal": 8, "weapon_t1": 1},
+			5: {"rusty_weapon": 50, "metal": 11, "weapon_t1": 2},
+			6: {"rusty_weapon": 60, "metal": 14, "weapon_t1": 2},
+			7: {"rusty_weapon": 70, "metal": 18, "weapon_t1": 3},
+			8: {"rusty_weapon": 80, "metal": 22, "weapon_t1": 3},
+			9: {"rusty_weapon": 90, "metal": 26, "weapon_t1": 4},
+			10: {"rusty_weapon": 100, "metal": 30, "weapon_t1": 5},
 		},
 	},
 	TRACK_HEALTH: {
@@ -24,10 +35,18 @@ const TRACKS: Dictionary = {
 		"description": "Maksimum canı kalıcı artırır.",
 		"stat": "max_health",
 		"bonus_per_level": 25.0,
-		"max_level": 2,
+		"max_level": MAX_LEVEL,
 		"levels": {
 			1: {"herb_bundle": 8},
 			2: {"herb_bundle": 15, "medicine": 2},
+			3: {"herb_bundle": 22, "medicine": 3},
+			4: {"herb_bundle": 29, "medicine": 4},
+			5: {"herb_bundle": 36, "medicine": 5},
+			6: {"herb_bundle": 43, "medicine": 6},
+			7: {"herb_bundle": 50, "medicine": 7},
+			8: {"herb_bundle": 57, "medicine": 8},
+			9: {"herb_bundle": 64, "medicine": 9},
+			10: {"herb_bundle": 71, "medicine": 10},
 		},
 	},
 	TRACK_STAMINA: {
@@ -35,12 +54,27 @@ const TRACKS: Dictionary = {
 		"description": "Ekstra stamina segmenti kazandırır.",
 		"stat": "block_charges",
 		"bonus_per_level": 1.0,
-		"max_level": 1,
+		"max_level": MAX_LEVEL,
 		"levels": {
 			1: {"sky_feather": 12},
+			2: {"sky_feather": 20},
+			3: {"sky_feather": 28},
+			4: {"sky_feather": 36, "metal": 5},
+			5: {"sky_feather": 44, "metal": 8},
+			6: {"sky_feather": 52, "metal": 11},
+			7: {"sky_feather": 60, "metal": 14},
+			8: {"sky_feather": 68, "metal": 17},
+			9: {"sky_feather": 76, "metal": 20},
+			10: {"sky_feather": 84, "metal": 24},
 		},
 	},
 }
+
+
+## Bir yolun bir seviyelik bonusunun (stat, miktar) çifti: eşlikçi kedilerin "bir seviye" bonusu için kullanılır.
+static func get_level_bonus(track_id: String) -> Dictionary:
+	var track: Dictionary = TRACKS.get(track_id, {})
+	return {"stat": String(track.get("stat", "")), "amount": float(track.get("bonus_per_level", 0.0))}
 
 
 static func get_track_ids() -> Array[String]:

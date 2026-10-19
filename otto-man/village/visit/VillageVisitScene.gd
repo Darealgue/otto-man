@@ -123,6 +123,7 @@ func _ready() -> void:
 	_build_day_night()
 	_spawn_player()
 	_build_villagers()
+	_add_show_director()
 	_build_hud()
 	_build_guards()
 	_build_targets()
@@ -367,6 +368,22 @@ func _add_building_depth() -> void:
 	mgr.name = "BuildingDepthManager"
 	mgr.set_script(preload("res://village/scripts/BuildingDepthManager.gd"))
 	add_child(mgr)
+
+
+## Köylülerin küçük gösterme etkinlikleri: akşam meydanda toplanma, sohbet, yüzme, balık tutma... (VillageShowDirector).
+func _add_show_director() -> void:
+	var dir := Node2D.new()
+	dir.set_script(preload("res://village/scripts/show/VillageShowDirector.gd"))
+	dir.set("mode", "visit")
+	dir.set("center_x", 0.0)
+	dir.set("has_water", bool(layout.get("coastal", false)))
+	dir.set("buildings_root_path", NodePath("../Buildings"))
+	dir.set("visit_scene_path", NodePath(".."))
+	add_child(dir)
+	# Dolu pencerelerde ara sıra dışarı bakan köylüler.
+	var watcher := Node2D.new()
+	watcher.set_script(preload("res://village/scripts/show/WindowWatcherDirector.gd"))
+	add_child(watcher)
 
 
 ## Yan yana evlerin aynı yükseklikteki pencereleri arasına çamaşır / sebze ipleri gerer (bkz. WindowRopeManager).

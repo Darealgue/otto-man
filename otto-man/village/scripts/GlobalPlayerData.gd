@@ -59,6 +59,10 @@ func uses_dungeon_loot_wallet() -> bool:
 func credit_run_loot_gold(amount: int, popup_world_pos: Variant = null) -> void:
 	if amount <= 0:
 		return
+	# Eşlikçi kedinin Altın Burnu özelliği toplanan altına küçük bir ek verir.
+	var cat_companion: Node = get_node_or_null("/root/CatCompanion")
+	if cat_companion != null and cat_companion.has_method("modify_gold"):
+		amount = int(cat_companion.call("modify_gold", amount))
 	if uses_dungeon_loot_wallet():
 		add_dungeon_gold(amount)
 	else:

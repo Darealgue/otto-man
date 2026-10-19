@@ -1,4 +1,4 @@
-[gd_scene load_steps=83 format=3 uid="uid://4yhee4tssqsb"]
+[gd_scene load_steps=85 format=3 uid="uid://4yhee4tssqsb"]
 
 [ext_resource type="Script" path="res://village/scripts/VillageScene.gd" id="1_q7bpx"]
 [ext_resource type="PackedScene" uid="uid://dfo7asubvab08" path="res://village/scenes/CampFire.tscn" id="1_u4slp"]
@@ -66,6 +66,8 @@
 [ext_resource type="Script" path="res://village/scripts/VillageMentorController.gd" id="61_mentorctl"]
 [ext_resource type="Script" path="res://village/scripts/GroundDecorManager.gd" id="62_grounddecor"]
 [ext_resource type="Script" path="res://village/scripts/WindowRopeManager.gd" id="63_windowropes"]
+[ext_resource type="Script" path="res://village/scripts/show/VillageShowDirector.gd" id="64_showdirector"]
+[ext_resource type="Script" path="res://village/scripts/show/WindowWatcherDirector.gd" id="65_windowwatcher"]
 
 [sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_pfood"]
 
@@ -754,6 +756,13 @@ seed_key = "player_village"
 
 [node name="WindowRopeManager" type="Node2D" parent="."]
 script = ExtResource("63_windowropes")
+
+[node name="VillageShowDirector" type="Node2D" parent="."]
+script = ExtResource("64_showdirector")
+buildings_root_path = NodePath("../PlacedBuildings")
+
+[node name="WindowWatcherDirector" type="Node2D" parent="."]
+script = ExtResource("65_windowwatcher")
 
 [node name="BirdFlockManager" type="Node" parent="."]
 script = ExtResource("58_birdmgr")

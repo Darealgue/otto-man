@@ -52,8 +52,13 @@ static func show_on_npc(npc: Node2D, text: String, duration: float = 3.5, width:
 	_reflow()
 	var wait_time := maxf(duration, _FALLBACK_LIFETIME)
 	var timer := tree.create_timer(wait_time)
+	# Balon bu arada başka bir balonla değiştirilip serbest bırakılmış olabilir (aynı köylü art arda konuşunca):
+	# freed bir nesneyi doğrudan yakalamak çağrıda hata verir, zayıf referansla güvenle kontrol edilir.
+	var tracker_ref: WeakRef = weakref(tracker)
 	timer.timeout.connect(func() -> void:
-		_fade_and_remove(tracker)
+		var live: Object = tracker_ref.get_ref()
+		if live != null:
+			_fade_and_remove(live)
 	)
 
 

@@ -78,6 +78,13 @@ func start_new_game(play_tutorial: bool = false) -> void:
 	var meta_mgr: Node = get_node_or_null("/root/MetaUpgradeManager")
 	if meta_mgr and meta_mgr.has_method("reset_for_new_game"):
 		meta_mgr.call("reset_for_new_game")
+	# 5b) Köy kedileri (kalıcı ad/renk/bağ kaydı)
+	var cat_roster_new: Node = get_node_or_null("/root/CatRoster")
+	if cat_roster_new and cat_roster_new.has_method("reset_for_new_game"):
+		cat_roster_new.call("reset_for_new_game")
+	var cat_companion_new: Node = get_node_or_null("/root/CatCompanion")
+	if cat_companion_new and cat_companion_new.has_method("reset_for_new_game"):
+		cat_companion_new.call("reset_for_new_game")
 	# 6) Hava
 	if is_instance_valid(WeatherManager):
 		if WeatherManager.storm_active:

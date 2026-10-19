@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="otto-man"
-config/version="0.49.0"
+config/version="0.50.0"
 run/main_scene="res://scenes/StudioSplash.tscn"
 config/use_custom_user_dir=true
 config/custom_user_dir_name="Rogue Harem"
@@ -69,6 +69,8 @@ MetaUpgradeManager="*res://autoload/MetaUpgradeManager.gd"
 VillageCardManager="*res://autoload/VillageCardManager.gd"
 VillageDigest="*res://autoload/VillageDigest.gd"
 VillageCardEffects="*res://autoload/VillageCardEffects.gd"
+CatRoster="*res://autoload/CatRoster.gd"
+CatCompanion="*res://autoload/CatCompanion.gd"
 
 [debug]
 

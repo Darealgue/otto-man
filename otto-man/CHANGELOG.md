@@ -9,6 +9,45 @@ Her sürüm için oyuncuya dönük kısa notlar. Biçim `tools/push_itch.ps1` ta
 
 Bu dosya 0.26.5 ile başladı, öncesi kayıt altında değil.
 
+## 0.50.0 - 2026-10-19
+
+### TR
+- Zindan kedisi artık kendi başına yürüyor, koşuyor ve zıplıyor; yanında serbestçe dolaşıyor, takılırsa solarak yanına geliyor.
+- Eşlikçi kedinin bonusu "başlangıç eşyası" da olabiliyor (+1 eşya seçimi). Kedi menüsünde bonus yazıyor.
+- Kamp sahnesinde, kapı seçmeden önce de eşlikçi kedi çeşmenin yanında uyuyor.
+- Kedi ismi köylü isim etiketi gibi görünüyor; yem harcama yazısı süzülen yazı olarak çıkıyor; balık slotlarının arka planı kaldırıldı.
+- Kediye balık verdikten sonra beklemeden etkileşime geçilebiliyor.
+- Mucit yükseltmeleri (hasar, can, stamina) artık 10 seviyeye kadar geliştirilebiliyor.
+- Eşlikçi kediler özelliklerine ek olarak rastgele bir Mucit bonusu taşıyor (+5 hasar, +25 can ya da +1 stamina).
+- Zindan kedisi zemine basıyor, takip ederken geri geri yürümüyor.
+- Kedinin başında günlük 3 balık slotu çıkıyor; beslendikçe siyah silüetler balığa dönüyor.
+- Köy kedilerini sevebilirsin: yanlarına gidip etkileşim tuşuna basınca kedi durur, sana döner ve kalpler çıkar. Her kedinin bir adı var, ilk tanışmada ve bağ seviyesi arttığında adı görünür. Kediler kayda yazılıyor: aynı kediler (ad, renk, bağ) sonraki oyunlarda da geri geliyor.
+- Sevdiğin kedi başında balık simgesiyle senden balık istiyor. Kediyle tekrar etkileşime girince karakterin kediyle aynı hizadaki kıyıya yaklaşıp olta atıyor ve balık tutma oyunu başlıyor: tuşu basılı tutup bırakarak yeşil alanı balığın üstünde tut, ilerleme dolarsa balığı kediye verirsin. Oyunun zorluğu her seferinde rastgele (kolay, orta, zor); zor balık kediyle bağını daha çok artırır. Kedi balığı yer ve bitirince hemen yeniden balık ister. Her balık tutma köy stoğundan 1 yiyecek (yem) harcar, yiyecek yoksa balık tutulamaz. Bir kedi günde en fazla 3 balık ister.
+- Bir kediyi 3 kez balıkla beslersen zindan arkadaşın olabilir: ona dokununca açılan menüden "Yanıma al" de. Aynı anda tek kedi gelir, seçili kedinin üstünde altın bir pati işareti durur. Kedi zindanda seni takip eder (koşar, zıplar, durunca uyur), kamp sahnesinde ise çeşmenin yanında uyur. Her kedinin tek bir küçük özelliği vardır: Avcı (yakındaki düşmana ara sıra küçük hasar), Altın Burnu (toplanan altın %10 fazla), Çevik (hareket hızı %3), Keskin Pati (hasar %4) ya da Gölge (kaçış bekleme süresi %6 kısa). Can yenilemez, ölümsüzdür; sen ölürsen kedi küser ve sonraki 2 sefer sana gelmez.
+- Kediyle etkileşim artık köylülerdeki gibi tuşu basılı tutarak yapılıyor (kedinin başında halka dolar), böylece arkadaki bina menüsü yanlışlıkla açılmıyor.
+- Köylüler artık boş zamanlarında daha çok şey yapıyor: akşamları köy merkezinde toplanıp oturuyor, öğle sıcağında uzanıp şekerleme yapıyor, karşılaşınca durup karşılıklı sohbet ediyor, yağmur başlayınca en yakın binaya sığınıyor.
+- Kıyıdaki köylerde köylüler suya girip yüzüyor (vücudun yarısı suyun altında, erkekler üstsüz, her biri suda farklı bir derinlikte) ve kıyıda oturup olta atıyor. Köyde sabahları su kovası taşıyanlar, sırtında bohça taşıyanlar ve sandalyelere oturanlar görünüyor.
+- Dolu evlerin pencerelerinden ara sıra bir köylü dışarı bakıyor.
+- Zırhçı binası oyundan kaldırıldı.
+
+### EN
+- The dungeon cat now walks, runs and jumps on its own, roams freely around you and fades in next to you if it gets stuck.
+- A companion cat's bonus can also be a starting item (+1 item pick). The cat menu shows the bonus.
+- The companion cat now sleeps by the fountain in the camp even before you pick a door.
+- Cat names look like villager nameplates; the bait cost shows as floating text; fish slots lost their background.
+- You can interact with a cat right after feeding it, with no waiting.
+- Inventor upgrades (damage, health, stamina) can now be raised up to level 10.
+- Companion cats now carry a random Inventor-style perk besides their trait (+5 damage, +25 health or +1 stamina).
+- The dungeon cat now stands on the floor and no longer walks backwards while following.
+- Cats show 3 daily fish slots above their head; black silhouettes fill with fish as you feed them.
+- You can now pet the village cats: walk up and press the interact key and the cat stops, turns to you and hearts float up. Every cat has a name, shown when you first meet it and when your bond level increases. Cats are saved: the same cats (name, color, bond) come back in later games.
+- After you feed a cat 3 fish it can become your dungeon companion: touch it and pick "Take along" in the menu. Only one cat comes at a time, and the chosen cat shows a gold paw mark. The cat follows you in dungeons (runs, jumps and falls asleep when you stand still) and sleeps next to the fountain in camp. Each one has a single small trait: Hunter (occasionally strikes a nearby enemy for small damage), Gold Nose (10% more gold collected), Nimble (3% movement speed), Sharp Paw (4% damage) or Shadow (6% shorter dash cooldown). It never heals you and cannot die; if you die the cat sulks and stays home for your next 2 runs.
+- A cat you have petted asks you for a fish with a fish icon over its head. Interact with it again and your character walks to the shore level with the cat, casts a line and a fishing game starts (random difficulty each time: easy, medium or hard; harder fish raise your bond more). Interacting with a cat is now a hold, like with villagers (a ring fills over its head), so the building menu behind it no longer opens by accident. The game: hold and release the key to keep the green zone over the fish; if the progress bar fills you give the fish to the cat. The cat eats it and your bond grows. The cat eats it and asks again right after. Every fishing attempt uses 1 food from the village stock as bait; without food you cannot fish. A cat asks for at most 3 fish a day.
+- Villagers now do more in their free time: they gather and sit in the village center in the evening, lie down for a nap in the midday heat, stop to chat when they meet, and shelter in the nearest building when it starts raining.
+- In coastal villages villagers wade into the water and swim (half their body under water, men shirtless, each at a different depth) and sit on the bank to fish. You can also see villagers carrying water buckets in the morning, carrying bundles, and sitting on chairs.
+- Occasionally a villager looks out of the window of an occupied house.
+- The Armorer building has been removed from the game.
+
 ## 0.49.0 - 2026-10-19
 
 ### TR

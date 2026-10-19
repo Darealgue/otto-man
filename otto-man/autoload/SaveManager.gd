@@ -525,6 +525,9 @@ func _collect_save_data_dictionary(is_autosave: bool, autosave_reason: String) -
 	save_data["player"] = _save_player_state()
 	save_data["time"] = _save_time_state()
 	save_data["weather"] = _save_weather_state()
+	var cat_roster: Node = get_node_or_null("/root/CatRoster")
+	if cat_roster != null and cat_roster.has_method("to_save"):
+		save_data["cats"] = cat_roster.call("to_save")
 	save_data["dungeon_progress"] = _save_dungeon_progress_state()
 	save_data["item_unlocks"] = _save_item_unlock_state()
 	save_data["tutorial"] = _save_tutorial_state()
@@ -675,6 +678,10 @@ func _load_game_from_path(file_path: String, emit_slot_id: int) -> bool:
 			card_fx.reset_for_new_game()
 	_load_time_state(save_data.get("time", {}))
 	_load_weather_state(save_data.get("weather", {}))
+	# Köy kedileri (ad, renk, bağ): eski kayıtlarda "cats" yoktur, boş kayıtla başlanır.
+	var cat_roster_load: Node = get_node_or_null("/root/CatRoster")
+	if cat_roster_load != null and cat_roster_load.has_method("load_from_save"):
+		cat_roster_load.call("load_from_save", save_data.get("cats", {}))
 	_load_dungeon_progress_state(save_data.get("dungeon_progress", {}))
 	_load_item_unlock_state(save_data.get("item_unlocks", {}))
 	_load_tutorial_state(save_data.get("tutorial", {}))

@@ -210,6 +210,7 @@ func _ready() -> void:
 	_auto_align_sprite_to_collision_bottom()
 	_safe_play(ANIM_IDLE)
 	_update_depth_sorting()
+	_setup_pet_interactable()
 
 
 func set_roam_bounds(bounds: Rect2) -> void:
@@ -505,6 +506,8 @@ func _physics_process(delta: float) -> void:
 	_update_facing()
 	_update_animation()
 	_update_depth_sorting()
+	_update_fish_icon()
+	_update_companion_badge()
 	_debug_log_motion_if_needed()
 
 
@@ -545,6 +548,440 @@ func set_persistent_identity(cat_id: String, color_variant: Color) -> void:
 
 func get_persistent_cat_id() -> String:
 	return _persistent_cat_id
+
+
+## Kalıcı kayıttaki (CatRoster) adı; kimlik yoksa boş.
+func get_cat_name() -> String:
+	var roster := get_node_or_null("/root/CatRoster")
+	if roster == null or _persistent_cat_id.is_empty():
+		return ""
+	return String(roster.get_cat_name(_persistent_cat_id))
+
+
+# ─── Sevme ───────────────────────────────────────────────────────────────────
+
+const PET_IDLE_SECONDS: float = 3.6
+const _CatHeartsFx = preload("res://village/scripts/CatHeartsFx.gd")
+
+var _pet_face_x: float = 0.0
+var _pet_face_until_msec: int = 0
+
+
+## Yerdeki (dolaşıyor ya da bekliyor) kedi, kalıcı kimliği olan ve bekleme süresi dolmuşsa sevilebilir.
+func can_be_petted() -> bool:
+	if state != CatState.ROAM and state != CatState.IDLE:
+		return false
+	if _persistent_cat_id.is_empty():
+		return false
+	var roster := get_node_or_null("/root/CatRoster")
+	return roster != null and roster.can_pet(_persistent_cat_id)
+
+
+## Oyuncu kediyle etkileşime girebilir mi: sevilebiliyorsa ya da balık istiyorsa (balık isteği sevme beklemesinden bağımsızdır).
+func can_interact() -> bool:
+	if wants_fish() or can_be_petted():
+		return true
+	# Eşlikçi olabilecek kedi: seçim menüsü (Yanıma al / Evde bırak) sevme beklemesinden bağımsız her an açılabilir.
+	if state != CatState.ROAM and state != CatState.IDLE:
+		return false
+	var roster := get_node_or_null("/root/CatRoster")
+	return not _fishing_active and roster != null and not _persistent_cat_id.is_empty() and roster.is_companion_eligible(_persistent_cat_id)
+
+
+# ─── Oyuncunun basılı tutma etkileşimi kancaları (Player._process_village_interaction_hold) ─────────
+# Kısa basış arkadaki binayı açıyordu; köylülerdeki gibi kediyle etkileşim de basılı tutmayla olur (halka dolar).
+const _ArrowHint = preload("res://ui/InteractArrowHint.gd")
+const _CatHoldRing = preload("res://village/scripts/CatHoldRing.gd")
+
+var _hint_arrow: Sprite2D = null
+var _hold_ring: Node2D = null
+
+
+func _on_interact_button_pressed() -> void:
+	var player := get_tree().get_first_node_in_group("player") as Node2D
+	if player != null:
+		try_interact(player)
+
+
+func ShowInteractButton() -> void:
+	if not is_instance_valid(_hint_arrow):
+		_hint_arrow = _ArrowHint.create()
+		_hint_arrow.position = Vector2(0.0, -48.0)
+		add_child(_hint_arrow)
+	if can_interact():
+		_hint_arrow.show_hint()
+	else:
+		_hint_arrow.hide_hint()
+
+
+func HideInteractButton() -> void:
+	if is_instance_valid(_hint_arrow):
+		_hint_arrow.hide_hint()
+	set_interact_hold_progress(0.0)
+
+
+func set_interact_hold_progress(ratio: float) -> void:
+	if not is_instance_valid(_hold_ring):
+		if ratio <= 0.0:
+			return
+		_hold_ring = _CatHoldRing.new()
+		add_child(_hold_ring)
+	_hold_ring.set("ratio", ratio)
+
+
+## Etkileşim: kedi balık istiyorsa balık tutma minigame'i başlar; eşlikçi olabilecek kediyle (yeterince beslenmiş) seçim menüsü
+## açılır (Okşa / Yanıma al); diğer durumlarda kedi sevilir.
+func try_interact(player: Node2D) -> void:
+	if _fishing_active or is_instance_valid(_choice_menu):
+		return
+	if wants_fish():
+		_start_fishing(player)
+		return
+	var roster := get_node_or_null("/root/CatRoster")
+	if roster != null and not _persistent_cat_id.is_empty() and roster.is_companion_eligible(_persistent_cat_id):
+		_open_choice_menu(player)
+	else:
+		try_pet(player)
+
+
+# ─── Eşlikçi seçim menüsü ────────────────────────────────────────────────────
+
+const _CatChoiceMenu = preload("res://village/scripts/CatChoiceMenu.gd")
+const _CatCompanionBadge = preload("res://village/scripts/CatCompanionBadge.gd")
+
+var _choice_menu: CanvasLayer = null
+var _choice_player: Node2D = null
+var _choice_player_prev_mode: int = Node.PROCESS_MODE_INHERIT
+var _companion_badge: Node2D = null
+
+
+func _open_choice_menu(player: Node2D) -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	_hold_still(60.0, player)
+	_choice_player = player
+	_choice_player_prev_mode = player.process_mode
+	player.process_mode = Node.PROCESS_MODE_DISABLED
+	var menu: CanvasLayer = _CatChoiceMenu.new()
+	menu.set("cat_id", _persistent_cat_id)
+	menu.set("can_pet", can_be_petted())
+	menu.connect("chosen", Callable(self, "_on_choice_made"))
+	get_tree().root.add_child(menu)
+	_choice_menu = menu
+
+
+func _on_choice_made(choice: String) -> void:
+	var player: Node2D = _choice_player
+	_choice_player = null
+	if is_instance_valid(player):
+		player.process_mode = _choice_player_prev_mode as Node.ProcessMode
+		# Menüyü açan tuş hâlâ basılıysa tekrar tetiklenmesin.
+		if "_suppress_village_interact_until_release" in player:
+			player.set("_suppress_village_interact_until_release", true)
+	# Menü açıkken kedi 60 sn "oyuncuya bak" modundaydı; kapanınca kısa süre durup bakışı serbest bırak (yoksa yürürken oyuncuya
+	# bakıp geri geri yürüyor gibi görünür).
+	state_timer = 2.0
+	_idle_expected_duration = 2.0
+	_idle_elapsed = 0.0
+	_pet_face_until_msec = Time.get_ticks_msec() + 2000
+	var roster := get_node_or_null("/root/CatRoster")
+	match choice:
+		"pet":
+			try_pet(player)
+		"take":
+			if roster != null and roster.set_companion(_persistent_cat_id, true):
+				var fx: Node2D = _CatHeartsFx.new()
+				fx.count = 5
+				add_child(fx)
+		"leave":
+			if roster != null:
+				roster.set_companion(_persistent_cat_id, false)
+
+
+## Eşlikçi seçili kedinin üstünde altın pati işareti görünür (diğer kedilerde yok).
+func _update_companion_badge() -> void:
+	var roster := get_node_or_null("/root/CatRoster")
+	var show_badge: bool = roster != null and not _persistent_cat_id.is_empty() and roster.is_companion(_persistent_cat_id)
+	if show_badge and not is_instance_valid(_companion_badge):
+		_companion_badge = _CatCompanionBadge.new()
+		add_child(_companion_badge)
+	elif not show_badge and is_instance_valid(_companion_badge):
+		_companion_badge.queue_free()
+		_companion_badge = null
+
+
+## Oyuncu kediyi sever: kedi durur, oyuncuya döner, kalpler çıkar; bağ puanı CatRoster'a işlenir. Ardından kedi balık ister.
+func try_pet(player: Node2D) -> void:
+	if not can_be_petted():
+		return
+	var roster := get_node_or_null("/root/CatRoster")
+	_hold_still(PET_IDLE_SECONDS, player)
+	var result: Dictionary = roster.pet(_persistent_cat_id)
+	var fx: Node2D = _CatHeartsFx.new()
+	fx.count = 6 if bool(result.get("leveled_up", false)) else 3
+	add_child(fx)
+	# İlk tanışmada ve bağ seviyesi arttığında kedinin adı balonla görünür.
+	if bool(result.get("first_time", false)) or bool(result.get("leveled_up", false)):
+		_show_name_bubble()
+	# Sevildikten sonra kedi başında balık simgesiyle balık ister (günlük sınır CatRoster'da).
+	if roster.can_ask_fish(_persistent_cat_id):
+		_fish_wanted_until_msec = Time.get_ticks_msec() + FISH_REQUEST_MSEC
+
+
+## Kediyi bir süre olduğu yerde tutar ve oyuncuya döndürür.
+func _hold_still(seconds: float, player: Node2D) -> void:
+	state = CatState.IDLE
+	state_timer = seconds
+	_idle_expected_duration = seconds
+	_idle_elapsed = 0.0
+	_idle_reentry_cooldown_timer = idle_reentry_cooldown_seconds
+	velocity = Vector2.ZERO
+	if player != null and is_instance_valid(player):
+		_pet_face_x = player.global_position.x
+		_pet_face_until_msec = Time.get_ticks_msec() + int(seconds * 1000.0)
+
+
+# ─── Balık isteği ve balık tutma ─────────────────────────────────────────────
+
+const FISH_REQUEST_MSEC: int = 120000       # kedi balık isteğini bu süre açık tutar
+const _CatFishIcon = preload("res://village/scripts/CatFishIcon.gd")
+const _FishingLine = preload("res://village/scripts/show/ShowFishingLine.gd")
+
+var _fish_wanted_until_msec: int = 0
+var _slots_visible_until_msec: int = 0
+var _fishing_active: bool = false
+var _fish_icon: Node2D = null
+var _fishing_line: Node2D = null
+var _fishing_player: Node2D = null
+var _fishing_player_prev_mode: int = Node.PROCESS_MODE_INHERIT
+var _fishing_player_home: Vector2 = Vector2.ZERO
+var _fishing_hand_y: float = -36.0
+var _fishing_difficulty: int = 2
+
+const FISHING_BAIT_FOOD: int = 1             # balık tutmak için harcanan yem (köy yiyecek stoğundan)
+const FISHING_BANK_Y: float = 56.0           # oyuncunun ayak y'si: kıyı (çimen kenarı), su yüzeyi y 98
+const FISHING_WALK_SECONDS: float = 0.8      # kıyıya gidiş ve dönüş süresi
+## Zorluk havuzu (1 kolay, 2 orta, 3 zor): orta daha sık çıksın diye tekrar ile ağırlıklandırılır.
+const FISHING_DIFFICULTY_WEIGHTS: Array[int] = [1, 1, 2, 2, 2, 3, 3]
+
+
+## Kedi şu an balık istiyor mu (simge görünür, yerde ve ulaşılabilir)?
+func wants_fish() -> bool:
+	if _fishing_active or Time.get_ticks_msec() > _fish_wanted_until_msec:
+		return false
+	return state == CatState.ROAM or state == CatState.IDLE
+
+
+func _update_fish_icon() -> void:
+	var asking: bool = wants_fish()
+	# Beslendikten sonra slotlar kısa süre görünür kalır; kedi balık istiyorsa sürekli görünür.
+	var show_icon: bool = asking or (Time.get_ticks_msec() < _slots_visible_until_msec and not _fishing_active)
+	if show_icon and not is_instance_valid(_fish_icon):
+		_fish_icon = _CatFishIcon.new()
+		_fish_icon.slots = CatRoster.FISH_PER_DAY_CAP
+		add_child(_fish_icon)
+	elif not show_icon and is_instance_valid(_fish_icon):
+		_fish_icon.queue_free()
+		_fish_icon = null
+	if is_instance_valid(_fish_icon):
+		var roster := get_node_or_null("/root/CatRoster")
+		_fish_icon.filled = int(roster.get_fed_today(_persistent_cat_id)) if roster != null else 0
+		_fish_icon.asking = asking
+
+
+## Oyuncu kediyle aynı hizadaki kıyıya yaklaşır, olta atar: çizgi oyuncudan kedinin altındaki suya iner, Stardew tarzı minigame açılır.
+## Oyuncu bu sürede dondurulur (girdi ve fizik kapanır); minigame bitince eski yerine döner ve eski haline kavuşur.
+func _start_fishing(player: Node2D) -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	var router := get_node_or_null("/root/MinigameRouter")
+	if router == null:
+		return
+	# Yem: balık tutmak köy stokundan 1 yiyecek harcar (tutulsa da kaçsa da). Yiyecek yoksa balık tutulamaz.
+	var vm := get_node_or_null("/root/VillageManager")
+	if vm != null and vm.has_method("spend_resources"):
+		if not bool(vm.call("spend_resources", {"food": FISHING_BAIT_FOOD})):
+			_show_player_bubble(player, tr("cat.fish.no_bait"))
+			return
+		_show_player_bubble(player, tr("cat.fish.bait_used"))
+	_hold_still(90.0, player)
+	_fishing_active = true
+	_fishing_player = player
+	_fishing_player_prev_mode = player.process_mode
+	_fishing_player_home = player.global_position
+	player.process_mode = Node.PROCESS_MODE_DISABLED
+	# Oyuncuyu ayaklarının y'sini kıyıya (FISHING_BANK_Y) getirecek kadar aşağı kaydır (x aynı kalır: "aynı hizadaki sahil").
+	var foot_y: float = float(player.call("get_foot_y_position")) if player.has_method("get_foot_y_position") else player.global_position.y
+	var shore_pos := Vector2(player.global_position.x, player.global_position.y + (FISHING_BANK_Y - foot_y))
+	_fishing_hand_y = (foot_y - player.global_position.y) - 36.0
+	await _move_player_to(player, shore_pos, FISHING_WALK_SECONDS)
+	if not _fishing_active or not is_instance_valid(player):
+		return
+	# Olta çizgisi: oyuncunun elinden kedinin x'indeki (aynı hizadaki) suya.
+	_fishing_line = _FishingLine.new()
+	_fishing_line.set("fisher", player)
+	_fishing_line.set("dir", 1.0 if global_position.x >= player.global_position.x else -1.0)
+	_fishing_line.set("cast_distance", absf(global_position.x - player.global_position.x))
+	_fishing_line.set("hand_offset", Vector2(14.0, _fishing_hand_y))
+	get_parent().add_child(_fishing_line)
+	var cb := Callable(self, "_on_fishing_finished")
+	if router.is_connected("minigame_finished", cb):
+		router.disconnect("minigame_finished", cb)
+	router.connect("minigame_finished", cb, CONNECT_ONE_SHOT)
+	# Zorluk her seferinde rastgele (1 kolay, 2 orta, 3 zor); zor balık daha çok bağ puanı verir.
+	_fishing_difficulty = FISHING_DIFFICULTY_WEIGHTS[randi() % FISHING_DIFFICULTY_WEIGHTS.size()]
+	var started: bool = bool(router.start_minigame("cat_fishing", {"cat_path": str(get_path()), "difficulty": _fishing_difficulty}))
+	if not started:
+		router.disconnect("minigame_finished", cb)
+		await _move_player_to(player, _fishing_player_home, FISHING_WALK_SECONDS)
+		_end_fishing()
+
+
+## Oyuncuyu (fizik kapalıyken) hedefe yumuşakça kaydırır ve derinlik sırasını (z) günceller.
+func _move_player_to(player: Node2D, target: Vector2, seconds: float) -> void:
+	var tw := create_tween()
+	tw.tween_property(player, "global_position", target, seconds).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.parallel().tween_method(func(_v: float) -> void:
+		if is_instance_valid(player) and player.has_method("_calculate_player_z_index_from_foot_y") and player.has_method("get_foot_y_position"):
+			player.z_index = int(player.call("_calculate_player_z_index_from_foot_y", player.call("get_foot_y_position")))
+	, 0.0, 1.0, seconds)
+	await tw.finished
+
+
+const FISH_REASK_DELAY: float = 5.0           # kedi yemeği bitirdikten sonra tekrar isteme gecikmesi
+
+func _ask_fish_again() -> void:
+	if not is_inside_tree() or _fishing_active:
+		return
+	var roster := get_node_or_null("/root/CatRoster")
+	if roster != null and not _persistent_cat_id.is_empty() and roster.can_ask_fish(_persistent_cat_id):
+		_fish_wanted_until_msec = Time.get_ticks_msec() + FISH_REQUEST_MSEC
+
+
+## Oyuncunun başında kısa bir bilgi balonu (ör. yem harcandı).
+func _show_player_bubble(player: Node2D, text: String) -> void:
+	if player == null or not is_instance_valid(player):
+		return
+	# Eşya toplarken çıkan süzülen yazı tarzında (GlobalPlayerData.show_gold_pickup_popup_at ile aynı görünüm).
+	var scene: Node = get_tree().current_scene
+	if scene == null:
+		return
+	var holder := Node2D.new()
+	holder.name = "CatBaitPopup"
+	holder.z_as_relative = false
+	holder.z_index = 1200
+	scene.add_child(holder)
+	holder.global_position = player.global_position + Vector2(0, -90)
+	var lbl := Label.new()
+	holder.add_child(lbl)
+	lbl.text = text
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ls := LabelSettings.new()
+	ls.font_color = Color(1.0, 0.92, 0.2, 1.0)
+	ls.font_size = 22
+	ls.outline_size = 5
+	ls.outline_color = Color.WHITE
+	lbl.label_settings = ls
+	lbl.reset_size()
+	lbl.position = Vector2(-lbl.size.x * 0.5, -lbl.size.y * 0.5)
+	var tw: Tween = scene.create_tween()
+	tw.set_parallel(true)
+	tw.set_trans(Tween.TRANS_QUAD)
+	tw.set_ease(Tween.EASE_OUT)
+	tw.tween_property(holder, "global_position", holder.global_position + Vector2(0, -70), 1.1)
+	tw.tween_property(lbl, "modulate:a", 0.0, 1.1)
+	tw.finished.connect(holder.queue_free)
+
+
+func _on_fishing_finished(result: Dictionary) -> void:
+	var caught: bool = bool(result.get("success", false))
+	var player: Node2D = _fishing_player
+	if is_instance_valid(_fishing_line):
+		_fishing_line.queue_free()
+		_fishing_line = null
+	var roster := get_node_or_null("/root/CatRoster")
+	if caught and roster != null and not _persistent_cat_id.is_empty():
+		roster.record_fed(_persistent_cat_id, 1, 5 + (_fishing_difficulty - 1) * 2)
+		_fish_wanted_until_msec = 0
+		_slots_visible_until_msec = Time.get_ticks_msec() + 7000
+		var fx: Node2D = _CatHeartsFx.new()
+		fx.count = 8
+		add_child(fx)
+		_hold_still(4.5, player)
+		_show_name_bubble()
+		# Günlük sınır dolmadıysa kedi yemeği bitirince yeniden balık ister (art arda besleme için sevmeye gerek kalmaz).
+		if roster.can_ask_fish(_persistent_cat_id):
+			_fish_wanted_until_msec = Time.get_ticks_msec() + FISH_REQUEST_MSEC
+	else:
+		# Balık kaçtı: kedi isteğini bir süre daha tutar, oyuncu tekrar deneyebilir.
+		_fish_wanted_until_msec = maxi(_fish_wanted_until_msec, Time.get_ticks_msec() + 30000)
+	# Oyuncu eski yerine döner, sonra serbest kalır.
+	if is_instance_valid(player):
+		await _move_player_to(player, _fishing_player_home, FISHING_WALK_SECONDS)
+	_end_fishing()
+
+
+func _end_fishing() -> void:
+	_fishing_active = false
+	if is_instance_valid(_fishing_line):
+		_fishing_line.queue_free()
+	_fishing_line = null
+	if is_instance_valid(_fishing_player):
+		_fishing_player.process_mode = _fishing_player_prev_mode as Node.ProcessMode
+	_fishing_player = null
+
+
+func _exit_tree() -> void:
+	# Minigame ya da menü sürerken kedi sahneden çıkarsa oyuncu donuk kalmasın.
+	if _fishing_active:
+		_end_fishing()
+	if is_instance_valid(_choice_menu):
+		_choice_menu.queue_free()
+	if is_instance_valid(_choice_player):
+		_choice_player.process_mode = _choice_player_prev_mode as Node.ProcessMode
+		_choice_player = null
+
+
+func _show_name_bubble() -> void:
+	var cat_name: String = get_cat_name()
+	if cat_name.is_empty():
+		return
+	# Köylü isim etiketiyle aynı yazı stili (kutusuz, konturlu); konuşma balonu değil.
+	var old := get_node_or_null("CatNameLabel")
+	if old != null:
+		old.queue_free()
+	var lbl := Label.new()
+	lbl.name = "CatNameLabel"
+	lbl.text = cat_name
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl.z_index = 30
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	add_child(lbl)
+	NpcOverheadUi.apply_nameplate_text_style(lbl)
+	lbl.reset_size()
+	lbl.position = Vector2(-lbl.size.x * 0.5, -78.0)
+	var tw := lbl.create_tween()
+	tw.tween_interval(2.2)
+	tw.tween_property(lbl, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(lbl.queue_free)
+
+
+## Oyuncunun etkileşim alanı bu Area2D'yi "interactables" grubundan bulur (köylülerdeki InteractionArea gibi); basılı tutma
+## kancaları (_on_interact_button_pressed, can_interact, Show/HideInteractButton, set_interact_hold_progress) bu düğümün sahibindedir.
+func _setup_pet_interactable() -> void:
+	if get_node_or_null("PetInteractable") != null:
+		return
+	var area := Area2D.new()
+	area.name = "PetInteractable"
+	area.add_to_group("interactables")
+	var shape := CollisionShape2D.new()
+	var circle := CircleShape2D.new()
+	circle.radius = 36.0
+	shape.shape = circle
+	shape.position = Vector2(0, -14)
+	area.add_child(shape)
+	add_child(area)
 
 
 func get_current_color_variant() -> Color:
@@ -807,6 +1244,10 @@ func _debug_log_motion_if_needed() -> void:
 
 
 func _update_facing() -> void:
+	# Sevilirken oyuncuya döner.
+	if Time.get_ticks_msec() < _pet_face_until_msec and absf(_pet_face_x - global_position.x) > 6.0:
+		_sprite.flip_h = _pet_face_x < global_position.x
+		return
 	var face_x := 0.0
 	match state:
 		CatState.ROAM, CatState.IDLE:

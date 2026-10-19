@@ -257,7 +257,11 @@ func _handle_initial_selection(index: int) -> void:
 		var im: Node = get_node_or_null("/root/ItemManager")
 		if is_instance_valid(im) and im.has_method("queue_item_selections") \
 				and is_instance_valid(im.get("player")):
-			im.call("queue_item_selections", START_ITEM_PICKS)
+			var picks: int = START_ITEM_PICKS
+			var cats: Node = get_node_or_null("/root/CatCompanion")
+			if cats != null and cats.has_method("get_extra_start_item_picks"):
+				picks += int(cats.call("get_extra_start_item_picks"))   # kedi bonusu
+			im.call("queue_item_selections", picks)
 			await im.item_selection_sequence_finished
 	# Buradan sonra gerçek zindan sahnesine geçiş yapılacak (SceneManager üzerinden)
 	var sm = _get_scene_manager()

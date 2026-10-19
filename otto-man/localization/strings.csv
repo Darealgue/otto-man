@@ -3397,3 +3397,30 @@ visit.talk.relation.low,Köyünüzden hoşlanmıyoruz ama misafirsin.,"We do not
 visit.save_blocked,"Köy ziyaretinde kayıt yapılamaz, haritaya dönünce otomatik kaydedilir.","You cannot save during a village visit, the game autosaves when you return to the map."
 item.statik_yuk.name,Statik Yük,Static Charge
 item.statik_yuk.description,Light attack'lar düşmana 1 şimşek stack'i yükler. 5 stack'te stack'ler sıfırlanır ve 1 stack yakındaki düşmanlara sıçrar,Light attacks apply 1 lightning stack. At 5 stacks they reset and 1 stack jumps to nearby enemies
+cat.menu.pet,Okşa,Pet
+cat.menu.take,Yanıma al,Take along
+cat.menu.leave,Evde bırak,Leave at home
+cat.menu.close,Vazgeç,Cancel
+cat.menu.bond,Bağ: %s,Bond: %s
+cat.menu.resting,Dinleniyor: %d sefer,Resting: %d runs
+cat.menu.with_you,Seninle geliyor,Comes with you
+cat.bond.0,Yabancı,Stranger
+cat.bond.1,Tanıdık,Acquaintance
+cat.bond.2,Dost,Friend
+cat.bond.3,Yoldaş,Companion
+cat.trait.hunter.name,Avcı,Hunter
+cat.trait.hunter.desc,Aralıklarla yakındaki bir düşmana küçük hasar vurur.,Now and then strikes a nearby enemy for small damage.
+cat.trait.gold_nose.name,Altın Burnu,Gold Nose
+cat.trait.gold_nose.desc,Zindanda topladığın altın %10 artar.,Gold you collect in dungeons increases by 10%.
+cat.trait.agile.name,Çevik,Nimble
+cat.trait.agile.desc,Hareket hızın %3 artar.,Your movement speed increases by 3%.
+cat.trait.sharp.name,Keskin Pati,Sharp Paw
+cat.trait.sharp.desc,Verdiğin hasar %4 artar.,Your damage increases by 4%.
+cat.trait.shadow.name,Gölge,Shadow
+cat.trait.shadow.desc,Kaçış (dash) bekleme süren %6 azalır.,Your dash cooldown is reduced by 6%.
+cat.fish.bait_used,Yem: -1 yiyecek,Bait: -1 food
+cat.fish.no_bait,Yem için yiyecek yok,No food for bait
+cat.perk.damage,Kedi bonusu: +%d hasar,Cat bonus: +%d damage
+cat.perk.health,Kedi bonusu: +%d can,Cat bonus: +%d health
+cat.perk.stamina,Kedi bonusu: +%d stamina,Cat bonus: +%d stamina
+cat.perk.item,Kedi bonusu: +%d başlangıç eşyası,Cat bonus: +%d starting item

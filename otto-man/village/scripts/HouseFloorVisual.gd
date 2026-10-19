@@ -103,6 +103,27 @@ func _ready() -> void:
 	set_process(false)
 	apply_window_states([], false)
 
+## Tam açık (2) pencerelerin listesi: [{window: Sprite2D, index: int, wide_decor: bool}]. wide_decor: pencerede halı gibi iki yarıyı
+## kaplayan bir süs var. Pencereden bakan köylü (WindowWatcherDirector) buradan pencere seçer.
+func get_open_windows() -> Array:
+	var out: Array = []
+	for i in _window_sprites.size():
+		var state: int = int(_last_window_states[i]) if i < _last_window_states.size() else 0
+		if state != 2:
+			continue
+		var wide: bool = false
+		for s in _window_decor[i]:
+			if (s as Sprite2D).visible and (s as Sprite2D).texture != null and (s as Sprite2D).texture.resource_path.contains("decor2"):
+				wide = true
+		out.append({"window": _window_sprites[i], "index": i, "wide_decor": wide, "floor": self})
+	return out
+
+## Pencere kemerinin şeklini veren maske dokusu (kemer içi opak, dışı saydam); ışık ve pencereden bakan köylü için.
+func get_window_arch_mask(window: Sprite2D) -> Texture2D:
+	if window == null or window.texture == null:
+		return null
+	return _get_light_texture(window.texture, window_light_color_top, window_light_color_bottom)
+
 ## Katın bir yanındaki (-1 sol, +1 sağ) dış pencerenin dünya konumu ve durumu: {"pos": Vector2, "state": int}.
 ## Pencerenin dış kenarı sprite konumudur (sağdaki pencere çevrik, menteşesi sağ kenarda). Boşsa pos = Vector2.INF.
 ## Pencereden pencereye gerilen ipler (WindowRopeManager) bu bilgiyle komşu binadaki aynı yükseklikteki pencereyi bulur.

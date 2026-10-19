@@ -50,7 +50,18 @@ var _check_timer: float = 0.0
 var _shuffle_timer: float = 0.0
 var _rng := RandomNumberGenerator.new()
 
+## Sahnedeki ön katmandaki sandalye süsleri (köylüler üstüne oturur, bkz. VillageShowDirector). Süs yenilenirken kalkabilir.
+func get_chair_sprites() -> Array:
+	var out: Array = []
+	for s in _slots.values():
+		var n = s.get("node")
+		if n != null and is_instance_valid(n) and String(s["layer"]) == "front" and (n as Sprite2D).texture != null \
+				and (n as Sprite2D).texture.resource_path.get_file().begins_with("decor_chair"):
+			out.append(n)
+	return out
+
 func _ready() -> void:
+	add_to_group(&"ground_decor_manager")
 	name = "GroundDecor"
 	_load_library()
 	_buildings_root = get_node_or_null(buildings_root_path)

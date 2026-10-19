@@ -26,6 +26,8 @@ const DEPTH_Y_RANGE: float = 25.0
 enum State { INSIDE, WALK, IDLE, SIT }
 
 var scene_ref: Node = null  # VillageVisitScene (kapı konumu ve doluluk bildirimi için)
+## true iken köylüyü VillagerShowActor sürer (yüzme, balık tutma, sohbet...), kendi rutini güncellenmez.
+var show_puppet: bool = false
 var home_idx: int = -1
 var work_idx: int = -1
 var shift_shift: float = 0.0
@@ -56,6 +58,10 @@ func setup(p_scene: Node, p_home: int, p_work: int, p_shift: float, start_hour: 
 	_body = _build_body()
 	if _body != null:
 		add_child(_body)
+		# Worker "tutsak" kipi kendi z_index'ini 4'e sabitler (zindan düzeni). Ziyaret köyünde derinlik sırasını bu düğümün
+		# z'si (ayak y'sine göre 6..19) belirler; gövdede kalan +4 su sprite'ının (z 20) önüne geçip yüzen köylüyü
+		# örtmesini/yansıtmasını engelliyordu ve süslerle sırayı kaydırıyordu.
+		_body.z_index = 0
 		# Worker "tutsak" kipi isim plakasını açar (içi boş siyah şerit kalıyor); ziyarette isim yok.
 		var plate: Variant = _body.get("_nameplate_container")
 		if plate is CanvasItem:
@@ -113,6 +119,9 @@ func _build_body() -> Node2D:
 
 func _physics_process(delta: float) -> void:
 	if scene_ref == null:
+		return
+	# Gösterme etkinliği (VillageShowDirector) bu köylüyü sürerken kendi rutini durur.
+	if show_puppet:
 		return
 	update_agent(delta, float(scene_ref.call("current_hour_value")))
 	z_index = depth_z(global_position.y)
