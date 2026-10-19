@@ -9,6 +9,64 @@ Her sürüm için oyuncuya dönük kısa notlar. Biçim `tools/push_itch.ps1` ta
 
 Bu dosya 0.26.5 ile başladı, öncesi kayıt altında değil.
 
+## 0.49.0 - 2026-10-19
+
+### TR
+- Köy kuyusunda günde bir kez su çekme oyunu oynanıyor: başarılırsan köy moraline 1 puan ekleniyor. Başarısız olsan da o gün için hak bitiyor, ertesi gün kuyu yeniden açılıyor.
+- Pencere süsleri köyün refahına göre değişiyor: fakir köyde pencerelerin çoğu boş ya da sade kumaşlı, zengin köyde çiçekli saksılar, perdeler, seramikler ve halılar çok daha sık görünüyor. Ziyaret ettiğin köylerde köyün zenginliğine göre.
+- Pencerelerde asılı kumaşlar, perdeler ve halılar rüzgârda sallanıyor, fırtınada daha çok.
+- Yan yana evlerin pencereleri arasına çamaşır ve sebze ipleri geriliyor. Hangi evlerde ip olduğu, çamaşırların renkleri ve ipin yüksekliği her gün değişiyor. Çamaşırlar geceleri ve yağmurda toplanıyor, rüzgârda sallanıyor.
+- Ziyaret ettiğin köylerin gökyüzünde de kuşlar uçuyor.
+- Evlerin pencerelerinde akşam içeriden sıcak bir ışık yanıyor. Her pencerenin yanma ve sönme saati farklı, ışık mum gibi hafifçe titriyor, yumuşakça yanıp sönüyor ve hava karardıkça daha parlak görünüyor. Işık sadece içinde biri yaşayan evlerde yanıyor.
+- Panjurlar artık evin dolu olup olmadığını gösteriyor: içinde yaşayan varsa pencere açık, ev boşsa kapalı.
+- Köyün gökyüzünde gündüz zaman zaman kuşlar uçuyor. Yağmurda ve geceleyin çıkmıyorlar. Nadiren büyük bir kuş göçü geçiyor.
+- Ev ve dükkânlar artık kağıt gibi düz değil, kalın bir karton gibi görünüyor: oyuncu koşarken binanın yan yüzü birkaç piksel görünüyor. Ziyaret ettiğin köylerde de aynı etki var.
+- Köylerde binaların önünde, arkasında ve aralarında fıçı, kova, sandalye, merdiven ve odun yığını gibi süsler var. Nüfus arttıkça çoğalıyorlar ve oyuncu görmüyorken yer değiştiriyorlar. Ziyaret ettiğin köylerde de aynısı geçerli.
+- Açık pencerelerde saksı, çiçek, seramik, perde, asılı kıyafet ve halı gibi süsler görünüyor. Her pencerenin süsü farklı. Ziyaret ettiğin köylerde de evlerde yaşayan varsa pencereler açık, süslü ve akşamları ışıklı.
+
+### EN
+- The village well now has a daily water-drawing game: if you succeed, village morale goes up by 1. Even a failed attempt uses up that day's try; the well reopens the next day.
+- Window decorations now follow village prosperity: poor villages have mostly empty or plain cloth windows, rich ones show flower pots, curtains, ceramics, and rugs far more often. In villages you visit, this follows the village's wealth.
+- Hanging cloths, curtains, and rugs in windows now sway in the wind, more in storms.
+- Clothes lines and vegetable strings now stretch between the windows of neighboring houses. Which houses have one, the colors of the laundry, and the rope height change every day. Laundry is taken in at night and in rain, and it sways in the wind.
+- Birds now fly across the sky in villages you visit too.
+- Houses now have a warm light glowing from inside their windows in the evening. Each window turns on and off at its own time, and the light flickers softly like a candle, fades in and out smoothly, and glows brighter as the sky gets darker. Only homes with someone living in them light up.
+- Window shutters now show whether a home is occupied: open when someone lives there, closed when the house is empty.
+- Birds occasionally fly across the village sky during the day. They stay away in rain and at night. A large migration flock rarely passes by.
+- Houses and shops no longer look paper flat but like thick cardboard: as the player runs past, a few pixels of the building's side show. The same effect applies in villages you visit.
+- Villages now have barrels, buckets, chairs, ladders, and wood piles in front of, behind, and between buildings. They increase as the population grows and move around while the player isn't looking. The same applies to villages you visit.
+- Open windows now show decorations such as pots, flowers, ceramics, curtains, hanging clothes, and rugs. Every window has its own look. In villages you visit, homes with residents also have open, decorated windows that light up in the evening.
+
+## 0.48.0 - 2026-10-17
+
+### TR
+- Uzun Menzil'in mermisi artık bıçak: düşmana saplanıp birikiyor, duvara çarpınca kırılıyor, elemente göre renk değiştiriyor. Heavy atışın mermisi top güllesi oldu ve namluda duman çıkıyor. Yukarı heavy atışta gülle 45 derece yukarı gidiyor. Mermilerin menzili 1,5 kat arttı.
+- Çift Vuruş artık gerçek bir ikinci savuruş: iki seri vuruş, yerde ve havada (yukarı, aşağı dahil).
+- Elementlere 5 stack etkisi eklendi: buz 5 stackte düşmanı dondurur, ateş 5 vuruşta kalkanı eritir, şimşek 5 stackte yakındaki düşmanlara 1 stack sıçratır, zehir 5 stackte düşmanı çürütür ve düşman %50 fazla hasar alır.
+- Yeni item: Statik Yük. Light attack'lar düşmana şimşek stack'i yükler.
+- Şimşek Parmak artık stun yerine şimşek stack'i veriyor.
+- Düşmanlardan çıkan paralar havada duraksayıp düz düşmüyor, fırlatma hareketini tamamlıyor.
+- Top atan, ateş büyücüsü ve çağırıcı düşmanlar artık gizlilikte görüş konisiyle çalışıyor: oyuncuyu koniyle görmedikçe saldırmıyor, bekçi gibi arada dönüp etrafına bakıyor.
+- Görüş konileri düşmanın arkasında çiziliyor, sprite'ın önünü kapatmıyor.
+- Havada duvara yaslanan düşman artık aynı yerde sürekli aşağı yukarı gidip gelmiyor.
+- Dar geçitlerin önünde ölen düşman yatık pozda takılıp ölümsüz kalmıyor, ölümü tamamlanıyor.
+- Ateş büyücüleri sahneye girince havalanma pozunda değil, bekleme animasyonunda duruyor.
+- Doğduğu yerde düşme pozunda donup kalan düşmanlar yere inince bekleme animasyonuna geçiyor.
+
+### EN
+- Long Range's projectile is now a knife: it sticks into enemies and piles up, breaks on walls, and changes color with the element. The heavy attack projectile is now a cannonball with muzzle smoke. On an up heavy attack the cannonball flies 45 degrees upward. Projectile range is 1.5 times longer.
+- Double Strike is now a real second swing: two rapid strikes, on the ground and in the air (including up and down).
+- Elements have a 5 stack effect: ice freezes the enemy at 5 stacks, fire melts the shield after 5 hits, lightning jumps 1 stack to nearby enemies at 5 stacks, poison rots the enemy at 5 stacks so it takes 50% more damage.
+- New item: Static Charge. Light attacks apply lightning stacks to enemies.
+- Lightning Finger now applies lightning stacks instead of a stun.
+- Coins dropped by enemies no longer stop in mid air and fall straight down, they finish their toss.
+- Cannon, fire mage and summoner enemies now use the vision cone in stealth: they do not attack until the cone sees you, and they turn around now and then like guards.
+- Vision cones are drawn behind the enemy, no longer covering the sprite.
+- Enemies pushed against a wall in mid air no longer bob up and down in the same spot.
+- Enemies that die in front of narrow passages no longer get stuck in a lying pose and stay unkillable, their death now completes.
+- Fire mages now stand in their idle animation when they enter a scene instead of a takeoff pose.
+- Enemies that froze in a falling pose where they spawned now switch to the idle animation once they are on the ground.
+
 ## 0.47.0 - 2026-10-17
 
 ### TR

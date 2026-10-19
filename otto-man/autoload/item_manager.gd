@@ -81,6 +81,7 @@ const ITEM_SCENES: Dictionary = {
 	"yildirim_dususu": preload("res://resources/items/yildirim_dususu.tscn"),
 	"patlama_zinciri": preload("res://resources/items/patlama_zinciri.tscn"),
 	"simsek_parmagi": preload("res://resources/items/simsek_parmagi.tscn"),
+	"statik_yuk": preload("res://resources/items/statik_yuk.tscn"),
 	"gok_gurultusu": preload("res://resources/items/gok_gurultusu.tscn"),
 	"lav_cekici": preload("res://resources/items/lav_cekici.tscn"),
 	"donma_cekici": preload("res://resources/items/donma_cekici.tscn"),
@@ -341,7 +342,7 @@ const DUNGEON_THEME_POOLS: Dictionary = {
 	},
 	"firtina": {
 		# Fırtına = HAREKET ET: şimşek, hava, dash/dodge, parkur
-		"kesif": ["gok_gurultusu", "yildirim_dususu", "yildirim_adimi", "havada_kal", "sekme_tabanligi", "firtina_gozu", "zeytinyagi", "ruzgar_toplama", "tunel_ustasi"],
+		"kesif": ["statik_yuk", "gok_gurultusu", "yildirim_dususu", "yildirim_adimi", "havada_kal", "sekme_tabanligi", "firtina_gozu", "zeytinyagi", "ruzgar_toplama", "tunel_ustasi"],
 		"boss": ["simsek_parmagi", "duvar_ustasi", "yildirim_zinciri", "ziplatan_yumruk", "agirliksiz", "agir_yumruk", "toplu_kaldirma", "zehirli_sekme", "kavis_adimi", "iz_birakan", "kesintisiz_akrobasi"],
 	},
 	"barut": {
@@ -2062,6 +2063,33 @@ func apply_element_to_enemy(enemy: Node2D, element: String) -> void:
 				enemy.set_meta("was_lightning_hit", true)
 
 
+## Şimşek 5 stack sıçraması (base_enemy._spread_lightning_stack): oyuncunun kendi vuruşu komşulara yansır.
+## Komşular hasarın bir kısmını alır ve `player_attack_landed("normal", ..., "all")` yayınlanır; yani element
+## kaynakları (zehir/ateş/buz stack'i), sayaçlı item'lar ("3 vuruşta bir") ve isabete bağlı her item bu
+## yansıyan vuruşu da kendi vuruşu sayar ve etkisini tüm komşulara uygular. Yansıma sırasında
+## `is_reflecting_hit` true: iç içe yansımayı engeller, Statik Yük çift şimşek stack'i vermez.
+var is_reflecting_hit: bool = false
+const REFLECT_DAMAGE_RATIO: float = 0.5
+
+func reflect_player_hit(origin: Vector2, targets: Array) -> void:
+	if is_reflecting_hit or targets.is_empty() or not is_instance_valid(player):
+		return
+	is_reflecting_hit = true
+	var base_damage: float = 10.0
+	var hb = player.get("hitbox")
+	if hb != null and hb.get("damage") != null:
+		base_damage = float(hb.damage)
+	var damage: float = maxf(1.0, base_damage * REFLECT_DAMAGE_RATIO)
+	var live: Array = []
+	for t in targets:
+		if is_instance_valid(t) and t.get("current_behavior") != "dead" and t.has_method("take_damage"):
+			t.take_damage(damage, 0.0, 0.0, false)
+			live.append(t)
+	if not live.is_empty() and player.has_signal("player_attack_landed"):
+		player.emit_signal("player_attack_landed", "normal", damage, live, origin, "all")
+	is_reflecting_hit = false
+
+
 ## Basit placeholder görsel: element uygulanan düşmanın üstünde kısa bir
 ## renkli halka (bkz. effects/element_hit_flash.gd). Kalıcı sanat gelene
 ## kadar "element gerçekten isabet etti" bilgisini ekrana taşıyor. Public:
@@ -2370,6 +2398,8 @@ func spawn_upgraded_projectile(scene_root: Node, origin: Vector2, direction: Vec
 		"bomb":
 			script = _FireBombProjectileScript
 	var kind_mult: float = _PROJECTILE_KIND_DAMAGE_MULT.get(kind, 1.0)
+	if kind == "top":
+		_CannonProjectileScript.spawn_muzzle_smoke(scene_root, origin, direction)
 	for _volley in range(volleys):
 		for dir in directions:
 			var proj = Node2D.new()

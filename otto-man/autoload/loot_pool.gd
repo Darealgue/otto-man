@@ -165,9 +165,13 @@ func schedule_ground_sleep(body: RigidBody2D, delay: float) -> void:
 	body.add_child(t)
 	t.timeout.connect(func():
 		if is_instance_valid(body):
-			# Do NOT sleep; keep physics active to avoid mid-air freeze
-			body.linear_velocity = Vector2.ZERO
-			body.angular_velocity = 0.0
+			# Do NOT sleep; keep physics active to avoid mid-air freeze.
+			# Hızı sadece zaten durmak üzereyse sıfırla: eskiden süre dolunca havadaki para da
+			# anında durup dümdüz düşüyordu (hareket ortasında duraksama). Hâlâ sekiyorsa fizik
+			# kendi yavaşlatsın.
+			if body.linear_velocity.length() < 40.0:
+				body.linear_velocity = Vector2.ZERO
+				body.angular_velocity = 0.0
 			body.sleeping = false
 			body.freeze = false
 			body.freeze_mode = RigidBody2D.FREEZE_MODE_KINEMATIC

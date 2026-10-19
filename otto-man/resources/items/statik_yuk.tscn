@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://resources/items/statik_yuk.gd" id="1_statik"]
+
+[node name="StatikYuk" type="Node"]
+script = ExtResource("1_statik")

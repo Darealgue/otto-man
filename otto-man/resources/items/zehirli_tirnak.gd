@@ -65,8 +65,7 @@ func _on_player_attack_landed(attack_type: String, damage: float, targets: Array
 		if enemy and is_instance_valid(enemy):
 			var stacks_to_add = 1
 			var im = get_node_or_null("/root/ItemManager")
-			if im and im.has_method("has_item") and im.has_item("cift_vurus"):
-				stacks_to_add = 2
+			# Çift Vuruş artık gerçek ikinci savuruş yapıyor; her isabet kendi stack'ini ekler (eskiden burada x2)
 			var max_stacks := MAX_STACKS
 			var dmg_per_stack := DAMAGE_PER_STACK
 			if im:

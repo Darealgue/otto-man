@@ -126,13 +126,33 @@ func _init():
 	upgrade_timer.timeout.connect(finish_upgrade)
 	add_child(upgrade_timer)
 
+const WATER_INTERACTABLE_SCRIPT = preload("res://village/scripts/VillageWellInteractable.gd")
+
 func _ready() -> void:
 	_store_collision_original_positions()
 	_setup_platform_collision()
 	_update_texture()
+	_setup_water_interactable()
 	# Collision'ı bir frame ertede uygula; physics tam hazır olsun (özellikle runtime'da eklenen binalar için)
 	call_deferred("_update_collision")
 	_update_ui()
+
+# Günlük su çekme oyunu (+1 moral): kuyunun zemin hizasına bir etkileşim alanı ekler (bkz. VillageWellInteractable.gd).
+func _setup_water_interactable() -> void:
+	if get_node_or_null("WaterInteractable") != null:
+		return
+	var area := Area2D.new()
+	area.name = "WaterInteractable"
+	area.set_script(WATER_INTERACTABLE_SCRIPT)
+	area.collision_layer = 4096
+	area.collision_mask = 2
+	var shape := CollisionShape2D.new()
+	var rect := RectangleShape2D.new()
+	rect.size = Vector2(160, 150)
+	shape.shape = rect
+	shape.position = Vector2(0, -75)
+	area.add_child(shape)
+	add_child(area)
 
 func _process(delta: float) -> void:
 	if debug_collision:

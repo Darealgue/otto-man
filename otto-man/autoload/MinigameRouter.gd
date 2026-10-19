@@ -112,7 +112,8 @@ func _handle_resource_rewards(success: bool, payload: Dictionary) -> void:
 	if payload.has("resource_rewards") and payload.resource_rewards is Dictionary:
 		for key in payload.resource_rewards.keys():
 			rewards[key] = int(payload.resource_rewards[key])
-	if payload.has("resource_type"):
+	# "morale" bir taşınan kaynak değildir; köy moralini ilgili etkileşim (ör. VillageWellInteractable) kendisi uygular.
+	if payload.has("resource_type") and String(payload.resource_type) != "morale":
 		var base_amount := int(payload.get("amount", 0))
 		var bonus_amount := int(payload.get("bonus", 0))
 		var total := base_amount + bonus_amount

@@ -27,12 +27,20 @@ var watch_target: Node2D = null
 var active: bool = true
 
 var _owner_enemy: CharacterBody2D = null
+var _mark_layer: Node2D = null
 var _heard_pulse_ids: Dictionary = {}
 
 
 func setup(owner_enemy: CharacterBody2D) -> void:
 	_owner_enemy = owner_enemy
-	z_index = 50
+	# Koni düşmanın sprite'ının ARKASINDA çizilir (parent'ın arkasında); soru işareti ise ayrı bir üst
+	# katmanda (bkz. _draw_mark_layer) kalır, yoksa sprite'ın altında kaybolurdu.
+	show_behind_parent = true
+	_mark_layer = Node2D.new()
+	_mark_layer.name = "SuspicionMark"
+	_mark_layer.z_index = 50
+	_mark_layer.draw.connect(_draw_mark_layer)
+	add_child(_mark_layer)
 	set_process(true)
 
 
@@ -182,10 +190,17 @@ func _get_eye_global() -> Vector2:
 
 
 func _get_forward_dir() -> Vector2:
-	var facing: int = int(_owner_enemy.get("direction"))
-	if facing == 0:
-		facing = 1
-	return Vector2(float(facing), 0.0)
+	return Vector2(float(_get_facing()), 0.0)
+
+
+## Düşmanın baktığı yön: get_stealth_facing() varsa (sprite'ı kendi çeviren tipler) o, yoksa `direction`.
+func _get_facing() -> int:
+	var facing: int = 1
+	if _owner_enemy.has_method("get_stealth_facing"):
+		facing = int(_owner_enemy.get_stealth_facing())
+	else:
+		facing = int(_owner_enemy.get("direction"))
+	return facing if facing != 0 else 1
 
 
 func _is_player_in_cone(player: Node2D) -> bool:
@@ -269,6 +284,8 @@ func _process(_delta: float) -> void:
 	# çizdiği koni/daire ekranda donuk kalır. _draw() zaten kendi içinde should_draw_perception()
 	# kontrolüyle boş çiziyor, o yüzden burada koşulsuz redraw isteyip son kareyi temizletiyoruz.
 	queue_redraw()
+	if _mark_layer:
+		_mark_layer.queue_redraw()
 
 
 func _draw() -> void:
@@ -287,9 +304,7 @@ func _draw() -> void:
 		return
 
 	var alarm: bool = bool(sm.get("segment_alarm"))
-	var facing: int = int(_owner_enemy.get("direction"))
-	if facing == 0:
-		facing = 1
+	var facing: int = _get_facing()
 
 	if alarm:
 		var det_range: float = 300.0
@@ -325,8 +340,23 @@ func _draw() -> void:
 	for i in range(2, points.size()):
 		draw_line(points[i - 1], points[i], outline_color, 2.0)
 
-	if visibility_level == VisibilityLevel.SUSPICIOUS:
-		var mark_pos := eye_offset + Vector2(0.0, -22.0)
-		draw_circle(mark_pos, 5.0, Color(1.0, 0.9, 0.15, 0.95 * alpha_mult))
-		draw_line(mark_pos + Vector2(0.0, -7.0), mark_pos + Vector2(0.0, 2.0), Color(0.15, 0.1, 0.0, 0.9 * alpha_mult), 2.0)
-		draw_circle(mark_pos + Vector2(0.0, 6.0), 1.5, Color(0.15, 0.1, 0.0, 0.9 * alpha_mult))
+
+
+## Şüphe işareti (!): koniden ayrı, sprite'ın üstünde bir katmanda çizilir.
+func _draw_mark_layer() -> void:
+	if not active or not _is_owner_active() or not _is_owner_awake():
+		return
+	if visibility_level != VisibilityLevel.SUSPICIOUS:
+		return
+	var sm: Node = get_node_or_null("/root/StealthManager")
+	if not is_instance_valid(sm) or not sm.has_method("should_draw_perception") or not sm.should_draw_perception():
+		return
+	var alpha_mult: float = 1.0
+	if sm.has_method("get_perception_draw_alpha"):
+		alpha_mult = float(sm.get_perception_draw_alpha())
+	if alpha_mult <= 0.01:
+		return
+	var mark_pos := eye_offset + Vector2(0.0, -22.0)
+	_mark_layer.draw_circle(mark_pos, 5.0, Color(1.0, 0.9, 0.15, 0.95 * alpha_mult))
+	_mark_layer.draw_line(mark_pos + Vector2(0.0, -7.0), mark_pos + Vector2(0.0, 2.0), Color(0.15, 0.1, 0.0, 0.9 * alpha_mult), 2.0)
+	_mark_layer.draw_circle(mark_pos + Vector2(0.0, 6.0), 1.5, Color(0.15, 0.1, 0.0, 0.9 * alpha_mult))

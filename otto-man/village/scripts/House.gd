@@ -113,7 +113,8 @@ func _refresh_windows() -> void:
 		var window_count: int = floor_node.get_window_count() if floor_node.has_method("get_window_count") else 0
 		var states: Array = []
 		if window_count > 0:
-			# Her pencere, kattaki kapasitenin bir dilimini temsil eder (3 durum: kapalı/yarı/açık).
+			# Her pencere, kattaki kapasitenin bir dilimini temsil eder (3 durum: kapalı/yarı/açık):
+			# pencerede 1 kişi yaşıyorsa yarı açık, 2 kişi yaşıyorsa tam açık, kimse yoksa kapalı.
 			var units_per_window: int = max(1, int(round(float(capacity_per_floor) / float(window_count))))
 			units_per_window = min(units_per_window, HouseFloorVisual.NUM_WINDOW_STATES - 1)
 			for j in window_count:

@@ -1,9 +1,16 @@
 # cift_vurus.gd
-# UNCOMMON item - Her light attack 2 kez vurur ama %60 hasara düşer
+# UNCOMMON item - Her light attack iki seri vuruş olur, her vuruş %60 hasar verir.
+# İkinci vuruş artık hasarı sonradan tekrar yazmak değil, GERÇEK bir ikinci savuruş:
+# attack_state.gd animasyonu hızlandırıp aynı saldırıyı bir kez daha oynatır (hitbox, mermi,
+# element, on-hit itemleri ikinci savuruşta da kendiliğinden çalışır).
 
 extends ItemEffect
 
 const DAMAGE_MULTIPLIER = 0.6  # %60 hasar
+## attack_state.gd'nin okuduğu hız çarpanı (her iki savuruş da bu kadar hızlı)
+const SWING_SPEED_MULT := 1.6
+## İlk vuruş penceresi kapanınca animasyon, pencere başlangıcının bu kadar (oran) öncesine sarılır
+const BURST_REWIND := 0.15
 
 func _init():
 	item_id = "cift_vurus"
@@ -25,46 +32,10 @@ func activate(player: CharacterBody2D):
 	if _multiplier_applied_to != player:
 		player.light_attack_damage_multiplier *= DAMAGE_MULTIPLIER
 		_multiplier_applied_to = player
-	
-	# Connect to player_attack_landed signal
-	if player.has_signal("player_attack_landed"):
-		if not player.is_connected("player_attack_landed", _on_player_attack_landed):
-			player.connect("player_attack_landed", _on_player_attack_landed)
 
 func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 	if _player and _multiplier_applied_to == _player:
 		_player.light_attack_damage_multiplier /= DAMAGE_MULTIPLIER
 	_multiplier_applied_to = null
-	# Disconnect signal
-	if _player and _player.has_signal("player_attack_landed"):
-		if _player.is_connected("player_attack_landed", _on_player_attack_landed):
-			_player.disconnect("player_attack_landed", _on_player_attack_landed)
 	_player = null
-
-func _on_player_attack_landed(attack_type: String, damage: float, targets: Array, position: Vector2, effect_filter: String = "all"):
-	if effect_filter == "elemental_only":
-		return  # Karagöz gölgesi: sadece fiziksel; Çift Vuruş uygulanmasın
-	if not _player or attack_type != "normal":
-		return  # Only for light attacks
-
-	# Wait a tiny bit then apply second hit
-	await get_tree().create_timer(0.05).timeout
-	
-	# Second hit uses the same damage as first hit (already reduced to 60%)
-	# Since first hit is already at 60%, second hit should be the same
-	var second_hit_damage = damage
-	
-	for target in targets:
-		if not is_instance_valid(target):
-			continue
-		
-		# Try to damage the enemy
-		if target.has_method("take_damage"):
-			target.take_damage(second_hit_damage)
-		elif target.has_node("Hurtbox"):
-			var hurtbox = target.get_node("Hurtbox")
-			if hurtbox.has_method("take_damage"):
-				hurtbox.take_damage(second_hit_damage)
-	
-	# Signal emit ETME - yoksa Çift Vuruş kendi callback'ini tekrar tetikler, sonsuz döngü olur

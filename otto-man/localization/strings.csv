@@ -3395,3 +3395,5 @@ visit.talk.prisoners,"Savaştan esirler getirdik, zindan şimdi dolu.","We broug
 visit.talk.relation.high,"Senin köyünle dostluğumuz eskidir, hoş geldin.","Your village and ours are old friends, welcome."
 visit.talk.relation.low,Köyünüzden hoşlanmıyoruz ama misafirsin.,"We do not like your village, but you are a guest."
 visit.save_blocked,"Köy ziyaretinde kayıt yapılamaz, haritaya dönünce otomatik kaydedilir.","You cannot save during a village visit, the game autosaves when you return to the map."
+item.statik_yuk.name,Statik Yük,Static Charge
+item.statik_yuk.description,Light attack'lar düşmana 1 şimşek stack'i yükler. 5 stack'te stack'ler sıfırlanır ve 1 stack yakındaki düşmanlara sıçrar,Light attacks apply 1 lightning stack. At 5 stacks they reset and 1 stack jumps to nearby enemies

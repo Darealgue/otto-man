@@ -99,6 +99,25 @@ static func vision_multiplier(mode: String) -> float:
 	return 0.0
 
 
+## Her konut katına (ev katları ve dükkân üstü ev katları) nüfusa dayalı yaşayan sayısı dağıtır: "residents" alanı.
+## Düzen kat başına 4 kişilik kapasiteyi nüfusa göre kurduğu için doluluk nüfusla paralel gider: her konutun doluluk
+## oranı rastgele (köyün genel doluluğu ~%80), bazı evler tamamen boş. Ayrı bir tohum kullanır, düzenin geri kalanını değiştirmez.
+const FILL_MIN: float = 0.75
+const FILL_MAX: float = 1.0
+const EMPTY_HOUSE_CHANCE: float = 0.06
+
+static func _assign_residents(buildings: Array[Dictionary], info: Dictionary, pop: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = absi(hash("%s#residents#%d" % [String(info.get("settlement_id", "")), int(info.get("world_seed", 0))]))
+	for b in buildings:
+		var floors: int = int(b.get("floors", 0)) + int(b.get("ext_floors", 0))
+		var capacity: int = floors * CAPACITY_PER_FLOOR
+		var residents: int = 0
+		if capacity > 0 and not (String(b["kind"]) == "house" and rng.randf() < EMPTY_HOUSE_CHANCE):
+			residents = clampi(int(round(float(capacity) * rng.randf_range(FILL_MIN, FILL_MAX))), 1, capacity)
+		b["residents"] = residents
+
+
 ## Oyuncu köyündeki parsel konumları (x): 400, -400, 800, -800, ... 22 adet.
 static func plot_positions() -> Array[float]:
 	var out: Array[float] = []
@@ -196,6 +215,7 @@ static func generate(info: Dictionary) -> Dictionary:
 		b["x"] = used[i]
 		buildings.append(b)
 	buildings.sort_custom(func(a, b): return float(a["x"]) < float(b["x"]))
+	_assign_residents(buildings, info, pop)
 
 	# 4) Roller: hazine odası rastgele bir bina (depo olmayan); esir varsa zindan başka bir ev.
 	var candidates: Array[int] = []
@@ -247,7 +267,7 @@ static func generate(info: Dictionary) -> Dictionary:
 	var house_indices: Array[int] = []
 	var work_indices: Array[int] = []
 	for i in range(buildings.size()):
-		if String(buildings[i]["kind"]) == "house":
+		if String(buildings[i]["kind"]) == "house" and int(buildings[i].get("residents", 1)) > 0:
 			house_indices.append(i)
 		elif String(buildings[i]["role"]) != "storage":
 			work_indices.append(i)

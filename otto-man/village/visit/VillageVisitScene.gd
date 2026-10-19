@@ -40,6 +40,12 @@ var _foreground: Node2D = null
 ## Çalı şeridinin alt kenarının dünya y'si: oyuncu yerdeyken ekranın tam alt kenarına denk gelir (ölçüldü).
 const FOREGROUND_BOTTOM_WORLD_Y: float = 330.0
 const GROUND_ORIGIN := Vector2(-5330, -799)
+## Zemin katmanlarının z sırası (alttan üste): ağaç -6, zemin altı -5, zemin resmi -4, çalı/çimen ve arka süsler -3,
+## bina kalınlık katmanı -2, binalar 0. Böylece arka süsler kalınlık katmanının da arkasında kalır.
+const GROUND_Z_BASE: int = -4
+const DECOR_BEHIND_Z: int = -3
+## Köyün zenginlik kademesi -> refah (0..1): pencere süslerinin sıklığını ve türünü belirler.
+const PROSPERITY_BY_WEALTH: Dictionary = {"poor": 0.2, "medium": 0.55, "rich": 0.9}
 ## Çalı / çimen / ağaç dokuları (VillageScene ile aynı) ve sabit y konumları (merkez).
 const BUSH_TEXTURES: Array[String] = [
 	"res://assets/forest assets/bush1.png", "res://assets/forest assets/bush2.png", "res://assets/forest assets/bush3.png",
@@ -63,6 +69,8 @@ var building_nodes: Array[Node2D] = []
 var agents: Array[VisitVillager] = []
 ## Binaların içindeki köylü sayısı (pencere ışığı için), building_nodes ile aynı sırada.
 var _occupants: Array[int] = []
+var _residents: Array[int] = []   # binada yaşayan köylü sayısı (pencerelerin açık/kapalı durumunu belirler)
+var _last_window_hour: int = -1
 var _was_night: bool = false
 
 var _in_exit: bool = false
@@ -99,11 +107,16 @@ func _ready() -> void:
 		call_deferred("_leave_to_map")
 		return
 	layout = Layout.generate(info)
+	# Pencere süsleri köyün zenginliğine göre zenginleşir (bkz. HouseFloorVisual.get_prosperity).
+	HouseFloorVisual.prosperity_override = PROSPERITY_BY_WEALTH.get(String(info.get("wealth_tier", "medium")), 0.55)
 	_build_ground()
 	_build_sky()
 	_build_parallax()
 	_build_decor()
+	_add_building_depth()
 	_build_buildings()
+	_add_ground_decor()
+	_add_window_ropes()
 	if bool(layout.get("coastal", false)):
 		_build_water()
 	_build_exits()
@@ -170,7 +183,7 @@ func _build_ground() -> void:
 	var under := Polygon2D.new()
 	under.name = "UndergroundPlaceholder"
 	under.color = Color(0.05, 0.1, 0.05, 1.0)
-	under.z_index = -2
+	under.z_index = GROUND_Z_BASE - 1
 	under.polygon = PackedVector2Array([
 		Vector2(-half - 1500.0, 110.0), Vector2(half + 1500.0, 110.0),
 		Vector2(half + 1500.0, 2400.0), Vector2(-half - 1500.0, 2400.0)])
@@ -197,7 +210,7 @@ func _build_ground() -> void:
 		spr.texture = tex
 		spr.centered = false
 		spr.position = Vector2(x, GROUND_ORIGIN.y)
-		spr.z_index = -1
+		spr.z_index = GROUND_Z_BASE
 		add_child(spr)
 		x += tex_w
 
@@ -265,6 +278,26 @@ func _build_parallax() -> void:
 	tint.name = "BackgroundTint"
 	tint.z_index = -1
 	bg.add_child(tint)
+	_build_birds(bg)
+
+
+## Gündüz gökyüzünde zaman zaman geçen kuşlar (oyuncu köyündekiyle aynı BirdFlockManager). Ekrana sabit (x kayması 0)
+## bir parallax katmanında uçarlar.
+func _build_birds(bg: ParallaxBackground) -> void:
+	var bird_layer := ParallaxLayer.new()
+	bird_layer.name = "BirdLayer"
+	bird_layer.motion_scale = Vector2(0.0, 0.1)
+	bird_layer.z_index = -1
+	bg.add_child(bird_layer)
+	var mgr := Node.new()
+	mgr.name = "BirdFlockManager"
+	mgr.set_script(preload("res://village/scripts/BirdFlockManager.gd"))
+	mgr.set("layer_path", NodePath("../ParallaxBackground/BirdLayer"))
+	add_child(mgr)
+
+
+func _exit_tree() -> void:
+	HouseFloorVisual.prosperity_override = -1.0
 
 
 ## Ekranın en önündeki çalılar (bush_frontground): oyuncunun ve binaların önünden geçer, kamera
@@ -319,14 +352,43 @@ func _build_decor() -> void:
 		spr.position = Vector2(float(d["x"]), float(DECOR_Y[kind]))
 		match kind:
 			"tree":
-				spr.z_index = -4
+				spr.z_index = GROUND_Z_BASE - 2
 			_:
-				# Çalı ve çimen zeminin üstünde ama binaların (z 0) arkasında kalır.
-				spr.z_index = -1
+				# Çalı ve çimen zeminin üstünde ama bina kalınlık katmanının ve binaların (z 0) arkasında kalır.
+				spr.z_index = GROUND_Z_BASE + 1
 		holder.add_child(spr)
 
 
 # ─── Binalar ─────────────────────────────────────────────────────────────────
+
+## Ev ve dükkânların arkasına kalınlık (karton) katmanı ekleyen yönetici; binalar eklenirken yakalanır.
+func _add_building_depth() -> void:
+	var mgr := Node.new()
+	mgr.name = "BuildingDepthManager"
+	mgr.set_script(preload("res://village/scripts/BuildingDepthManager.gd"))
+	add_child(mgr)
+
+
+## Yan yana evlerin aynı yükseklikteki pencereleri arasına çamaşır / sebze ipleri gerer (bkz. WindowRopeManager).
+func _add_window_ropes() -> void:
+	var mgr := Node2D.new()
+	mgr.set_script(preload("res://village/scripts/WindowRopeManager.gd"))
+	add_child(mgr)
+
+
+## Binaların önüne/arkasına/aralarına zemin süsleri (fıçı, kova, odun yığını...) serpiştirir. Binalardan SONRA eklenir:
+## ön süsler z 1'de (dükkân ön yüzleriyle aynı z, sonradan eklendiği için üstte) köylülerin (z 2) altında kalır.
+func _add_ground_decor() -> void:
+	var mgr := Node2D.new()
+	mgr.name = "GroundDecorManager"
+	mgr.set_script(preload("res://village/scripts/GroundDecorManager.gd"))
+	mgr.set("buildings_root_path", NodePath("../Buildings"))
+	mgr.set("front_z", 1)  # dükkân ön yüzü (FrontSprite) z 1'de; eşit z'de ağaç sırası belirler (süs sonra eklenir). Köylüler z 2.
+	mgr.set("behind_z", DECOR_BEHIND_Z)
+	mgr.set("seed_key", "visit_%s" % String(info.get("settlement_id", "")))
+	mgr.set("population", int(info.get("population", 80)))
+	add_child(mgr)
+
 
 ## Binalar oyuncu köyündeki gerçek bina sahneleridir (betiksiz görünüm kopyası, bkz. VillageVisitBuildings.gd)
 ## ve oyuncu köyündeki parsel konumlarına (400 px arayla, y=0) dizilir.
@@ -375,6 +437,7 @@ func _build_villagers() -> void:
 		holder.add_child(agent)
 		agent.setup(self, int(v["home"]), int(v["work"]), float(v["shift_shift"]), hour)
 		agents.append(agent)
+	_count_residents()
 	_refresh_all_windows()
 
 
@@ -423,20 +486,28 @@ func on_villager_entered(building: int) -> void:
 	if building < 0 or building >= _occupants.size():
 		return
 	_occupants[building] += 1
-	_refresh_windows(building)
 
 
 func on_villager_left(building: int) -> void:
 	if building < 0 or building >= _occupants.size():
 		return
 	_occupants[building] = maxi(0, _occupants[building] - 1)
-	_refresh_windows(building)
+
+
+## Her binada yaşayan sayısı: layout'un nüfusa göre dağıttığı "residents" alanı (sahnede görünen köylü sayısı
+## gerçek nüfusun küçük bir kısmı olduğu için pencereler ona bağlanmaz).
+func _count_residents() -> void:
+	_residents.resize(building_nodes.size())
+	_residents.fill(0)
+	var buildings: Array = layout.get("buildings", [])
+	for i in range(mini(buildings.size(), _residents.size())):
+		_residents[i] = int(buildings[i].get("residents", 0))
 
 
 func _refresh_windows(building: int) -> void:
-	if building < 0 or building >= building_nodes.size():
+	if building < 0 or building >= building_nodes.size() or building >= _residents.size():
 		return
-	VillageVisitBuildings.apply_windows(building_nodes[building], _occupants[building], Layout.is_night(_current_hour()))
+	VillageVisitBuildings.apply_windows(building_nodes[building], _residents[building], Layout.is_night(_current_hour()))
 
 
 func _refresh_all_windows() -> void:
@@ -618,6 +689,11 @@ func _process(_delta: float) -> void:
 	_in_exit = absf(player.global_position.x) >= exit_x - EXIT_TRIGGER_HALF_WIDTH
 	# Gece / gündüz geçişinde pencereler yeniden boyanır (gece dolu pencereler sıcak ışık verir).
 	var night_now: bool = Layout.is_night(_current_hour())
+	var hour_now: int = int(_current_hour())
+	if hour_now != _last_window_hour:
+		# Pencere ışıklarının yanma/sönme saatleri pencere başına farklı: saat değişince yeniden boyanır.
+		_last_window_hour = hour_now
+		_refresh_all_windows()
 	if night_now != _was_night:
 		_was_night = night_now
 		_refresh_all_windows()

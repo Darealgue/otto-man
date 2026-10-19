@@ -61,11 +61,20 @@ const LAUNCH_SMOKE_CANDIDATE_PATHS := [
 	"res://enemy/canonman/sprite/canon_smoke.png"
 ]
 
+func _is_stealth_detection_enabled() -> bool:
+	return true
+
+
+func get_stealth_facing() -> int:
+	return -1 if (sprite and sprite.flip_h) else 1
+
+
 func _ready() -> void:
 	if not stats and default_stats:
 		stats = default_stats
 
 	super._ready()
+	_setup_stealth_perception()
 	
 	# Set sleep distances for performance optimization
 	sleep_distance = 1600.0
@@ -266,8 +275,10 @@ func _handle_idle_state(delta: float) -> void:
 	
 	# Oyuncu tespit et
 	var player = update_stealth_target(delta)
-	if player == null:
+	if player == null and not uses_stealth_detection():
 		player = get_nearest_player()
+	if player == null:
+		stealth_idle_look(delta)
 	if player and is_instance_valid(player):
 		var distance = global_position.distance_to(player.global_position)
 		var detection_range: float = stats.detection_range if stats else DEFAULT_DETECTION_RANGE

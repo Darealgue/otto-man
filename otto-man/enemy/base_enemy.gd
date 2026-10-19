@@ -137,6 +137,29 @@ var frost_stacks: int = 0
 var frost_decay_timer: float = 0.0
 const FROST_DECAY_INTERVAL: float = 1.0
 
+# 5 stack eşik etkileri: buz = donma, ateş = kalkan erimesi, şimşek = stack sıçraması, zehir = çürüme
+const ELEMENT_STACK_THRESHOLD: int = 5
+const FREEZE_DURATION: float = 1.5
+const FREEZE_IMMUNITY: float = 3.0  # Donma bittikten sonra bu kadar süre tekrar donmaz (sonsuz stun kilidi olmasın)
+const BURN_HIT_RESET_SEC: float = 10.0  # Bu süre yeni ateş vuruşu gelmezse ateş sayacı sıfırlanır
+const LIGHTNING_STACK_RESET_SEC: float = 6.0
+const LIGHTNING_SPREAD_RADIUS: float = 700.0  # Yaklaşık ekranda görünen herkes
+const LIGHTNING_SPREAD_MAX_TARGETS: int = 12
+const ROT_DURATION: float = 4.0  # Çürüme: 5 zehir stack'indeyken düşman bu süre fazla hasar alır
+const ROT_DAMAGE_MULT: float = 1.5
+const _LightningBoltLineScript = preload("res://effects/lightning_bolt_line.gd")
+var _burn_hits: int = 0
+var _burn_hit_msec: int = 0
+var lightning_stacks: int = 0
+var _lightning_stack_msec: int = 0
+var _freeze_immune_until_msec: int = 0
+var _rot_until_msec: int = 0
+var _freeze_tint_active: bool = false
+# Can barındaki göstergenin 5 stack etkisini vurgulaması için (ateş/şimşek anlık tetiklenir, kısa süre parlar)
+const STATUS_PULSE_SEC: float = 1.0
+var _fire_pulse_until_msec: int = 0
+var _lightning_pulse_until_msec: int = 0
+
 # Stealth bayıltma
 var faint_timer: float = 0.0
 
@@ -252,7 +275,7 @@ func _process(delta: float) -> void:
 		if health_bar.has_method("set_level"):
 			health_bar.set_level(enemy_level)
 		if health_bar.has_method("update_status_effects"):
-			health_bar.update_status_effects(poison_stacks, burn_remaining_ticks, frost_stacks)
+			health_bar.update_status_effects(poison_stacks, burn_remaining_ticks, frost_stacks, get_lightning_stacks_display(), get_status_pulses(), get_burn_hits_display())
 
 func _physics_process(delta: float) -> void:
 	# Skip all processing if position is invalid
@@ -502,6 +525,30 @@ func _setup_stealth_perception() -> void:
 		stealth_perception.setup(self)
 
 
+## Görüş konisinin baktığı yön (-1 sol / +1 sağ). Taban: `direction`; sprite yönünü kendi çeviren
+## düşmanlar (nöbetçi tipler) bunu sprite.flip_h'a göre override eder.
+func get_stealth_facing() -> int:
+	return direction if direction != 0 else 1
+
+
+## Duran nöbetçi (stealth'te oyuncuyu görmemiş) arada dönüp etrafına bakar; görüş konisi tek yöne
+## sabit kalmasın. Alarm varken ya da stealth algısı yoksa çalışmaz.
+var _stealth_look_timer: float = randf_range(0.5, 3.0)
+
+func stealth_idle_look(delta: float) -> void:
+	if not uses_stealth_detection() or sprite == null:
+		return
+	var sm: Node = get_node_or_null("/root/StealthManager")
+	if is_instance_valid(sm) and bool(sm.get("segment_alarm")):
+		return
+	_stealth_look_timer -= delta
+	if _stealth_look_timer > 0.0:
+		return
+	_stealth_look_timer = randf_range(3.5, 6.5)
+	sprite.flip_h = not sprite.flip_h
+	direction = -1 if sprite.flip_h else 1
+
+
 func uses_stealth_detection() -> bool:
 	return stealth_perception != null and is_instance_valid(stealth_perception)
 
@@ -548,8 +595,8 @@ func _process_faint(delta: float) -> void:
 			sprite.play("idle")
 
 
-## ŞOK (şimşek): düşmanı süre boyunca tamamen dondurur (stun). Zehir/yanma/don gibi şimşeğin
-## düşman üzerindeki durum etkisi; yıldırım itemleri ve fırtına zindanı yıldırımı bunu uygular.
+## ŞOK/DONMA: düşmanı süre boyunca tamamen durdurur (stun). Artık yalnızca buzun 5 stack donması
+## (apply_shock(süre, true)) kullanır; şimşek çağrıları (freeze=false) sadece şimşek stack'i ekler, stun vermez.
 ## Tüm düşman türlerinde aynı çalışsın diye türlerin kendi AI akışına girmek yerine düşmanın
 ## fizik işlemesi durdurulur ve animasyon duraklatılır. Boss'lar etkilenmez.
 const SHOCK_DURATION: float = 1.0
@@ -574,6 +621,7 @@ func is_shocked() -> bool:
 const STATUS_TINT_BURN := Color(1.5, 0.75, 0.3, 1.0)
 const STATUS_TINT_FROST := Color(0.55, 0.85, 1.4, 1.0)
 const STATUS_TINT_POISON := Color(0.6, 1.3, 0.5, 1.0)
+const STATUS_TINT_FREEZE := Color(0.5, 0.8, 1.7, 1.0)
 var _status_tint_timer: Timer = null
 
 func _ensure_status_tint_timer() -> void:
@@ -592,7 +640,7 @@ func _refresh_status_tint() -> void:
 	var c := Color.WHITE
 	if current_behavior != "dead":
 		if _shocked:
-			c = SHOCK_TINT
+			c = STATUS_TINT_FREEZE if _freeze_tint_active else SHOCK_TINT
 		elif burn_remaining_ticks > 0:
 			c = STATUS_TINT_BURN
 		elif frost_stacks > 0:
@@ -604,7 +652,13 @@ func _refresh_status_tint() -> void:
 	if c == Color.WHITE and _status_tint_timer:
 		_status_tint_timer.stop()
 
-func apply_shock(duration: float = SHOCK_DURATION) -> void:
+func apply_shock(duration: float = SHOCK_DURATION, freeze: bool = false) -> void:
+	# Her şimşek şoku bir şimşek stack'i de sayılır (kaynaklar hep apply_shock çağırıyor); donma stack saymaz.
+	if not freeze:
+		# Şimşek artık stun vermez, sadece stack yükler (stun yalnızca buzun 5 stack donmasında var)
+		if current_behavior != "dead":
+			add_lightning_stack()
+		return
 	if current_behavior == "dead" or is_sleeping:
 		return
 	var boss_flag = get("is_boss")
@@ -621,10 +675,12 @@ func apply_shock(duration: float = SHOCK_DURATION) -> void:
 		_shock_jitter_timer.timeout.connect(_on_shock_jitter)
 		add_child(_shock_jitter_timer)
 	# Süre yenilenir (üst üste binmez)
-	_shock_timer_node.start(duration)
+	if _shock_timer_node.is_stopped() or _shock_timer_node.time_left < duration:
+			_shock_timer_node.start(duration)  # Kısa şok, süren uzun donmayı kısaltmasın
 	if _shocked:
 		return
 	_shocked = true
+	_freeze_tint_active = freeze
 	if not enemy_defeated.is_connected(_end_shock):
 		enemy_defeated.connect(_end_shock)
 	set_physics_process(false)
@@ -634,13 +690,15 @@ func apply_shock(duration: float = SHOCK_DURATION) -> void:
 		if sprite.has_method("pause"):
 			sprite.pause()
 	if _shock_jitter_timer:
-		_shock_jitter_timer.start()
+		if not freeze:
+			_shock_jitter_timer.start()
 	_ensure_status_tint_timer()
 
 func _end_shock() -> void:
 	if not _shocked:
 		return
 	_shocked = false
+	_freeze_tint_active = false
 	set_physics_process(true)
 	if _shock_jitter_timer:
 		_shock_jitter_timer.stop()
@@ -683,6 +741,9 @@ func add_poison_stack(max_stacks: int, damage_per_stack: float, tick_interval: f
 	# Add poison stack (cap at max_stacks)
 	var was_poisoned := poison_stacks > 0
 	poison_stacks = min(poison_stacks + 1, max_stacks)
+	# Çürüme: 5 stack'te düşman ROT_DURATION boyunca her kaynaktan fazla hasar alır (5'teyken yenilenir)
+	if poison_stacks >= ELEMENT_STACK_THRESHOLD:
+		_rot_until_msec = Time.get_ticks_msec() + int(ROT_DURATION * 1000.0)
 	poison_damage_per_stack = damage_per_stack
 	poison_tick_interval = tick_interval
 	# Tick sayacı SIFIRLANMAZ: aralıksız vurulan düşmanda zehir hiç tetiklenmezdi.
@@ -708,6 +769,16 @@ func add_burn_stack() -> void:
 		_take_true_damage(steam_bonus_damage)
 	# 3 tick per stack, max 3 stacks (9 tick), 1 dmg per tick per second
 	burn_remaining_ticks = mini(burn_remaining_ticks + 3, 9)
+	# 5 ateş vuruşunda kalkan erir (stack = üst üste ateş vuruşu; uzun süre vuruş gelmezse sayaç sıfırlanır)
+	var burn_now := Time.get_ticks_msec()
+	if burn_now - _burn_hit_msec > int(BURN_HIT_RESET_SEC * 1000.0):
+		_burn_hits = 0
+	_burn_hit_msec = burn_now
+	_burn_hits += 1
+	if _burn_hits >= ELEMENT_STACK_THRESHOLD:
+		_burn_hits = 0
+		_fire_pulse_until_msec = burn_now + int(STATUS_PULSE_SEC * 1000.0)
+		_melt_shield()
 	burn_tick_timer = 0.0
 	_ensure_status_tint_timer()
 
@@ -716,6 +787,8 @@ func add_frost_stack(amount: int = 1) -> void:
 	if poison_stacks > 0:
 		_spread_poison_to_nearest_enemy()
 	frost_stacks = mini(frost_stacks + amount, 15)
+	if frost_stacks >= ELEMENT_STACK_THRESHOLD and Time.get_ticks_msec() >= _freeze_immune_until_msec:
+		_trigger_freeze()
 	frost_decay_timer = 0.0
 	_ensure_status_tint_timer()
 
@@ -768,6 +841,96 @@ func _spread_poison_to_nearest_enemy() -> void:
 	if nearest:
 		nearest.add_poison_stack(5, poison_damage_per_stack, poison_tick_interval)
 
+## Buz 5 stack: düşman FREEZE_DURATION boyunca donar (stun), stack'ler sıfırlanır. Boss'lar şok gibi
+## donmaz; onlarda stack'ler birikmeye devam eder (yavaşlatma kademeleri geçerli).
+func _trigger_freeze() -> void:
+	var boss_flag = get("is_boss")
+	if boss_flag != null and bool(boss_flag):
+		return
+	frost_stacks = 0
+	frost_decay_timer = 0.0
+	_freeze_immune_until_msec = Time.get_ticks_msec() + int((FREEZE_DURATION + FREEZE_IMMUNITY) * 1000.0)
+	apply_shock(FREEZE_DURATION, true)
+
+## Şimşek stack'i: 5'te sıfırlanır ve en yakın birkaç düşmana +1 şimşek stack sıçrar (şok/hasar yok;
+## kalabalıkta komşular birbirini tetikler). apply_shock() her şimşek şokunda bunu çağırır.
+func add_lightning_stack() -> void:
+	var now := Time.get_ticks_msec()
+	if now - _lightning_stack_msec > int(LIGHTNING_STACK_RESET_SEC * 1000.0):
+		lightning_stacks = 0
+	_lightning_stack_msec = now
+	lightning_stacks += 1
+	if lightning_stacks >= ELEMENT_STACK_THRESHOLD:
+		lightning_stacks = 0
+		_lightning_pulse_until_msec = now + int(STATUS_PULSE_SEC * 1000.0)
+		_spread_lightning_stack()
+
+## Can barı için: hangi elementin 5 stack etkisi şu an sürüyor (gösterge büyüyüp parlar).
+func get_status_pulses() -> Dictionary:
+	var now := Time.get_ticks_msec()
+	return {
+		"poison": now < _rot_until_msec,
+		"frost": _shocked and _freeze_tint_active,
+		"fire": now < _fire_pulse_until_msec,
+		"lightning": now < _lightning_pulse_until_msec,
+	}
+
+## Can barı için: ateş vuruş sayısı (5'te kalkan erir); uzun süre vuruş gelmediyse 0.
+func get_burn_hits_display() -> int:
+	if burn_remaining_ticks <= 0 or _burn_hits <= 0:
+		return 0
+	if Time.get_ticks_msec() - _burn_hit_msec > int(BURN_HIT_RESET_SEC * 1000.0):
+		return 0
+	return _burn_hits
+
+## Can barı için: süresi dolmuş (LIGHTNING_STACK_RESET_SEC) stack'ler 0 sayılır.
+func get_lightning_stacks_display() -> int:
+	if lightning_stacks <= 0:
+		return 0
+	if Time.get_ticks_msec() - _lightning_stack_msec > int(LIGHTNING_STACK_RESET_SEC * 1000.0):
+		return 0
+	return lightning_stacks
+
+func _spread_lightning_stack() -> void:
+	var tree := get_tree()
+	if not tree:
+		return
+	var candidates: Array = []
+	for node in tree.get_nodes_in_group("enemies"):
+		if not is_instance_valid(node) or node == self:
+			continue
+		if node.get("current_behavior") == "dead" or not node.has_method("add_lightning_stack"):
+			continue
+		# Havuzda bekleyen (devre dışı) düşmanlar (0,0)'da "enemies" grubunda duruyor; geniş menzil onları da yakalamasın
+		if not node.is_inside_tree() or not node.can_process():
+			continue
+		var d: float = global_position.distance_to(node.global_position)
+		if d <= LIGHTNING_SPREAD_RADIUS:
+			candidates.append([d, node])
+	candidates.sort_custom(func(a, b): return a[0] < b[0])
+	var targets: Array = []
+	for i in mini(candidates.size(), LIGHTNING_SPREAD_MAX_TARGETS):
+		var target: Node2D = candidates[i][1]
+		_spawn_lightning_arc(target)
+		targets.append(target)
+	# Oyuncunun kendi vuruşu komşulara yansır (hasar + isabete bağlı tüm item'lar: elementler, sayaçlı etkiler);
+	# ardından komşulara +1 şimşek stack (zincirleme tetiklenme için en sonda)
+	var im = get_node_or_null("/root/ItemManager")
+	if im and im.has_method("reflect_player_hit"):
+		im.reflect_player_hit(global_position, targets)
+	for target in targets:
+		if is_instance_valid(target) and target.get("current_behavior") != "dead":
+			target.add_lightning_stack()
+
+func _spawn_lightning_arc(target: Node2D) -> void:
+	var scene := get_tree().current_scene
+	if scene == null:
+		return
+	var bolt := Node2D.new()
+	bolt.set_script(_LightningBoltLineScript)
+	scene.add_child(bolt)
+	bolt.setup(global_position, target.global_position)
+
 func set_standing_on_ice_ground(on: bool) -> void:
 	standing_on_ice_ground = on
 
@@ -811,6 +974,8 @@ func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_for
 	if is_sleeping:
 		wake_up()
 
+	if Time.get_ticks_msec() < _rot_until_msec:
+		amount *= ROT_DAMAGE_MULT
 	var attack_name := _pending_attack_name
 	_pending_attack_name = ""
 	_last_hit_absorbed_by_shield = false
@@ -981,6 +1146,20 @@ func _break_shield() -> void:
 	change_behavior("hurt")
 	behavior_timer = 0.0
 	_play_enemy_sfx("enemy_hurt")
+
+## Ateş 5 vuruş: kalkan ne kadar kaldıysa tamamen erir (stagger/itme yok, normal yenilenme süresi başlar).
+func _melt_shield() -> void:
+	if not has_shield_affix or shield_health <= 0.0:
+		return
+	shield_health = 0.0
+	shield_broken = true
+	shield_regen_timer = SHIELD_REGEN_DELAY
+	_remove_shield_aura()
+	if health_bar and health_bar.has_method("hide_shield"):
+		health_bar.hide_shield()
+	if sprite:
+		sprite.modulate = Color(1.6, 0.8, 0.3, 1.0)
+		create_tween().tween_property(sprite, "modulate", Color(1, 1, 1, 1), HURT_FLASH_DURATION)
 
 func _regen_shield() -> void:
 	shield_broken = false

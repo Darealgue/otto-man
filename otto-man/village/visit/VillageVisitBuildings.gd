@@ -186,18 +186,23 @@ static func floor_nodes(building: Node2D) -> Array:
 	return out
 
 
-## Pencereleri içerideki kişi sayısına göre güncelle: içeride kimse yoksa kapalı, varsa (gece) sıcak ışıklı.
-## Kat başına bir kişi sayılır (görünen köylüler gerçek nüfusun küçük bir kısmı olduğu için).
-static func apply_windows(building: Node2D, occupants: int, is_night: bool) -> void:
+## Pencereleri evde YAŞAYAN kişi sayısına göre güncelle; oyuncu köyündeki House.gd kuralının aynısı: bir katın kapasitesi
+## pencerelere bölünür (kat başı 4 kişi, 2 pencere = pencere başı 2 kişi), pencerede 1 kişi yaşıyorsa yarı açık,
+## 2 kişi yaşıyorsa tam açık, kimse yoksa kapalı. Köylünün o an dışarıda olması pencereyi kapatmaz.
+const CAPACITY_PER_FLOOR: int = 4  # ResidentialHousing.capacity_per_floor varsayılanı
+
+static func apply_windows(building: Node2D, residents: int, is_night: bool) -> void:
 	var floors: Array = floor_nodes(building)
-	var remaining: int = occupants
+	var remaining: int = residents
 	for f in floors:
-		var lit: bool = remaining > 0
-		if lit:
-			remaining -= 1
 		var states: Array = []
 		var count: int = int(f.call("get_window_count")) if f.has_method("get_window_count") else 0
-		for _w in range(count):
-			states.append(2 if lit else 0)
+		if count > 0:
+			var units_per_window: int = max(1, int(round(float(CAPACITY_PER_FLOOR) / float(count))))
+			units_per_window = min(units_per_window, HouseFloorVisual.NUM_WINDOW_STATES - 1)
+			for _w in range(count):
+				var units: int = clampi(remaining, 0, units_per_window)
+				states.append(units)
+				remaining -= units
 		if f.has_method("apply_window_states"):
 			f.call("apply_window_states", states, is_night)

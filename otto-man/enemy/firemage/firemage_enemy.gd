@@ -26,8 +26,17 @@ var last_bomb_time: float = 0.0
 # Projectile scene
 var fire_bomb_scene = preload("res://enemy/firemage/fire_bomb_projectile.tscn")
 
+func _is_stealth_detection_enabled() -> bool:
+	return true
+
+
+func get_stealth_facing() -> int:
+	return -1 if (sprite and sprite.flip_h) else 1
+
+
 func _ready() -> void:
 	super._ready()
+	_setup_stealth_perception()
 	
 	# Set sleep distances for performance optimization
 	sleep_distance = 1600.0
@@ -170,8 +179,10 @@ func _handle_idle_state(delta: float) -> void:
 	
 	# Hysteresis: sadece yakın mesafede tespit et
 	var player = update_stealth_target(delta)
-	if player == null:
+	if player == null and not uses_stealth_detection():
 		player = get_nearest_player()
+	if player == null:
+		stealth_idle_look(delta)
 	if player and is_instance_valid(player):
 		var distance = global_position.distance_to(player.global_position)
 		# Sadece 400 piksel mesafede tespit et (detection_range'den daha az)
@@ -433,7 +444,8 @@ func _avoid_obstacles() -> void:
 
 func _update_animation_state() -> void:
 	match current_behavior:
-		"idle":
+		"idle", "patrol":
+			# "patrol" başlangıç davranışı; eskiden eşleşme yoktu, sahnedeki varsayılan (kalkış) animasyonu zeminde kalıyordu
 			sprite.play("fire_idle")
 		"takeoff_prepare":
 			sprite.play("fire_takeoff_prepare")

@@ -4,7 +4,7 @@ const ATTACK_SPEED_MULTIPLIER = 0.7  # Biraz yavaş hareket yukarı saldırıda
 const MOMENTUM_PRESERVATION = 0.9     # Momentum'u daha iyi koru
 const ANIMATION_SPEED = 1.3          # 30% faster animations (same as other attacks)
 const UP_ATTACK_ANIMATIONS = ["air_attack_up1", "air_attack_up2"]  # Up attack varyasyonları
-
+const _CiftVurusItem = preload("res://resources/items/cift_vurus.gd")
 var current_attack := ""
 var hitbox_enabled := false
 var initial_velocity := Vector2.ZERO
@@ -12,12 +12,14 @@ var has_activated_hitbox := false
 var up_attack_step := 0
 var up_attack_timer := 0.0
 var up_attack_reset_time := 0.8
+var _double_swing_done := false  # Çift Vuruş: ikinci savuruş oynandı mı
 
 func enter():
 	hitbox_enabled = false
 	has_activated_hitbox = false
 	initial_velocity = player.velocity
-	
+	_double_swing_done = false
+
 	# Enter combat state when attacking
 	player.enter_combat_state()
 	
@@ -40,7 +42,7 @@ func enter():
 		animation_player.stop()
 		if animation_player.has_animation(current_attack):
 			animation_player.play(current_attack)
-			animation_player.speed_scale = ANIMATION_SPEED * player.attack_speed_multiplier
+			animation_player.speed_scale = ANIMATION_SPEED * player.attack_speed_multiplier * _swing_speed_mult()
 		else:
 			print("[AirAttackUp] ERROR: Animation not found: ", current_attack)
 			state_machine.transition_to("Fall")
@@ -151,6 +153,7 @@ func _update_hitbox():
 			if player.has_signal("player_attack_performed"):
 				player.emit_signal("player_attack_performed", current_attack, hitbox.damage)
 	elif progress > hit_end and hitbox_enabled:
+		_try_burst_swing(hit_start, anim_length)
 		hitbox_enabled = false
 		var hitbox = player.get_node_or_null("Hitbox")
 		if hitbox and hitbox is PlayerHitbox:
@@ -160,6 +163,21 @@ func _update_hitbox():
 			if collision_shape:
 				collision_shape.position = Vector2(26.0, -22.5)
 			hitbox.disable()
+
+func _double_strike_active() -> bool:
+	return has_node("/root/ItemManager") and ItemManager.has_active_item("cift_vurus")
+
+func _swing_speed_mult() -> float:
+	return _CiftVurusItem.SWING_SPEED_MULT if _double_strike_active() else 1.0
+
+## Çift Vuruş: vuruş penceresi kapanınca animasyonu pencere öncesine sarar, ikinci savuruş seri gelir.
+## (Hitbox'ı çağıran _update_hitbox kapatıyor; burada sadece tekrar tetiklemeyi hazırlıyoruz.)
+func _try_burst_swing(hit_start: float, anim_length: float) -> void:
+	if _double_swing_done or not _double_strike_active():
+		return
+	_double_swing_done = true
+	has_activated_hitbox = false
+	animation_player.seek(maxf(0.0, hit_start - _CiftVurusItem.BURST_REWIND) * anim_length, true)
 
 func exit():
 	# Disconnect animation signal

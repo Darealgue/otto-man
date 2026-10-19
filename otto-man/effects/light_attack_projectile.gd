@@ -13,7 +13,7 @@
 extends Node2D
 
 const SPEED := 1100.0
-const MAX_DISTANCE := 250.0  # Yarı mesafe (önceki 500)
+const MAX_DISTANCE := 375.0  # Önceki 250'nin 1.5 katı
 const HIT_RADIUS := 56.0
 const BALL_RADIUS := 10.0
 const PROJECTILE_COLOR := Color(0.9, 0.85, 0.5)
@@ -23,6 +23,7 @@ const HOMING_RANGE := 220.0
 const ECHO_DELAY := 1.0
 const ECHO_DAMAGE_RATIO := 0.6
 const ECHO_RADIUS := 60.0
+const _KnifeFx = preload("res://effects/knife_fx.gd")
 
 var _direction: Vector2 = Vector2.RIGHT
 var _traveled: float = 0.0
@@ -35,6 +36,8 @@ var _ball_radius: float = BALL_RADIUS
 var _ball_color: Color = PROJECTILE_COLOR
 # Sekme/zincir sonrası az önce vurulan düşmana hemen tekrar çarpmamak için.
 var _recent_hit_id: int = 0
+# Bıçak görseli: düşmana saplanır, duvara/menzil sonuna çarpınca kırılır. Top/bomba türleri kapatır.
+var _knife_mode: bool = true
 
 # Uzun Menzil/Ok Yağmuru'nun kendi çağrılarını bozmamak için varsayılan -1 (item set etmezse kapalı)
 var max_distance: float = MAX_DISTANCE
@@ -74,15 +77,25 @@ func _physics_process(delta: float) -> void:
 	if not unlimited_range and _traveled >= max_distance:
 		queue_free()
 		return
+	# Bıçakta çarpışma merkezden değil uçtan test edilir (merkez testi bıçağı duvara/zemine gömüyordu);
+	# eski uçtan yeni uca ray, kare başına ~18 px hareketle ince zeminin içinden geçmeyi de engeller.
+	var tip_offset := _KnifeFx.TIP_OFFSET if _knife_mode else 0.0
+	var old_tip := global_position + _direction * tip_offset
 	global_position += move
 	var world_pos := global_position
+	var new_tip := world_pos + _direction * tip_offset
 	var space = get_world_2d().direct_space_state
 	var params = PhysicsPointQueryParameters2D.new()
-	params.position = world_pos
+	params.position = new_tip
 	params.collision_mask = CollisionLayers.WORLD | CollisionLayers.PLATFORM
 	params.collide_with_bodies = true
 	params.collide_with_areas = false
-	if space.intersect_point(params).size() > 0:
+	var ray := PhysicsRayQueryParameters2D.create(old_tip, new_tip, params.collision_mask)
+	var ray_hit := space.intersect_ray(ray)
+	if not ray_hit.is_empty() or space.intersect_point(params).size() > 0:
+		if _knife_mode and is_inside_tree():
+			var hit_at: Vector2 = ray_hit.get("position", new_tip)
+			_KnifeFx.spawn_break(get_parent(), hit_at, _direction, element)
 		queue_free()
 		return
 	if _check_enemy_hits(world_pos):
@@ -166,6 +179,8 @@ func _on_hit(node: Node, world_pos: Vector2) -> void:
 			_direction = (next_target.global_position - world_pos).normalized()
 			rotation = _direction.angle()
 			return
+	if _knife_mode and node is Node2D:
+		_KnifeFx.spawn_stuck(node, world_pos, _direction, element)
 	queue_free()
 
 func _apply_element(node: Node) -> void:
@@ -181,6 +196,9 @@ func _apply_element(node: Node) -> void:
 		"frost":
 			if node.has_method("add_frost_stack"):
 				node.add_frost_stack(1)
+		"lightning":
+			if node.has_method("add_lightning_stack"):
+				node.add_lightning_stack()
 
 ## Yansıyan Ok (bounce), Ruh Mermisi (soul_chain) ve homing için paylaşılan
 ## "en yakın canlı düşman" arayıcısı. exclude null olabilir (homing'de kendi
@@ -221,4 +239,4 @@ func _spawn_echo(world_pos: Vector2) -> void:
 	)
 
 func _draw() -> void:
-	draw_circle(Vector2.ZERO, _ball_radius, _ball_color)
+	_KnifeFx.draw_flying(self, cos(rotation) < 0.0, element)

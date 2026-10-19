@@ -47,12 +47,36 @@ func _input(event: InputEvent) -> void:
 		# ui_up/ui_down yerine ham Yukarı/Aşağı ok tuşları: bu proje W/S'yi de
 		# ui_up/ui_down'a atadığı için action tabanlı kontrol, konsola "w"/"s" yazmayı
 		# geçmişte gezinmeyle karıştırıyordu (satır önceki komutla değişiyordu).
+		if event is InputEventKey and event.pressed and _handle_scroll_key(event as InputEventKey):
+			return
 		if event is InputEventKey and event.pressed and not event.echo:
 			var key_event := event as InputEventKey
 			if key_event.keycode == KEY_UP:
 				navigate_history(-1)
 			elif key_event.keycode == KEY_DOWN:
 				navigate_history(1)
+
+## Çıktıyı kaydırma: Shift+Yukarı/Aşağı (satır satır), PageUp/PageDown (sayfa). Düz ok tuşları komut
+## geçmişinde kalıyor. Basılı tutunca tekrar etsin diye echo'ya izin var. Dönüş: tuş tüketildi mi.
+func _handle_scroll_key(key_event: InputEventKey) -> bool:
+	var amount := 0.0
+	match key_event.keycode:
+		KEY_PAGEUP:
+			amount = -output.size.y
+		KEY_PAGEDOWN:
+			amount = output.size.y
+		KEY_UP:
+			if key_event.shift_pressed:
+				amount = -60.0
+		KEY_DOWN:
+			if key_event.shift_pressed:
+				amount = 60.0
+	if amount == 0.0:
+		return false
+	var bar: VScrollBar = output.get_v_scroll_bar()
+	bar.value += amount
+	get_viewport().set_input_as_handled()
+	return true
 
 func toggle_console() -> void:
 	is_open = !is_open

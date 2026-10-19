@@ -19,6 +19,9 @@ const HAUL_DELIVER_MIN: float = 3.0
 const HAUL_DELIVER_MAX: float = 6.0
 const Y_MIN: float = 8.0
 const Y_MAX: float = 28.0
+const DEPTH_Z_MIN: int = 6
+const DEPTH_Z_MAX: int = 19
+const DEPTH_Y_RANGE: float = 25.0
 
 enum State { INSIDE, WALK, IDLE, SIT }
 
@@ -49,7 +52,7 @@ func setup(p_scene: Node, p_home: int, p_work: int, p_shift: float, start_hour: 
 	work_idx = p_work
 	shift_shift = p_shift
 	_speed = randf_range(45.0, 65.0)
-	z_index = 2
+	z_index = depth_z(Y_MIN)  # fiziksel kare başına _physics_process ayak y'sine göre günceller
 	_body = _build_body()
 	if _body != null:
 		add_child(_body)
@@ -112,6 +115,13 @@ func _physics_process(delta: float) -> void:
 	if scene_ref == null:
 		return
 	update_agent(delta, float(scene_ref.call("current_hour_value")))
+	z_index = depth_z(global_position.y)
+
+
+## Oyuncu, işçiler ve zemin süsleriyle (GroundDecorManager) aynı derinlik formülü: ayak y'si 0..25 -> z 6..19.
+## Ayak çizgisi aşağıdaysa (y büyükse) karakter öndeki süslerin önünde çizilir.
+static func depth_z(foot_y: float) -> int:
+	return int(round(lerpf(float(DEPTH_Z_MIN), float(DEPTH_Z_MAX), clampf(foot_y / DEPTH_Y_RANGE, 0.0, 1.0))))
 
 
 ## Test edilebilsin diye saat dışarıdan verilir.

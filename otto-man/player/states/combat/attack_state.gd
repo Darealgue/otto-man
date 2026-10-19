@@ -13,6 +13,9 @@ const UP_ATTACK_ANIMATIONS = ["air_attack_up1", "air_attack_up2"]  # Up attacks 
 const LIGHT_COMBO_RESET_TIME := 0.4  # Faster combo timing (Silksong style)
 const AIR_COMBO_RESET_TIME := 0.5    # Faster air combo timing
 const DEFAULT_DAMAGE_MULTIPLIER = 1  # Default damage multiplier for all attacks
+const _CiftVurusItem = preload("res://resources/items/cift_vurus.gd")
+const CIFT_VURUS_REWIND := _CiftVurusItem.BURST_REWIND
+const CIFT_VURUS_SWING_SPEED := _CiftVurusItem.SWING_SPEED_MULT
 
 # Dynamic value that can be modified by items
 var DAMAGE_MULTIPLIER := DEFAULT_DAMAGE_MULTIPLIER
@@ -36,6 +39,7 @@ var air_combo_step := 0
 var air_combo_timer := 0.0
 var attack_buffer_timer := 0.0
 var effect_spawned := false
+var _double_swing_done := false  # Çift Vuruş: bu saldırı için ikinci savuruş oynandı mı
 var rng := RandomNumberGenerator.new()  # RNG for random combo selection
 
 # Light attack pool - all available light attacks for random combo
@@ -190,7 +194,7 @@ func enter():
 	var anim_speed = ANIMATION_SPEED * player.attack_speed_multiplier
 	if current_attack.find("heavy") == -1 and has_node("/root/ItemManager") and ItemManager.has_active_item("uzun_menzil"):
 		anim_speed *= 0.72  # Uzun menzil: light saldırı hızı belirgin düşüş (denge)
-	animation_player.speed_scale = anim_speed
+	animation_player.speed_scale = anim_speed * _swing_speed_mult()
 	
 	# Check if animation exists before playing
 	if animation_player.has_animation(current_attack):
@@ -214,6 +218,7 @@ func enter():
 	hitbox_enabled = false
 	has_activated_hitbox = false
 	light_combo_timer = LIGHT_COMBO_RESET_TIME
+	_double_swing_done = false
 	if _is_air_attack(current_attack):
 		air_combo_timer = AIR_COMBO_RESET_TIME
 	
@@ -509,12 +514,17 @@ func _update_hitbox():
 		hitbox_start_time = Time.get_ticks_msec() / 1000.0
 		
 		# Set a timer to disable the hitbox after a short duration (Silksong style - faster)
+		var swing_attack := current_attack
 		await get_tree().create_timer(0.08).timeout
 		if hitbox and is_instance_valid(hitbox) and hitbox_enabled:
 			if not use_ranged_only:
 				hitbox.disable()
 			hitbox_enabled = false
 			hitbox_end_time = Time.get_ticks_msec() / 1000.0
+			# Çift Vuruş: vuruş penceresi kapanır kapanmaz animasyonu hazırlık karesine geri sar,
+			# ikinci savuruş serili (burst) gelsin; animasyonun bitmesini beklemez
+			if swing_attack == current_attack and _double_strike_eligible() and not _double_swing_done:
+				_begin_burst_swing(start)
 	
 	# Update hitbox position
 	_update_hitbox_position(hitbox)
@@ -635,9 +645,55 @@ func _get_light_attack_direction() -> Vector2:
 		return Vector2(facing, 1.0).normalized()
 	return Vector2(facing, 0.0)
 
+## Çift Vuruş: hafif saldırı iki seri savuruş olur (heavy ve counter hariç).
+func _double_strike_eligible() -> bool:
+	return current_attack.find("heavy") == -1 and current_attack != "counter_light" and has_node("/root/ItemManager") and ItemManager.has_active_item("cift_vurus")
+
+func _swing_speed_mult() -> float:
+	return CIFT_VURUS_SWING_SPEED if _double_strike_eligible() else 1.0
+
+## İlk vuruş penceresi kapandıktan hemen sonra animasyonu, vuruş başlangıcının biraz öncesine sarar;
+## aynı vuruş karesi tekrar geçilerek hitbox/mermi baştan tetiklenir.
+func _begin_burst_swing(window_start: float) -> void:
+	_double_swing_done = true
+	has_activated_hitbox = false
+	hitbox_enabled = false
+	var hitbox = player.get_node_or_null("Hitbox")
+	if hitbox and hitbox is PlayerHitbox:
+		hitbox.disable()
+		hitbox.disable_combo()
+	if player.is_on_floor() and _is_ground_attack(current_attack):
+		var forward_direction = player.facing_direction if player.facing_direction != 0 else 1.0
+		player.velocity.x = forward_direction * ATTACK_FORWARD_MOMENTUM
+	var length: float = animation_player.current_animation_length
+	if length > 0.0:
+		animation_player.seek(maxf(0.0, window_start - CIFT_VURUS_REWIND) * length, true)
+
+## Animasyon bitince aynı saldırıyı bir kez daha oynatır (hitbox/mermi/on-hit akışı baştan çalışır).
+## Dönüş: ikinci savuruş başlatıldı mı (true ise çağıran bitiş mantığını atlar).
+func _try_double_swing() -> bool:
+	if _double_swing_done or not _double_strike_eligible():
+		return false
+	_double_swing_done = true
+	hitbox_enabled = false
+	has_activated_hitbox = false
+	var hitbox = player.get_node_or_null("Hitbox")
+	if hitbox and hitbox is PlayerHitbox:
+		hitbox.disable()
+		hitbox.disable_combo()
+	if player.is_on_floor() and _is_ground_attack(current_attack):
+		var forward_direction = player.facing_direction if player.facing_direction != 0 else 1.0
+		player.velocity.x = forward_direction * ATTACK_FORWARD_MOMENTUM
+	animation_player.stop()
+	animation_player.play(current_attack)
+	animation_player.seek(0.0, true)
+	return true
+
 func _on_animation_player_animation_finished(anim_name: String):
 
 	if anim_name == current_attack:
+		if _try_double_swing():
+			return
 		# Current attack finished – now allow turn from input (so next hit or idle faces the right way)
 		var input_dir_x = InputManager.get_flattened_axis(&"left", &"right")
 		if input_dir_x != 0 and player.hit_recoil_lock_timer <= 0.0:
@@ -687,7 +743,8 @@ func _on_animation_player_animation_finished(anim_name: String):
 			
 			# Play the new animation
 			animation_player.stop()
-			animation_player.speed_scale = ANIMATION_SPEED * player.attack_speed_multiplier
+			_double_swing_done = false
+			animation_player.speed_scale = ANIMATION_SPEED * player.attack_speed_multiplier * _swing_speed_mult()
 			if animation_player.has_animation(current_attack):
 				animation_player.play(current_attack)
 				animation_player.seek(0.0, true)

@@ -1004,12 +1004,47 @@ func handle_attack(delta: float) -> void:
 			else:
 				change_behavior("patrol")
 
+## Hurt/ölü havadaki düşmanın duvardan sekmesi. ESKİ HATA: her karede `is_on_wall()` doğruysa yukarı +100 itiş
+## veriyordu; `move_and_slide` duvara çarpan hız bileşenini sıfırladığı için yatay sekme hiç işlemiyor, yalnız
+## yukarı itiş kalıyordu. Duvara bitişik bir düşman (yan itme, oyuncunun art arda vuruşu, köşe) her karede
+## tekrar itilip düşük yerçekimli juggle düşüşüyle aynı yerde sonsuza kadar aşağı yukarı gidiyordu.
+## Şimdi: gerçekten duvara doğru, yeterli hızla giderken (move_and_slide ÖNCESİ hız), en fazla
+## WALL_BOUNCE_MAX kez ve aralarında bekleme süresiyle sekilir; yere inince / yeni vuruşta sayaç sıfırlanır.
+const WALL_BOUNCE_MIN_SPEED := 60.0
+const WALL_BOUNCE_COOLDOWN := 0.3
+const WALL_BOUNCE_MAX := 2
+const DYING_REST_FAILSAFE_SEC := 0.4
+const DYING_AIR_FAILSAFE_SEC := 6.0
+var _dying_air_time: float = 0.0
+var _dying_rest_time: float = 0.0
+var _dying_last_pos: Vector2 = Vector2.ZERO
+var _previous_velocity_x: float = 0.0
+var _wall_bounce_cooldown: float = 0.0
+var _wall_bounces: int = 0
+
+func _try_wall_bounce() -> void:
+	if not is_on_wall() or _wall_bounce_cooldown > 0.0 or _wall_bounces >= WALL_BOUNCE_MAX:
+		return
+	if absf(_previous_velocity_x) < WALL_BOUNCE_MIN_SPEED:
+		return
+	# Sadece duvara doğru giderken sek (duvar normali duvardan dışarı bakar)
+	if _previous_velocity_x * get_wall_normal().x >= 0.0:
+		return
+	_wall_bounces += 1
+	_wall_bounce_cooldown = WALL_BOUNCE_COOLDOWN
+	velocity.x = -_previous_velocity_x * 0.6
+	if velocity.y > -50.0:
+		velocity.y = minf(velocity.y, -100.0)
+
 func handle_hurt_behavior(delta: float) -> void:
 	# Ölü ceset burada işlenmez (handle_behavior'da dead ise çağrılmıyor); yine de güvenlik
 	if current_behavior == "dead":
 		return
 	behavior_timer += delta
 	_bounce_cooldown = max(0.0, _bounce_cooldown - delta)
+	_wall_bounce_cooldown = max(0.0, _wall_bounce_cooldown - delta)
+	if is_on_floor():
+		_wall_bounces = 0
 	if sprite and sprite.animation == "fall":
 		sprite.stop()
 	# Ölü ama hâlâ havada - yere çarpmayı bekle (punching bag)
@@ -1021,13 +1056,7 @@ func handle_hurt_behavior(delta: float) -> void:
 			hurtbox.monitorable = true
 		
 		# Check for wall bounce (dead enemies can bounce off walls)
-		if is_on_wall():
-			# Bounce off wall - reverse horizontal velocity
-			var wall_bounce_force = abs(velocity.x) * 0.6  # 60% of horizontal velocity
-			velocity.x = -velocity.x * 0.6  # Reverse and reduce
-			# Small upward component for visual interest
-			if velocity.y > -50.0:  # Only if not already rising fast
-				velocity.y = min(velocity.y, -100.0)  # Small upward boost
+		_try_wall_bounce()
 		
 		if not is_on_floor():
 			# CRITICAL: Stop fall animation immediately if it's playing
@@ -1053,6 +1082,19 @@ func handle_hurt_behavior(delta: float) -> void:
 		# Don't exit hurt state until we hit ground
 		# Don't apply horizontal damping when dead in air - let player juggle freely
 		_was_in_air = true  # Track that we were in air
+		# Zemin teması yok sayılan ama hareketsiz kalan ceset (dar geçit önü, tile köşesi): is_on_floor() hiç doğru
+		# olmuyor, düşman "ölmek için yere inmeyi" sonsuza dek bekleyip yatık pozda takılı kalıyordu ve ölemiyordu.
+		# Konum 0.4 sn kıpırdamadıysa ya da havada toplam 6 sn geçtiyse ölümü tamamla.
+		_dying_air_time += delta
+		if global_position.distance_to(_dying_last_pos) < 0.6:
+			_dying_rest_time += delta
+		else:
+			_dying_rest_time = 0.0
+			_dying_last_pos = global_position
+		if _dying_rest_time >= DYING_REST_FAILSAFE_SEC or _dying_air_time >= DYING_AIR_FAILSAFE_SEC:
+			velocity = Vector2.ZERO
+			die()
+			return
 		return
 	
 	# Check if we just hit ground (was in air, now on ground)
@@ -1117,13 +1159,7 @@ func handle_hurt_behavior(delta: float) -> void:
 	# IMPORTANT: Always play hurt animations when in hurt state, never fall animation
 	if not is_on_floor():
 		# Check for wall bounce (hurt enemies can bounce off walls)
-		if is_on_wall():
-			# Bounce off wall - reverse horizontal velocity
-			var wall_bounce_force = abs(velocity.x) * 0.6  # 60% of horizontal velocity
-			velocity.x = -velocity.x * 0.6  # Reverse and reduce
-			# Small upward component for visual interest
-			if velocity.y > -50.0:  # Only if not already rising fast
-				velocity.y = min(velocity.y, -100.0)  # Small upward boost
+		_try_wall_bounce()
 		
 		# CRITICAL: Stop fall animation immediately if playing (check every frame)
 		if sprite:
@@ -1351,6 +1387,9 @@ func _should_die_now_on_lethal() -> bool:
 func take_damage(amount: float, knockback_force: float = 200.0, knockback_up_force: float = -1.0, apply_knockback: bool = true, source_hitbox: Area2D = null) -> void:
 	_bounce_count = 0
 	_max_bounces = 1
+	_wall_bounces = 0  # Yeni vuruş = yeni sekme hakkı (gerçek hız şartı yine aranır)
+	_dying_air_time = 0.0  # Yeni vuruş juggle'ı sürdürür; takılı-ceset sayaçları sıfırlanır
+	_dying_rest_time = 0.0
 	_just_bounced = false
 	_bounce_cooldown = 0.0
 	var was_in_air = not is_on_floor()
@@ -1530,7 +1569,8 @@ func _physics_process(delta: float) -> void:
 			sprite.modulate = Color(1, 1, 1, 1)  # Keep full opacity
 	
 	# Dead + grounded: ensure death animation plays (may have been skipped if knockback was active during die())
-	if current_behavior == "dead" and is_on_floor() and sprite:
+	# (Yere değmeyen ama hareketsiz duran ceset de ölüm animasyonuna geçer; dar geçit önünde takılan düşman)
+	if current_behavior == "dead" and (is_on_floor() or (abs(velocity.x) < 20.0 and abs(velocity.y) < 40.0)) and sprite:
 		if sprite.animation != "death":
 			if sprite.sprite_frames.has_animation("death"):
 				sprite.play("death")
@@ -1629,6 +1669,12 @@ func _physics_process(delta: float) -> void:
 		
 		# Track velocity before move (for bounce calculation)
 		_previous_velocity_y = velocity.y
+		_previous_velocity_x = velocity.x
+
+		# Bayat "fall" pozu: spawn'da havadayken oynayan fall animasyonu yere inince temizlenmiyordu; patrol/idle
+		# animasyonu yalnızca geçişlerde atandığından düşman ayakta fall pozunda donup kalıyordu (vurulana dek).
+		if sprite and is_on_floor() and sprite.animation == "fall" and (current_behavior == "patrol" or current_behavior == "idle") and health > 0 and not _ambient_playing:
+			sprite.play("idle")
 		
 		if not is_on_floor() and _just_bounced:
 			_just_bounced = false

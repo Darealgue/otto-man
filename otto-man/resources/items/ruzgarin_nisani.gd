@@ -19,7 +19,7 @@ func deactivate(player: CharacterBody2D):
 	super.deactivate(player)
 
 ## uzun_menzil/ok_yagmuru gibi mermi fırlatan itemler bu fonksiyonu çağırıp
-## döneni projectile.element'e atar. Öncelik: zehir > ateş > buz (tek element seçilir).
+## döneni projectile.element'e atar. Öncelik: zehir > ateş > buz > şimşek (tek element seçilir).
 static func detect_active_element(im: Node) -> String:
 	if not im:
 		return ""
@@ -29,4 +29,6 @@ static func detect_active_element(im: Node) -> String:
 		return "fire"
 	if im.has_active_item("buzlu_kilic"):
 		return "frost"
+	if im.has_active_item("statik_yuk"):
+		return "lightning"
 	return ""

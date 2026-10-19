@@ -30,6 +30,14 @@ var summon_animation_timer: float = 0.0  # Track summon animation duration
 var _summoner_hp_finalize_done: bool = false
 
 
+func _is_stealth_detection_enabled() -> bool:
+	return true
+
+
+func get_stealth_facing() -> int:
+	return -1 if (sprite and sprite.flip_h) else 1
+
+
 func _ready() -> void:
 	# Initialize default stats for summoner
 	default_stats = {
@@ -46,6 +54,7 @@ func _ready() -> void:
 		stats = stats.duplicate(true)
 	
 	super._ready()
+	_setup_stealth_perception()
 	# Tank çarpanı spawn sonrası uygulanmalı: TileEnemySpawner scale_to_level() _ready'den
 	# hemen sonra çalışıyor; önce çarparsak stats.max_health ile health / can barı uyumsuz kalıyor.
 	call_deferred("_summoner_apply_hp_tankiness_and_healthbar")
@@ -203,8 +212,10 @@ func _handle_idle(delta: float) -> void:
 	
 	# Check for new target
 	var potential_target = update_stealth_target(delta)
-	if potential_target == null:
+	if potential_target == null and not uses_stealth_detection():
 		potential_target = get_nearest_player()
+	if potential_target == null:
+		stealth_idle_look(delta)
 	if potential_target and is_instance_valid(potential_target):
 		var distance_to_target = global_position.distance_to(potential_target.global_position)
 		if distance_to_target <= float(_stat_value("detection_range", 400.0)):
