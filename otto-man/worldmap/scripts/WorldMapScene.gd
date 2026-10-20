@@ -2978,6 +2978,8 @@ func _is_blocking_world_map_ui_open() -> bool:
 		return true
 	if _settlement_action_menu and _settlement_action_menu.visible:
 		return true
+	if is_instance_valid(_village_ring) and _village_ring.is_open():
+		return true
 	if _player_map_mission_window and _player_map_mission_window.visible:
 		return true
 	if is_instance_valid(_challenge_dialog) and _challenge_dialog.visible:
@@ -4438,7 +4440,8 @@ func _open_settlement_actions_at(pq: int, pr: int, tile: Dictionary) -> void:
 	_refresh_alliance_break_menu_item()
 	_refresh_offensive_raid_menu_item()
 	_settlement_action_menu.position = Vector2i(40, 210)
-	_settlement_action_menu.popup()
+	# Eski liste menüsü yerine köyün üstünde yay üzerinde yuvarlak tuşlar (Ziyaret / Sız / İptal); ticaret, asker, yardım vb. cariye görevlerinden yürütülür.
+	_open_village_action_ring(target_q, target_r)
 	var status_text: String = tr("wm.settlement.action_prompt") % _pending_settlement_name
 	var detail_text: String = _build_settlement_status_text(_pending_settlement_id)
 	if not detail_text.is_empty():
@@ -4522,14 +4525,47 @@ func _on_settlement_action_selected(action_id: int) -> void:
 		_:
 			_update_status_label(tr("wm.settlement.cancelled") % _pending_settlement_name)
 
+var _village_ring: VillageActionRing = null
+
+func _open_village_action_ring(target_q: int, target_r: int) -> void:
+	if not is_instance_valid(_village_ring):
+		_village_ring = VillageActionRing.new()
+		_village_ring.name = "VillageActionRing"
+		var layer: CanvasLayer = get_node_or_null("CanvasLayer")
+		if layer:
+			layer.add_child(_village_ring)
+		else:
+			add_child(_village_ring)
+		_village_ring.chosen.connect(_on_village_ring_chosen)
+	var opts: Array[Dictionary] = [
+		{"id": "visit", "kind": "visit", "label": tr("wm.settlement.action.visit")},
+		{"id": "infiltrate", "kind": "infiltrate", "label": tr("wm.settlement.action.infiltrate")},
+		{"id": "cancel", "kind": "cancel", "label": tr("wm.cancel")},
+	]
+	var tile_px: Vector2 = _axial_to_pixel(target_q, target_r)
+	_village_ring.open_ring(opts, func() -> Vector2:
+		return get_viewport().get_canvas_transform() * to_global(tile_px))
+
+
+func _on_village_ring_chosen(id: String) -> void:
+	match id:
+		"visit":
+			_execute_settlement_visit()
+		"infiltrate":
+			_execute_settlement_visit(true)
+		_:
+			_update_status_label(tr("wm.settlement.cancelled") % _pending_settlement_name)
+
+
 ## Komşu köye girer (bkz. village/visit/VillageVisitScene.gd). Gündüz / gece kipi köyde saate göre belirlenir.
-func _execute_settlement_visit() -> void:
+## infiltrate: gündüz dost köyde bile nöbetçilere yakalanmadan sızma kipi (bkz. VillageVisitLayout.visit_mode).
+func _execute_settlement_visit(infiltrate: bool = false) -> void:
 	if _pending_settlement_id.is_empty():
 		return
 	var scene_manager: Node = get_node_or_null("/root/SceneManager")
 	if scene_manager == null or not scene_manager.has_method("change_to_village_visit"):
 		return
-	var payload: Dictionary = {"source": "world_map", "settlement_id": _pending_settlement_id}
+	var payload: Dictionary = {"source": "world_map", "settlement_id": _pending_settlement_id, "infiltrate": infiltrate}
 	_exit_with_clouds(func(): scene_manager.change_to_village_visit(payload))
 
 func _refresh_aid_menu_item() -> void:

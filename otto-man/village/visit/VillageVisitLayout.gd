@@ -78,11 +78,14 @@ static func is_night(hour: float) -> bool:
 
 ## Ziyaret kipi: "free" (dost köy, gündüz: gizlilik yok), "night_stealth" (dost köy, gece),
 ## "hostile_day" (düşman köy, gündüz: çok geniş görüş), "hostile_night" (düşman köy, gece).
-static func visit_mode(hostile: bool, hour: float) -> String:
+static func visit_mode(hostile: bool, hour: float, infiltrate: bool = false) -> String:
 	var night: bool = is_night(hour)
 	if hostile:
 		return "hostile_night" if night else "hostile_day"
-	return "night_stealth" if night else "free"
+	if night:
+		return "night_stealth"
+	# Sızma: dost köyde gündüz bile nöbetçiler uyanık ("infiltrate"); haritadan "Sız" seçilince.
+	return "infiltrate" if infiltrate else "free"
 
 
 static func stealth_required(mode: String) -> bool:
@@ -94,7 +97,7 @@ static func vision_multiplier(mode: String) -> float:
 	match mode:
 		"hostile_day":
 			return HOSTILE_DAY_VISION_MULT
-		"hostile_night", "night_stealth":
+		"hostile_night", "night_stealth", "infiltrate":
 			return 1.0
 	return 0.0
 

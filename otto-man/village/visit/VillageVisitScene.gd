@@ -133,7 +133,19 @@ func _ready() -> void:
 
 ## Şu anki ziyaret kipi: free / night_stealth / hostile_day / hostile_night (saat TimeManager'dan).
 func current_mode() -> String:
-	return Layout.visit_mode(bool(info.get("hostile", false)), _current_hour())
+	return Layout.visit_mode(bool(info.get("hostile", false)), _current_hour(), _infiltrate_requested())
+
+
+## Haritadan "Sız" seçilerek mi girildi (payload "infiltrate")?
+var _infiltrate_cache: int = -1   # -1 henüz okunmadı, 0 hayır, 1 evet (payload her karede kopyalanmasın)
+
+func _infiltrate_requested() -> bool:
+	if _infiltrate_cache < 0:
+		_infiltrate_cache = 0
+		var sm: Node = get_node_or_null("/root/SceneManager")
+		if sm != null and sm.has_method("get_current_payload"):
+			_infiltrate_cache = 1 if bool(sm.call("get_current_payload").get("infiltrate", false)) else 0
+	return _infiltrate_cache == 1
 
 
 func _current_hour() -> float:
@@ -454,7 +466,7 @@ func _build_villagers() -> void:
 	for v in layout["villagers"]:
 		var agent := VisitVillager.new()
 		holder.add_child(agent)
-		agent.setup(self, int(v["home"]), int(v["work"]), float(v["shift_shift"]), hour)
+		agent.setup(self, int(v["home"]), int(v["work"]), float(v["shift_shift"]), hour, bool(v.get("female", false)))
 		agents.append(agent)
 	_count_residents()
 	_refresh_all_windows()

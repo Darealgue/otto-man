@@ -28,6 +28,7 @@ enum State { INSIDE, WALK, IDLE, SIT }
 var scene_ref: Node = null  # VillageVisitScene (kapı konumu ve doluluk bildirimi için)
 ## true iken köylüyü VillagerShowActor sürer (yüzme, balık tutma, sohbet...), kendi rutini güncellenmez.
 var show_puppet: bool = false
+var female: bool = false   # düzenden gelen cinsiyet (VillageVisitLayout "female"); görünüm ve gösteri etkinlikleri buna göre
 var home_idx: int = -1
 var work_idx: int = -1
 var shift_shift: float = 0.0
@@ -48,7 +49,8 @@ var _haul_work: int = -1
 var _dir: float = 1.0
 
 
-func setup(p_scene: Node, p_home: int, p_work: int, p_shift: float, start_hour: float) -> void:
+func setup(p_scene: Node, p_home: int, p_work: int, p_shift: float, start_hour: float, p_female: bool = false) -> void:
+	female = p_female
 	scene_ref = p_scene
 	home_idx = p_home
 	work_idx = p_work
@@ -109,11 +111,12 @@ func _build_body() -> Node2D:
 	var adb: Node = get_node_or_null("/root/AppearanceDB")
 	var app: Variant = null
 	if adb != null and adb.has_method("generate_random_appearance"):
-		app = adb.call("generate_random_appearance")
+		app = adb.call("generate_random_appearance", "Female" if female else "Male")
 	n.set("is_dungeon_prisoner", true)
 	n.set("appearance", app)
 	n.set("worker_id", -1)
-	n.set("NPC_Info", {"Info": {"Name": ""}, "Latest_news": []})
+	# Gender: kadın köylü görünümü (v3 model) ve gösteri etkinliklerinde (yüzme) kıyafetin korunması için.
+	n.set("NPC_Info", {"Info": {"Name": "", "Gender": "Female" if female else "Male"}, "Latest_news": []})
 	return n
 
 
