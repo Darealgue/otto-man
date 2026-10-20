@@ -53,6 +53,7 @@ var homing_strength: float = 0.0
 var soul_chain: bool = false
 
 func setup(origin: Vector2, direction: Vector2, damage: float) -> void:
+	add_to_group("player_projectiles")
 	global_position = origin
 	_direction = direction.normalized() if direction.length_squared() > 0.01 else Vector2.RIGHT
 	rotation = _direction.angle()  # Çıkış açısına uygun ilerle (hitbox doğrultusu)
@@ -64,6 +65,18 @@ func setup(origin: Vector2, direction: Vector2, damage: float) -> void:
 	# bağımsız, mutlak bir değer olması gerekiyor.
 	z_as_relative = false
 	z_index = 10
+
+## Düşman listesi kare başına BİR kez alınır (eskiden her mermi her karede grubu baştan kopyalıyordu: mermi x düşman maliyeti).
+static var _enemy_cache: Array = []
+static var _enemy_cache_frame: int = -1
+
+static func _enemies(tree: SceneTree) -> Array:
+	var f := Engine.get_physics_frames()
+	if f != _enemy_cache_frame:
+		_enemy_cache_frame = f
+		_enemy_cache = tree.get_nodes_in_group("enemies")
+	return _enemy_cache
+
 
 func _physics_process(delta: float) -> void:
 	if homing_strength > 0.0:
@@ -109,7 +122,7 @@ func _check_enemy_hits(world_pos: Vector2) -> bool:
 	var tree = get_tree()
 	if not tree:
 		return false
-	for node in tree.get_nodes_in_group("enemies"):
+	for node in _enemies(tree):
 		if not is_instance_valid(node) or node.get("current_behavior") == "dead":
 			continue
 		var d := world_pos.distance_to(node.global_position)
@@ -209,7 +222,7 @@ func _find_nearest_enemy(exclude: Node, from_pos: Vector2, max_range: float) -> 
 		return null
 	var best: Node = null
 	var best_dist := max_range
-	for node in tree.get_nodes_in_group("enemies"):
+	for node in _enemies(tree):
 		if not is_instance_valid(node) or node == exclude:
 			continue
 		if node.get("current_behavior") == "dead":

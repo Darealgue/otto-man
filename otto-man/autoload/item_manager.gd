@@ -2347,6 +2347,7 @@ func apply_parkour_momentum_tick() -> void:
 ## ============================================================================
 
 const _MermiProjectileScript = preload("res://effects/light_attack_projectile.gd")
+const MAX_ACTIVE_PLAYER_PROJECTILES := 90
 const _SURU_OKU_SPREAD_DEG := 15.0
 const _SURU_OKU_DAMAGE_RATIO := 0.4
 const _CannonProjectileScript = preload("res://effects/cannon_projectile.gd")
@@ -2365,6 +2366,9 @@ const _PROJECTILE_KIND_DAMAGE_MULT := {"ok": 1.0, "top": 1.6, "bomb": 1.3}
 ## kendi çağrısı ve diğer tetikleyiciler (Gölge Nişancı, Karşı Mermi) false bırakır.
 func spawn_upgraded_projectile(scene_root: Node, origin: Vector2, direction: Vector2, damage: float, max_distance_override: float = -1.0, kind: String = "ok", double_strike: bool = false, mirror_to_shadows: bool = false) -> void:
 	if not scene_root:
+		return
+	# Emniyet sınırı: aynı anda havada en fazla bu kadar oyuncu mermisi (çok mermili build'lerde kalabalıkta kare süresi çökmesin).
+	if get_tree().get_nodes_in_group("player_projectiles").size() >= MAX_ACTIVE_PLAYER_PROJECTILES:
 		return
 	if mirror_to_shadows:
 		for decoy in get_tree().get_nodes_in_group("player_decoy"):

@@ -28,6 +28,7 @@ const FRONT_Y_JITTER: float = 6.0          # ön süsler zeminde 0..6 piksel ön
 const DEPTH_Z_MIN: int = 6
 const DEPTH_Z_MAX: int = 19
 const DEPTH_Y_RANGE: float = 25.0
+const DEPTH_BAND_TOP_Y: float = 5.0         # Worker.VERTICAL_RANGE_MIN ile aynı
 
 const BUILDING_CHECK_INTERVAL: float = 3.0
 const OFFSCREEN_MARGIN: float = 250.0
@@ -321,8 +322,10 @@ func _occupy(slot: Dictionary) -> void:
 # süs önde, yukarıdaysa arkada çizilir. Süsler zeminin en önünde (y >= 0) durduğu için +1 ile ayak çizgisindeki karakterin
 # de önüne geçer.
 func _depth_z(depth_y: float) -> int:
-	var t: float = clampf(depth_y / DEPTH_Y_RANGE, 0.0, 1.0)
-	return int(round(lerpf(float(DEPTH_Z_MIN), float(DEPTH_Z_MAX), t))) + 1
+	# Karakterler yürünebilir bandı VERTICAL_RANGE_MIN (y=5)..MAX (y=30) arasında z 6..19'a eşler (Worker.gd). Süs de aynı eşlemeyi
+	# kullanır (eskiden y=0'dan başlıyordu: ayak çizgisi 5 px aşağıdaki köylü süsün ARKASINDA kalıyordu, ateşin önünde oturanlar gibi).
+	var t: float = clampf((depth_y + ground_y - DEPTH_BAND_TOP_Y) / DEPTH_Y_RANGE, 0.0, 1.0)
+	return int(round(lerpf(float(DEPTH_Z_MIN), float(DEPTH_Z_MAX), t)))
 
 func _vacate(slot: Dictionary) -> void:
 	var node = slot.get("node")

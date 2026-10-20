@@ -31,8 +31,9 @@ func _ready() -> void:
 	panel.add_theme_stylebox_override("panel", style)
 	panel.anchor_left = 0.5
 	panel.anchor_right = 0.5
-	panel.anchor_top = 0.62
-	panel.anchor_bottom = 0.62
+	# Yukarıda dursun: menü açıkken kedi ve oyuncu (ekranın ortasında) görünsün.
+	panel.anchor_top = 0.2
+	panel.anchor_bottom = 0.2
 	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 	add_child(panel)

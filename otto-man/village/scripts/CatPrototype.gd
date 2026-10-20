@@ -508,6 +508,7 @@ func _physics_process(delta: float) -> void:
 	_update_depth_sorting()
 	_update_fish_icon()
 	_update_companion_badge()
+	_update_nameplate()
 	_debug_log_motion_if_needed()
 
 
@@ -772,10 +773,57 @@ func wants_fish() -> bool:
 	return state == CatState.ROAM or state == CatState.IDLE
 
 
+const ICON_SHOW_DIST: float = 320.0         # oyuncu bu kadar yakındaysa balık slotları görünür
+const ICON_HIDE_DIST: float = 400.0         # bundan uzaklaşınca kaybolur
+const NAME_SHOW_DIST: float = 170.0         # tanıdık kedinin ismi bu kadar yakında görünür
+const NAME_HIDE_DIST: float = 230.0
+var _icon_near: bool = false
+var _name_near: bool = false
+var _nameplate: Label = null
+
+
+func _player_distance() -> float:
+	var p := get_tree().get_first_node_in_group("player") as Node2D
+	if p == null or not is_instance_valid(p):
+		return INF
+	return absf(p.global_position.x - global_position.x) + absf(p.global_position.y - global_position.y) * 0.5
+
+
+## Tanıdık (bağ seviyesi 1+) kedinin ismi, köylülerde olduğu gibi oyuncu yaklaşınca tepesinde görünür (kutusuz, konturlu).
+func _update_nameplate() -> void:
+	var roster := get_node_or_null("/root/CatRoster")
+	var known: bool = roster != null and not _persistent_cat_id.is_empty() and int(roster.get_level(_persistent_cat_id)) >= 1
+	var dist: float = _player_distance()
+	_name_near = dist < NAME_SHOW_DIST if not _name_near else dist < NAME_HIDE_DIST
+	var want: bool = known and _name_near and state != CatState.SLEEP
+	if want and not is_instance_valid(_nameplate):
+		_nameplate = Label.new()
+		_nameplate.name = "CatNameplate"
+		_nameplate.text = get_cat_name()
+		_nameplate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_nameplate.z_index = 30
+		_nameplate.modulate.a = 0.0
+		add_child(_nameplate)
+		NpcOverheadUi.apply_nameplate_text_style(_nameplate)
+		_nameplate.reset_size()
+		_nameplate.position = Vector2(-_nameplate.size.x * 0.5, -88.0)   # balık slotlarının (y ≈ -54) üstünde
+	if is_instance_valid(_nameplate):
+		var target_a: float = 1.0 if want else 0.0
+		_nameplate.modulate.a = move_toward(_nameplate.modulate.a, target_a, 0.08)
+		if not want and _nameplate.modulate.a <= 0.0:
+			_nameplate.queue_free()
+			_nameplate = null
+
+
 func _update_fish_icon() -> void:
 	var asking: bool = wants_fish()
 	# Beslendikten sonra slotlar kısa süre görünür kalır; kedi balık istiyorsa sürekli görünür.
 	var show_icon: bool = asking or (Time.get_ticks_msec() < _slots_visible_until_msec and not _fishing_active)
+	# Oyuncu uzaklaşınca simge kaybolur (yakınlaşınca geri gelir); eşik farkı titremeyi önler.
+	var dist: float = _player_distance()
+	_icon_near = dist < ICON_SHOW_DIST if not _icon_near else dist < ICON_HIDE_DIST
+	if not _icon_near and not _fishing_active:
+		show_icon = false
 	if show_icon and not is_instance_valid(_fish_icon):
 		_fish_icon = _CatFishIcon.new()
 		_fish_icon.slots = CatRoster.FISH_PER_DAY_CAP
@@ -803,7 +851,7 @@ func _start_fishing(player: Node2D) -> void:
 		if not bool(vm.call("spend_resources", {"food": FISHING_BAIT_FOOD})):
 			_show_player_bubble(player, tr("cat.fish.no_bait"))
 			return
-		_show_player_bubble(player, tr("cat.fish.bait_used"))
+		ResourceLossPopup.spawn("food", FISHING_BAIT_FOOD, player.global_position + Vector2(0.0, -90.0))
 	_hold_still(90.0, player)
 	_fishing_active = true
 	_fishing_player = player
@@ -948,6 +996,8 @@ func _show_name_bubble() -> void:
 	if cat_name.is_empty():
 		return
 	# Köylü isim etiketiyle aynı yazı stili (kutusuz, konturlu); konuşma balonu değil.
+	if is_instance_valid(_nameplate):
+		return   # kalıcı isim etiketi zaten görünüyor
 	var old := get_node_or_null("CatNameLabel")
 	if old != null:
 		old.queue_free()
@@ -960,7 +1010,7 @@ func _show_name_bubble() -> void:
 	add_child(lbl)
 	NpcOverheadUi.apply_nameplate_text_style(lbl)
 	lbl.reset_size()
-	lbl.position = Vector2(-lbl.size.x * 0.5, -78.0)
+	lbl.position = Vector2(-lbl.size.x * 0.5, -88.0)
 	var tw := lbl.create_tween()
 	tw.tween_interval(2.2)
 	tw.tween_property(lbl, "modulate:a", 0.0, 0.4)

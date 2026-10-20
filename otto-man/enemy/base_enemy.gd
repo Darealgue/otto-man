@@ -752,14 +752,38 @@ func add_poison_stack(max_stacks: int, damage_per_stack: float, tick_interval: f
 		poison_tick_timer = 0.0
 	_ensure_status_tint_timer()
 
+## Emniyet sınırı (performans/donma): zehir+ateş ve ateş+buz patlamaları çok sık vuran build'lerde (çok bıçak, çok debuff,
+## kalabalık) her vuruşta ayrı bir alan patlaması ve hasar zinciri doğuruyordu. Düşman başına kısa bekleme + tüm sahnede
+## kare başına üst sınır; sınırı aşan vuruş yine ateş/zehir stack'i uygular, yalnızca patlama atlanır.
+const STATUS_EXPLOSION_COOLDOWN_MSEC: int = 350
+const STATUS_EXPLOSION_MAX_PER_FRAME: int = 3
+static var _status_explosion_frame: int = -1
+static var _status_explosions_this_frame: int = 0
+var _last_status_explosion_msec: int = -100000
+
+func _allow_status_explosion() -> bool:
+	var now := Time.get_ticks_msec()
+	if now - _last_status_explosion_msec < STATUS_EXPLOSION_COOLDOWN_MSEC:
+		return false
+	var frame := Engine.get_physics_frames()
+	if frame != _status_explosion_frame:
+		_status_explosion_frame = frame
+		_status_explosions_this_frame = 0
+	if _status_explosions_this_frame >= STATUS_EXPLOSION_MAX_PER_FRAME:
+		return false
+	_status_explosions_this_frame += 1
+	_last_status_explosion_msec = now
+	return true
+
+
 func add_burn_stack() -> void:
 	# Zehir + ateş = patlama: üzerinde zehir varken ateş alırsa AoE patlama (düşman + oyuncu hasar alabilir)
-	if poison_stacks > 0:
+	if poison_stacks > 0 and _allow_status_explosion():
 		var explosion = POISON_FIRE_EXPLOSION_SCENE.instantiate()
 		get_tree().current_scene.add_child(explosion)
 		explosion.global_position = global_position
 	# Ateş + buz = buhar patlaması: üzerindeki don ateşle buharlaşır, biriken don kadar bonus hasar verir
-	if frost_stacks > 0:
+	if frost_stacks > 0 and _allow_status_explosion():
 		var steam_bonus_damage := float(frost_stacks) * 1.5
 		frost_stacks = 0
 		frost_decay_timer = 0.0
@@ -891,10 +915,31 @@ func get_lightning_stacks_display() -> int:
 		return 0
 	return lightning_stacks
 
+## Emniyet sınırı: kalabalıkta şimşek komşudan komşuya zincirleme sıçrayıp (her sıçrama hasar + isabete bağlı tüm item'ları
+## tetikliyor) bir karede katlanarak büyüyebilir. İç içe derinlik ve kare başına sıçrama sayısı sınırlı.
+const LIGHTNING_SPREAD_MAX_DEPTH: int = 3
+const LIGHTNING_SPREAD_MAX_PER_FRAME: int = 6
+static var _lightning_depth: int = 0
+static var _lightning_frame: int = -1
+static var _lightning_spreads_this_frame: int = 0
+
 func _spread_lightning_stack() -> void:
 	var tree := get_tree()
 	if not tree:
 		return
+	var lf := Engine.get_physics_frames()
+	if lf != _lightning_frame:
+		_lightning_frame = lf
+		_lightning_spreads_this_frame = 0
+	if _lightning_depth >= LIGHTNING_SPREAD_MAX_DEPTH or _lightning_spreads_this_frame >= LIGHTNING_SPREAD_MAX_PER_FRAME:
+		return
+	_lightning_spreads_this_frame += 1
+	_lightning_depth += 1
+	_spread_lightning_stack_impl(tree)
+	_lightning_depth -= 1
+
+
+func _spread_lightning_stack_impl(tree: SceneTree) -> void:
 	var candidates: Array = []
 	for node in tree.get_nodes_in_group("enemies"):
 		if not is_instance_valid(node) or node == self:

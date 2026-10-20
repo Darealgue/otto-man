@@ -828,6 +828,10 @@ func lose_carried_resources_by_fraction(fraction: float, min_loss_per_type: int 
 		return {}
 	_emit_carried_changed()
 	carried_resources_lost.emit(losses.duplicate())
+	var popup_delay := 0.0
+	for lost_type in losses.keys():
+		ResourceLossPopup.spawn(String(lost_type), int(losses[lost_type]), null, popup_delay)
+		popup_delay += 0.18
 	return losses
 
 func _set_carried_resource(type: String, value: int, emit_signal_on_change: bool = true) -> void:

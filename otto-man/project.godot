@@ -71,6 +71,7 @@ VillageDigest="*res://autoload/VillageDigest.gd"
 VillageCardEffects="*res://autoload/VillageCardEffects.gd"
 CatRoster="*res://autoload/CatRoster.gd"
 CatCompanion="*res://autoload/CatCompanion.gd"
+PerfWatchdog="*res://autoload/PerfWatchdog.gd"
 
 [debug]
 
