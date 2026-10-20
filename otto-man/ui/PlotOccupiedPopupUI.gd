@@ -1,6 +1,8 @@
 extends Control
 class_name PlotOccupiedPopupUI
-## Dolu parsel / bina: yükselt, yık, bilgi — parşömen temalı, oyunu durdurmaz.
+## Dolu parsel / bina: binanın üstünde yay üzerinde açılan yuvarlak tuşlar (Yükselt, Kat/Ev ekle, Silahlandır, Yükseltmeler, Yık, Vazgeç).
+## Merkezin üstünde bina adı, seviye ve işçi sayısı bilgi kutusu görünür; yükseltme ve yıkım için aynı tuşlarla Onayla / Vazgeç sorulur.
+## Eski parşömen popup'ın yerini aldı; sinyaller aynı (VillagePlotSystem değişmeden çalışır). Oyunu durdurmaz.
 
 signal upgrade_requested
 signal build_house_requested
@@ -10,26 +12,13 @@ signal inventor_upgrades_requested
 signal info_requested
 signal closed
 
-const _MEDIEVAL_THEME := preload("res://resources/medieval_theme.tres")
-const _WORKERS_ICON := "res://assets/Icons/workers_icon.png"
 const _INVENTOR_WORKSHOP_SCENE_PATH := "res://village/buildings/InventorWorkshop.tscn"
-const _ConfirmDialogScene := preload("res://ui/ConfirmDialog.tscn")
+const RING_ANCHOR_UP: float = 190.0     # halka merkezi, bina taban noktasının bu kadar üstünde (binanın gövdesi üstünde açılır)
+const WRAP_CHARS: int = 38
 
-var _panel: PanelContainer
-var _title_label: Label
-var _level_label: Label
-var _worker_row: HBoxContainer
-var _worker_label: Label
-var _upgrade_btn: Button
-var _upgrade_cost_label: Label
-var _build_house_btn: Button
-var _build_house_cost_label: Label
-var _weaponize_btn: Button
-var _inventor_upgrades_btn: Button
-var _demolish_btn: Button
+var _ring: VillageActionRing = null
 var _building: Node2D = null
 var _is_open := false
-var _confirm_dialog: Control = null
 var _pending_confirm_action: String = ""
 
 
@@ -37,9 +26,10 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	theme = _MEDIEVAL_THEME
-	_build_ui()
-	visible = false
+	_ring = VillageActionRing.new()
+	_ring.name = "PlotActionRing"
+	add_child(_ring)
+	_ring.chosen.connect(_on_ring_chosen)
 	call_deferred("_reapply_full_rect")
 
 
@@ -47,295 +37,144 @@ func _reapply_full_rect() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 
-func _build_ui() -> void:
-	var dim := ColorRect.new()
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(0.05, 0.03, 0.02, 0.5)
-	dim.mouse_filter = Control.MOUSE_FILTER_STOP
-	dim.gui_input.connect(_on_dim_gui_input)
-	add_child(dim)
-
-	_panel = PanelContainer.new()
-	_panel.anchor_left = 0.5
-	_panel.anchor_top = 0.5
-	_panel.anchor_right = 0.5
-	_panel.anchor_bottom = 0.5
-	_panel.offset_left = -260
-	_panel.offset_top = -195
-	_panel.offset_right = 260
-	_panel.offset_bottom = 195
-	_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
-	ParchmentTextures.apply_large_panel_style(_panel, 20)
-	add_child(_panel)
-
-	var root := VBoxContainer.new()
-	root.add_theme_constant_override("separation", 10)
-	_panel.add_child(root)
-
-	_title_label = Label.new()
-	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title_label.add_theme_font_size_override("font_size", 26)
-	root.add_child(_title_label)
-
-	var divider := ColorRect.new()
-	divider.custom_minimum_size = Vector2(0, 2)
-	divider.color = Color(0.6, 0.47, 0.28, 0.85)
-	root.add_child(divider)
-
-	var stats := VBoxContainer.new()
-	stats.add_theme_constant_override("separation", 6)
-	root.add_child(stats)
-
-	_level_label = Label.new()
-	_level_label.add_theme_font_size_override("font_size", 17)
-	_level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	stats.add_child(_level_label)
-
-	_worker_row = HBoxContainer.new()
-	_worker_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_worker_row.add_theme_constant_override("separation", 6)
-	stats.add_child(_worker_row)
-
-	if ResourceLoader.exists(_WORKERS_ICON):
-		var icon := TextureRect.new()
-		icon.custom_minimum_size = Vector2(22, 22)
-		icon.texture = load(_WORKERS_ICON)
-		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		_worker_row.add_child(icon)
-
-	_worker_label = Label.new()
-	_worker_label.add_theme_font_size_override("font_size", 17)
-	_worker_row.add_child(_worker_label)
-
-	stats.add_child(_make_worker_key_bar())
-
-	var actions := VBoxContainer.new()
-	actions.add_theme_constant_override("separation", 6)
-	root.add_child(actions)
-
-	_upgrade_btn = Button.new()
-	_upgrade_btn.text = tr("plot.upgrade")
-	_upgrade_btn.custom_minimum_size = Vector2(0, 44)
-	_upgrade_btn.pressed.connect(_on_upgrade_pressed)
-	_style_focus(_upgrade_btn)
-	actions.add_child(_upgrade_btn)
-
-	_upgrade_cost_label = Label.new()
-	_upgrade_cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_upgrade_cost_label.add_theme_font_size_override("font_size", 15)
-	_upgrade_cost_label.modulate = Color(1, 1, 1, 0.75)
-	actions.add_child(_upgrade_cost_label)
-
-	_build_house_btn = Button.new()
-	_build_house_btn.text = tr("plot.build_house")
-	_build_house_btn.custom_minimum_size = Vector2(0, 44)
-	_build_house_btn.pressed.connect(_on_build_house_pressed)
-	_style_focus(_build_house_btn)
-	actions.add_child(_build_house_btn)
-
-	_build_house_cost_label = Label.new()
-	_build_house_cost_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_build_house_cost_label.add_theme_font_size_override("font_size", 15)
-	_build_house_cost_label.modulate = Color(1, 1, 1, 0.75)
-	actions.add_child(_build_house_cost_label)
-
-	_weaponize_btn = Button.new()
-	_weaponize_btn.text = tr("plot.weaponize")
-	_weaponize_btn.custom_minimum_size = Vector2(0, 44)
-	_weaponize_btn.pressed.connect(_on_weaponize_pressed)
-	_style_focus(_weaponize_btn)
-	actions.add_child(_weaponize_btn)
-
-	_inventor_upgrades_btn = Button.new()
-	_inventor_upgrades_btn.text = tr("plot.inventor_upgrades")
-	_inventor_upgrades_btn.custom_minimum_size = Vector2(0, 44)
-	_inventor_upgrades_btn.pressed.connect(_on_inventor_upgrades_pressed)
-	_style_focus(_inventor_upgrades_btn)
-	actions.add_child(_inventor_upgrades_btn)
-
-	_demolish_btn = Button.new()
-	_demolish_btn.text = tr("plot.demolish")
-	_demolish_btn.custom_minimum_size = Vector2(0, 40)
-	_demolish_btn.pressed.connect(_on_demolish_pressed)
-	_style_focus(_demolish_btn)
-	actions.add_child(_demolish_btn)
-
-	root.add_child(_make_close_hint_bar())
-	TextOutline.apply_to_tree(self)
-
-
-func _make_worker_key_bar() -> Control:
-	var im := get_node_or_null("/root/InputManager")
-	var is_pad := im != null and bool(im.get("last_input_from_joypad"))
-	var bar := HBoxContainer.new()
-	bar.alignment = BoxContainer.ALIGNMENT_CENTER
-	bar.add_theme_constant_override("separation", 4)
-	if is_pad:
-		bar.add_child(_make_chip("L2")); _add_bar_label(bar, tr("plot.worker_remove_hint"))
-		bar.add_child(_make_chip("R2")); _add_bar_label(bar, tr("plot.worker_add_hint"))
-	else:
-		var rem: String = InputManager.get_action_key_name(&"village_worker_remove")
-		var add_: String = InputManager.get_action_key_name(&"village_worker_add")
-		bar.add_child(_make_chip(rem)); _add_bar_label(bar, tr("plot.worker_remove_hint"))
-		bar.add_child(_make_chip(add_)); _add_bar_label(bar, tr("plot.worker_add_hint"))
-	return bar
-
-
-func _make_close_hint_bar() -> Control:
-	var im := get_node_or_null("/root/InputManager")
-	var is_pad := im != null and bool(im.get("last_input_from_joypad"))
-	var bar := HBoxContainer.new()
-	bar.alignment = BoxContainer.ALIGNMENT_END
-	bar.add_theme_constant_override("separation", 4)
-	bar.add_child(_make_chip("Ⓑ" if is_pad else "ESC"))
-	_add_bar_label(bar, tr("plot.close"), Color(1, 1, 1, 0.45))
-	return bar
-
-
-func _make_chip(key_text: String) -> Control:
-	var chip := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.22, 0.16, 0.08, 0.9)
-	sb.border_width_left = 2; sb.border_width_top = 2
-	sb.border_width_right = 2; sb.border_width_bottom = 2
-	sb.border_color = Color(0.78, 0.64, 0.32, 1.0)
-	sb.corner_radius_top_left = 5; sb.corner_radius_top_right = 5
-	sb.corner_radius_bottom_left = 5; sb.corner_radius_bottom_right = 5
-	sb.content_margin_left = 5; sb.content_margin_right = 5
-	sb.content_margin_top = 1; sb.content_margin_bottom = 1
-	chip.add_theme_stylebox_override("panel", sb)
-	var lbl := Label.new()
-	lbl.text = key_text
-	lbl.add_theme_font_size_override("font_size", 15)
-	chip.add_child(lbl)
-	return chip
-
-
-func _add_bar_label(bar: HBoxContainer, text: String, color: Color = Color(1, 1, 1, 0.6)) -> void:
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", 15)
-	lbl.modulate = color
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	bar.add_child(lbl)
-
-
-## Klavye/gamepad odak halkası: parşömen üzerinde farkedilir altın parlama.
-func _style_focus(button: Button) -> void:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.3, 0.22, 0.1, 0.9)
-	sb.border_width_left = 3
-	sb.border_width_top = 3
-	sb.border_width_right = 3
-	sb.border_width_bottom = 3
-	sb.border_color = Color(1.0, 0.85, 0.35, 1.0)
-	sb.corner_radius_top_left = 6
-	sb.corner_radius_top_right = 6
-	sb.corner_radius_bottom_left = 6
-	sb.corner_radius_bottom_right = 6
-	sb.expand_margin_left = 2
-	sb.expand_margin_top = 2
-	sb.expand_margin_right = 2
-	sb.expand_margin_bottom = 2
-	button.add_theme_stylebox_override("focus", sb)
-
-
 func show_for_building(building: Node2D) -> void:
 	_reapply_full_rect()
 	_building = building
 	_is_open = true
-	_refresh()
-	visible = true
-	call_deferred("_grab_initial_focus")
-
-
-func _grab_initial_focus() -> void:
-	if not visible:
-		return
-	if is_instance_valid(_upgrade_btn) and _upgrade_btn.visible and not _upgrade_btn.disabled:
-		_upgrade_btn.grab_focus()
-	elif is_instance_valid(_build_house_btn) and _build_house_btn.visible and not _build_house_btn.disabled:
-		_build_house_btn.grab_focus()
-	elif is_instance_valid(_weaponize_btn) and _weaponize_btn.visible:
-		_weaponize_btn.grab_focus()
-	elif is_instance_valid(_inventor_upgrades_btn) and _inventor_upgrades_btn.visible:
-		_inventor_upgrades_btn.grab_focus()
-	elif is_instance_valid(_demolish_btn):
-		_demolish_btn.grab_focus()
+	_pending_confirm_action = ""
+	_open_main_ring()
 
 
 func hide_popup() -> void:
 	_is_open = false
-	visible = false
+	_pending_confirm_action = ""
+	if is_instance_valid(_ring):
+		_ring.close_ring()
 	_building = null
 	closed.emit()
 
 
-func _refresh() -> void:
-	if not is_instance_valid(_building) or _title_label == null:
+func _center_provider() -> Vector2:
+	if not is_instance_valid(_building):
+		return get_viewport_rect().size * 0.5
+	return get_viewport().get_canvas_transform() * (_building.global_position + Vector2(0.0, -RING_ANCHOR_UP))
+
+
+func _open_main_ring() -> void:
+	if not is_instance_valid(_building) or not is_instance_valid(_ring):
 		return
 	var scene_path := String(_building.scene_file_path)
-	_title_label.text = LocaleManager.get_building_name(scene_path) if not scene_path.is_empty() else _building.name
+	var title: String = LocaleManager.get_building_name(scene_path) if not scene_path.is_empty() else String(_building.name)
 	var lvl := int(_building.level) if "level" in _building else 1
 	var max_lvl := int(_building.max_level) if "max_level" in _building else 1
 	var workers := int(_building.assigned_workers) if "assigned_workers" in _building else 0
 	var max_w := int(_building.max_workers) if "max_workers" in _building else 0
-
-	_level_label.text = tr("plot.level_display") % [lvl, max_lvl]
-
+	var lines := PackedStringArray([tr("plot.level_display") % [lvl, max_lvl]])
 	if max_w > 0:
-		_worker_row.visible = true
-		_worker_label.text = "%d / %d" % [workers, max_w]
-		_worker_label.modulate = Color(0.55, 1.0, 0.55) if workers >= max_w else Color(1, 1, 1)
-	else:
-		_worker_row.visible = false
+		lines.append(tr("plot.workers_line") % [workers, max_w])
 
+	var opts: Array[Dictionary] = []
 	var upgrading: bool = "is_upgrading" in _building and bool(_building.is_upgrading)
-	var supports_upgrade := _building.has_method("start_upgrade")
-	_upgrade_btn.visible = supports_upgrade
-	_upgrade_cost_label.visible = supports_upgrade
-	if supports_upgrade:
+	if _building.has_method("start_upgrade"):
+		var up := {"id": "upgrade", "kind": "upgrade", "label": "", "sub": "", "disabled": false}
 		if upgrading:
-			_upgrade_btn.text = tr("plot.upgrading")
-			_upgrade_btn.disabled = true
-			_upgrade_cost_label.text = ""
+			up["label"] = tr("plot.upgrading")
+			up["disabled"] = true
 		elif lvl >= max_lvl:
-			_upgrade_btn.text = tr("plot.max_level")
-			_upgrade_btn.disabled = true
-			_upgrade_cost_label.text = ""
+			up["label"] = tr("plot.max_level")
+			up["disabled"] = true
 		else:
-			_upgrade_btn.text = tr("plot.upgrade_leveled") % (lvl + 1)
-			_upgrade_btn.disabled = false
-			_upgrade_cost_label.text = _format_upgrade_cost(scene_path, lvl + 1)
+			up["label"] = tr("plot.upgrade_leveled") % (lvl + 1)
+			up["sub"] = _format_upgrade_cost(scene_path, lvl + 1)
+		opts.append(up)
 
 	var supports_house_floor := false
-	if is_instance_valid(VillageManager) and _building is Node2D:
-		supports_house_floor = VillageManager.can_build_residential_floor_on(_building as Node2D)
-		if not supports_house_floor and VillageManager.has_pending_house_floor_on(_building as Node2D):
-			supports_house_floor = true
-	_build_house_btn.visible = supports_house_floor
-	_build_house_cost_label.visible = supports_house_floor
+	if is_instance_valid(VillageManager):
+		supports_house_floor = VillageManager.can_build_residential_floor_on(_building) or VillageManager.has_pending_house_floor_on(_building)
 	if supports_house_floor:
-		var pending_min := 0
-		if is_instance_valid(VillageManager):
-			pending_min = VillageManager.get_pending_house_floor_minutes_on(_building as Node2D)
+		var pending_min := VillageManager.get_pending_house_floor_minutes_on(_building)
+		var hs := {"id": "house", "kind": "house", "label": "", "sub": "", "disabled": false}
 		if pending_min > 0:
-			_build_house_btn.text = tr("plot.building")
-			_build_house_btn.disabled = true
-			_build_house_cost_label.text = tr("plot.remaining_hours") % (float(pending_min) / 60.0)
+			hs["label"] = tr("plot.building")
+			hs["sub"] = tr("plot.remaining_hours") % (float(pending_min) / 60.0)
+			hs["disabled"] = true
 		else:
 			var has_floors := scene_path == VillageManager.HOUSE_SCENE_PATH
 			if not has_floors:
 				var ext := _building.get_node_or_null("ResidentialHousingExtension")
 				if ext != null and "current_floors" in ext:
 					has_floors = int(ext.current_floors) > 0
-			_build_house_btn.text = tr("plot.add_floor") if has_floors else tr("plot.build_house")
-			_build_house_btn.disabled = not VillageManager.can_build_residential_floor_on(_building as Node2D)
-			_build_house_cost_label.text = _format_house_build_cost()
+			hs["label"] = tr("plot.add_floor") if has_floors else tr("plot.build_house")
+			hs["sub"] = _format_house_build_cost()
+			hs["disabled"] = not VillageManager.can_build_residential_floor_on(_building)
+		opts.append(hs)
 
-	_weaponize_btn.visible = _building.has_method("equip_soldier")
-	_inventor_upgrades_btn.visible = scene_path == _INVENTOR_WORKSHOP_SCENE_PATH
+	if _building.has_method("equip_soldier"):
+		opts.append({"id": "weaponize", "kind": "weapon", "label": tr("plot.weaponize")})
+	if scene_path == _INVENTOR_WORKSHOP_SCENE_PATH:
+		opts.append({"id": "inventor", "kind": "inventor", "label": tr("plot.inventor_upgrades")})
+	opts.append({"id": "demolish", "kind": "demolish", "label": tr("plot.demolish")})
+	opts.append({"id": "cancel", "kind": "cancel", "label": tr("wm.cancel")})
+	_ring.open_ring(opts, Callable(self, "_center_provider"), title, lines)
+
+
+## Yükseltme/yıkım gibi geri alınamayan kararlar için aynı tuşlarla "emin misin?" sorar: Onayla / Vazgeç.
+## Vazgeçilirse ana halka tekrar açılır.
+func _request_confirmation(action: String, title: String, message: String) -> void:
+	_pending_confirm_action = action
+	var opts: Array[Dictionary] = [
+		{"id": "confirm", "kind": "confirm", "label": tr("wm.ok")},
+		{"id": "cancel", "kind": "cancel", "label": tr("wm.cancel")},
+	]
+	_ring.open_ring(opts, Callable(self, "_center_provider"), title, _wrap(message, WRAP_CHARS))
+
+
+static func _wrap(text: String, max_chars: int) -> PackedStringArray:
+	var out := PackedStringArray()
+	var cur := ""
+	for word in text.split(" "):
+		if not cur.is_empty() and cur.length() + 1 + word.length() > max_chars:
+			out.append(cur)
+			cur = word
+		else:
+			cur = word if cur.is_empty() else cur + " " + word
+	if not cur.is_empty():
+		out.append(cur)
+	return out
+
+
+func _on_ring_chosen(id: String) -> void:
+	match id:
+		"upgrade":
+			_request_confirmation("upgrade", tr("plot.confirm_upgrade_title"), tr("plot.confirm_upgrade_message"))
+		"demolish":
+			_request_confirmation("demolish", tr("plot.confirm_demolish_title"), tr("plot.confirm_demolish_message"))
+		"house":
+			build_house_requested.emit()
+			hide_popup()
+		"weaponize":
+			weaponize_requested.emit()
+			hide_popup()
+		"inventor":
+			inventor_upgrades_requested.emit()
+			hide_popup()
+		"confirm":
+			var action := _pending_confirm_action
+			_pending_confirm_action = ""
+			match action:
+				"upgrade":
+					upgrade_requested.emit()
+				"demolish":
+					demolish_requested.emit()
+			hide_popup()
+		"cancel":
+			if not _pending_confirm_action.is_empty():
+				_pending_confirm_action = ""
+				_open_main_ring()   # onaydan vazgeçildi: ana halkaya dön
+			else:
+				hide_popup()
+		_:
+			hide_popup()
 
 
 func _format_house_build_cost() -> String:
@@ -344,21 +183,14 @@ func _format_house_build_cost() -> String:
 	# Aktif VillageCardEffects kartlarını (altın çarpanı, kaynak muafiyeti, bedava inşa)
 	# da yansıtan gerçek maliyet — gösterilen sayı her zaman gerçekte ödenenle eşleşsin.
 	var cost: Dictionary = VillageManager.get_effective_build_cost(VillageManager.HOUSE_SCENE_PATH)
-	if cost.is_empty():
-		return ""
-	var parts: PackedStringArray = PackedStringArray()
-	for key in cost.keys():
-		var amount := int(cost[key])
-		if amount <= 0:
-			continue
-		parts.append("%d %s" % [amount, LocaleManager.get_resource_name(String(key))])
-	if parts.is_empty():
-		return ""
-	return tr("plot.cost_prefix") + ", ".join(parts)
+	return _format_cost(cost)
 
 
 func _format_upgrade_cost(scene_path: String, target_level: int) -> String:
-	var cost: Dictionary = BuildingUpgradeConfig.get_cost(scene_path, target_level)
+	return _format_cost(BuildingUpgradeConfig.get_cost(scene_path, target_level))
+
+
+func _format_cost(cost: Dictionary) -> String:
 	if cost.is_empty():
 		return ""
 	var parts: PackedStringArray = PackedStringArray()
@@ -370,95 +202,3 @@ func _format_upgrade_cost(scene_path: String, target_level: int) -> String:
 	if parts.is_empty():
 		return ""
 	return tr("plot.cost_prefix") + ", ".join(parts)
-
-
-func _on_upgrade_pressed() -> void:
-	_request_confirmation(
-		"upgrade",
-		tr("plot.confirm_upgrade_title"),
-		tr("plot.confirm_upgrade_message")
-	)
-
-
-func _on_build_house_pressed() -> void:
-	build_house_requested.emit()
-	hide_popup()
-
-
-func _on_weaponize_pressed() -> void:
-	weaponize_requested.emit()
-	hide_popup()
-
-
-func _on_inventor_upgrades_pressed() -> void:
-	inventor_upgrades_requested.emit()
-	hide_popup()
-
-
-func _on_demolish_pressed() -> void:
-	_request_confirmation(
-		"demolish",
-		tr("plot.confirm_demolish_title"),
-		tr("plot.confirm_demolish_message")
-	)
-
-
-## Yükseltme/yıkım gibi geri alınamayan kararlar için "emin misin?" onayı ister.
-## Onaylanırsa ilgili sinyal yayınlanır ve popup kapanır; iptal edilirse popup açık kalır.
-func _request_confirmation(action: String, title: String, message: String) -> void:
-	_ensure_confirm_dialog()
-	if _confirm_dialog == null:
-		# Dialog yüklenemediyse eski davranışa düş (aksiyon hiç engellenmesin).
-		_emit_confirmed_action(action)
-		hide_popup()
-		return
-	_pending_confirm_action = action
-	_confirm_dialog.call("show_dialog", title, message, true)
-
-
-func _ensure_confirm_dialog() -> void:
-	if _confirm_dialog != null and is_instance_valid(_confirm_dialog):
-		return
-	if not _ConfirmDialogScene:
-		_confirm_dialog = null
-		return
-	_confirm_dialog = _ConfirmDialogScene.instantiate()
-	_confirm_dialog.name = "PlotActionConfirmDialog"
-	add_child(_confirm_dialog)
-	if _confirm_dialog.has_signal("confirmed"):
-		_confirm_dialog.confirmed.connect(_on_confirm_dialog_confirmed)
-	if _confirm_dialog.has_signal("cancelled"):
-		_confirm_dialog.cancelled.connect(_on_confirm_dialog_cancelled)
-
-
-func _on_confirm_dialog_confirmed() -> void:
-	var action := _pending_confirm_action
-	_pending_confirm_action = ""
-	_emit_confirmed_action(action)
-	hide_popup()
-
-
-func _on_confirm_dialog_cancelled() -> void:
-	_pending_confirm_action = ""
-
-
-func _emit_confirmed_action(action: String) -> void:
-	match action:
-		"upgrade":
-			upgrade_requested.emit()
-		"demolish":
-			demolish_requested.emit()
-
-
-func _on_dim_gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
-		hide_popup()
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	if not visible:
-		return
-	# ui_back = ESC'nin bağlı olduğu ayrı aksiyon (ui_cancel sadece META/gamepad B içeriyor).
-	if event.is_action_pressed("ui_cancel") or event.is_action_pressed("ui_back"):
-		get_viewport().set_input_as_handled()
-		hide_popup()

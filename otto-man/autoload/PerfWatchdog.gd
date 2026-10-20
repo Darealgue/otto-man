@@ -64,8 +64,56 @@ func _exit_tree() -> void:
 		_thread.wait_to_finish()
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if not OS.has_feature("editor"):
+## F4 (yalnızca editörde): oyuncunun çevresindeki çizim öğelerinin etkin z_index'ini user://logs/zdump.txt'ye yazar
+## (derinlik sıralaması hatalarını yerinde teşhis etmek için; hangi düğüm hangi z'de, y'si ne).
+func _dump_depth_near_player() -> void:
+	var tree := get_tree()
+	var player := tree.get_first_node_in_group("player") as Node2D
+	if player == null or tree.current_scene == null:
+		return
+	var rows: Array = []
+	var stack: Array[Node] = [tree.current_scene]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for c in n.get_children():
+			stack.append(c)
+		if not (n is Node2D) or not (n as CanvasItem).visible:
+			continue
+		var n2 := n as Node2D
+		var dx: float = absf(n2.global_position.x - player.global_position.x)
+		if dx > 320.0 or absf(n2.global_position.y - player.global_position.y) > 140.0:
+			continue
+		if not (n is Sprite2D or n is AnimatedSprite2D or n.get_script() != null):
+			continue
+		var z: int = 0
+		var cur: Node = n
+		while cur is CanvasItem:
+			z += (cur as CanvasItem).z_index
+			if not (cur as CanvasItem).z_as_relative:
+				break
+			cur = cur.get_parent()
+		var tex: String = ""
+		if n is Sprite2D and (n as Sprite2D).texture != null:
+			tex = (n as Sprite2D).texture.resource_path.get_file()
+		elif n is AnimatedSprite2D:
+			tex = "anim:" + str((n as AnimatedSprite2D).animation)
+		rows.append({"z": z, "line": "z=%d  y=%.1f x=%.0f  %s  %s" % [z, n2.global_position.y, n2.global_position.x, str(n.get_path()), tex]})
+	rows.sort_custom(func(a, b): return a["z"] < b["z"])
+	var f := FileAccess.open("user://logs/zdump.txt", FileAccess.WRITE)
+	if f == null:
+		return
+	f.store_line("player y=%.1f x=%.0f  (efektif z küçükten büyüğe)" % [player.global_position.y, player.global_position.x])
+	for r in rows:
+		f.store_line(String(r["line"]))
+	f.close()
+
+
+func _input(event: InputEvent) -> void:
+	if not OS.has_feature("editor") and not OS.is_debug_build():
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F4:
+		_dump_depth_near_player()
+		print("[PerfWatchdog] zdump yazıldı: ", ProjectSettings.globalize_path("user://logs/zdump.txt"))
 		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F3:
 		_hud_on = not _hud_on

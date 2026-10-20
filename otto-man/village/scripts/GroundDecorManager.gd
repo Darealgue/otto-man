@@ -31,7 +31,7 @@ const DEPTH_Y_RANGE: float = 25.0
 ## Derinlik eşlemesi sahneye göre değişir: oyuncu köyünde yürünebilir bant y=5..30 (Worker.VERTICAL_RANGE_MIN), ziyaret köyünde
 ## y=0..25 (VisitVillager.depth_z) ve süs karakterlerin önüne +1 ile geçer. Ziyaret sahnesi bu ikisini eski değerlerine ayarlar.
 @export var depth_band_top_y: float = 5.0
-@export var depth_front_bias: int = 0
+@export var depth_front_bias: int = 0   # NOT: -1 denendi, ayak çizgisinde duran oyuncuyu fıçıların önüne alıp bozdu; 0 doğru
 
 const BUILDING_CHECK_INTERVAL: float = 3.0
 const OFFSCREEN_MARGIN: float = 250.0

@@ -532,6 +532,20 @@ func _act_bundle(a: VillagerShowActor) -> void:
 		a.play("idle")
 		await a.wait(randf_range(2.0, 4.5))
 
+## Sandalyede otururken bekler ve köylünün derinliğini HER KAREDE sandalyenin önünde tutar (başka bir yer z'yi ezerse oturan,
+## sandalyenin arkasında kalıyordu). Süre dolduysa true; köylü araya girer/yok olursa false.
+func _sit_wait(a: VillagerShowActor, chair: Sprite2D, seconds: float) -> bool:
+	var left: float = seconds
+	while left > 0.0:
+		if not a.alive() or a.should_stop():
+			return false
+		if is_instance_valid(chair):
+			a.node.z_index = chair.z_index + 2
+		await a.node.get_tree().physics_frame
+		left -= a.node.get_physics_process_delta_time()
+	return a.alive() and not a.should_stop()
+
+
 ## Süs sandalyesine oturur (oturma animasyonu sandalyenin üstüne oturtulur; konum SIT_CHAIR_Y_OFFSET ile ayarlanır).
 func _act_chair(a: VillagerShowActor) -> void:
 	var chair: Sprite2D = null
@@ -554,7 +568,7 @@ func _act_chair(a: VillagerShowActor) -> void:
 		a.play("sit")
 		var sit_seconds: float = randf_range(30.0, 80.0)
 		while sit_seconds > 0.0 and is_instance_valid(chair) and chair.visible:
-			if not await a.wait(1.0):
+			if not await _sit_wait(a, chair, 1.0):
 				break
 			sit_seconds -= 1.0
 		if a.alive():

@@ -13,6 +13,9 @@ Bu dosya 0.26.5 ile başladı, öncesi kayıt altında değil.
 
 ### TR
 - Komşu köye gelince liste menüsü yerine köyün üstünde yay üzerinde yuvarlak tuşlar açılıyor: Ziyaret et, Sız, İptal (ikonlu, üzerine gelince ad görünür). "Sız" gündüz dost köyde bile nöbetçilere yakalanmadan girme kipidir.
+- Köydeki binalarla etkileşim artık binanın üstünde yay üzerinde yuvarlak tuşlarla açılıyor: Yükselt (maliyet altında yazar), Kat/Ev ekle, Silahlandır, Yükseltmeler, Yık ve Vazgeç; üstte bina adı, seviye ve işçi sayısı. Yükseltme ve yıkım aynı tuşlarla onaylatılıyor.
+- Harita bilgi balonu (hex, köy, etkinlik, kervan) koyu bir kutuya alındı; "anahtar: değer" satırları renkli ayrıldı, " | " ile birleşik bilgiler ayrı satır oldu, uzun açıklamalar yumuşak renkte.
+- Zindan girişi ve etkinlik (challenge) girişi de aynı yuvarlak onay tuşlarıyla (Gir / Vazgeç) soruluyor; zindana artık tek tuşla girilmiyor.
 - Ziyaret edilen köylerde artık kadın köylüler de var.
 - Kalabalıkta çok bıçak ve çok debuff ile oyunun donmasına karşı emniyet sınırları: aynı anda en fazla 90 mermi, patlama ve şimşek zinciri sınırları.
 - Donma/yavaşlama kaydı: yavaş kareler ve donmalar kullanıcı klasörünün logs/perf_log.txt dosyasına yazılıyor (editörde F3 ile kare süresi göstergesi).
@@ -36,6 +39,9 @@ Bu dosya 0.26.5 ile başladı, öncesi kayıt altında değil.
 
 ### EN
 - Arriving at a neighbouring village now opens round buttons on an arc above it instead of a list menu: Visit, Infiltrate, Cancel (icons, name shown on hover). Infiltrate means entering a friendly village by day with the guards alert.
+- Interacting with village buildings now opens round buttons on an arc above the building: Upgrade (cost shown below), Add floor/house, Arm soldiers, Upgrades, Demolish and Cancel; building name, level and workers shown on top. Upgrade and demolish are confirmed with the same buttons.
+- The map info balloon (hex, village, event, caravan) now sits on a dark box; "key: value" lines are colour-split, " | " joined facts become separate lines, long descriptions use a softer colour.
+- Dungeon entry and event (challenge) entry now use the same round confirm buttons (Enter / Cancel); dungeons are no longer entered with a single key press.
 - Visited villages now have women villagers too.
 - Safety limits against freezes in big fights with many knives and debuffs: at most 90 projectiles at once, caps on explosions and lightning chains.
 - Freeze/slowdown log: slow frames and freezes are written to logs/perf_log.txt in the user folder (F3 in the editor shows a frame-time readout).

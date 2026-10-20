@@ -157,6 +157,8 @@ var _hex_tooltip_layer: CanvasLayer = null
 var _hex_tooltip_panel: Control = null
 var _hex_tooltip_label: Label = null
 var _hex_tooltip_title: Label = null
+var _hex_tooltip_rich: RichTextLabel = null
+var _hex_tooltip_divider: ColorRect = null
 const ROUTE_RISK_PROMPT_ENABLED := false
 var _high_risk_move_dialog: MapPopup = null
 var _settlement_aid_confirm_dialog: MapPopup = null
@@ -984,7 +986,7 @@ func _try_enter_hex_at_player_pos() -> bool:
 			_enter_player_village_from_world_map()
 			return true
 		"dungeon":
-			_enter_dungeon_from_world_map()
+			_open_confirm_ring(pq, pr, tr("challenge.accept.enter"), _enter_dungeon_from_world_map)
 			return true
 		"challenge":
 			_enter_challenge_from_world_map(pq, pr)
@@ -1017,6 +1019,20 @@ func _do_enter_player_village_from_world_map() -> void:
 var _challenge_dialog: MapPopup = null
 
 func _enter_challenge_from_world_map(q: int, r: int) -> void:
+	if _world_manager == null or not _world_manager.has_method("get_challenge_at"):
+		return
+	var ch0: Dictionary = _world_manager.call("get_challenge_at", q, r)
+	if ch0.is_empty():
+		return
+	# Ayrıntılar (açıklama, ödül, zorluk, süre) imleç balonunda zaten görünür; burada yalnız Gir / Vazgeç tuşları açılır.
+	var kind0: String = String(ch0.get("kind", "koruma"))
+	var title0: String = tr(String(ChallengeRoomRegistry.KINDS.get(kind0, "challenge.kind.koruma")))
+	var warn0: String = tr("challenge.accept.warning_blockade" if bool(ch0.get("blockade", false)) else "challenge.accept.warning_short")
+	_open_confirm_ring(q, r, tr("challenge.accept.enter"), _start_challenge.bind(q, r), "%s\n%s" % [title0, warn0])
+
+
+## Eski onay penceresi (kullanılmıyor; halka onayı onun yerini aldı, gerekirse geri dönmek için duruyor).
+func _enter_challenge_popup_legacy(q: int, r: int) -> void:
 	if _world_manager == null or not _world_manager.has_method("get_challenge_at"):
 		return
 	var ch: Dictionary = _world_manager.call("get_challenge_at", q, r)
@@ -1838,19 +1854,41 @@ func _setup_hex_hover_tooltip() -> void:
 	band.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	band.offset_left = -TOOLTIP_BAND_BLEED
 	band.offset_right = TOOLTIP_BAND_BLEED
-	_hex_tooltip_panel.add_child(band)
+	band.queue_free()   # eski soluk şerit yerine okunaklı koyu kutu (aşağıda)
+	_hex_tooltip_panel.add_child(_make_tooltip_box())
 
 	var col := VBoxContainer.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_theme_constant_override("separation", TOOLTIP_LINE_GAP)
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.alignment = BoxContainer.ALIGNMENT_BEGIN
+	col.offset_left = TOOLTIP_PAD_X
+	col.offset_right = -TOOLTIP_PAD_X
+	col.offset_top = TOOLTIP_PAD_Y
+	col.offset_bottom = -TOOLTIP_PAD_Y
 	_hex_tooltip_panel.add_child(col)
 
 	_hex_tooltip_title = _make_tooltip_label(TOOLTIP_TITLE_FONT_SIZE, Color(0.95, 0.82, 0.45, 1.0))
 	col.add_child(_hex_tooltip_title)
 	_hex_tooltip_label = _make_tooltip_label(TOOLTIP_BODY_FONT_SIZE, Color(0.90, 0.87, 0.80, 1.0))
+	_hex_tooltip_label.visible = false   # eski düz yazı etiketi; gövde artık renkli satırlı RichTextLabel
 	col.add_child(_hex_tooltip_label)
+	_hex_tooltip_divider = ColorRect.new()
+	_hex_tooltip_divider.color = Color(0.75, 0.6, 0.32, 0.45)
+	_hex_tooltip_divider.custom_minimum_size = Vector2(0, 1)
+	_hex_tooltip_divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(_hex_tooltip_divider)
+	_hex_tooltip_rich = RichTextLabel.new()
+	_hex_tooltip_rich.bbcode_enabled = true
+	_hex_tooltip_rich.fit_content = true
+	_hex_tooltip_rich.scroll_active = false
+	_hex_tooltip_rich.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hex_tooltip_rich.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hex_tooltip_rich.custom_minimum_size = Vector2(TOOLTIP_MAX_TEXT_WIDTH, 0)
+	_hex_tooltip_rich.add_theme_font_size_override("normal_font_size", TOOLTIP_BODY_FONT_SIZE)
+	_hex_tooltip_rich.add_theme_font_size_override("bold_font_size", TOOLTIP_BODY_FONT_SIZE)
+	_hex_tooltip_rich.add_theme_constant_override("line_separation", 3)
+	col.add_child(_hex_tooltip_rich)
 
 
 ## Şerit çerçevesiz olduğu için yazı parlak bir ova karosunun üstüne denk gelebiliyor; gölge
@@ -1887,8 +1925,9 @@ func _refresh_hex_hover_tooltip() -> void:
 	var title: String = text if split < 0 else text.substr(0, split)
 	var body: String = "" if split < 0 else text.substr(split + 1).strip_edges()
 	_hex_tooltip_title.text = title
-	_hex_tooltip_label.text = body
-	_hex_tooltip_label.visible = not body.is_empty()
+	_hex_tooltip_rich.text = _format_tooltip_body_bbcode(body)
+	_hex_tooltip_rich.visible = not body.is_empty()
+	_hex_tooltip_divider.visible = not body.is_empty()
 	_hex_tooltip_panel.size = _measure_tooltip(title, body)
 	_hex_tooltip_panel.visible = true
 	_position_hex_tooltip_for_cursor_impl()
@@ -1901,10 +1940,71 @@ func _measure_tooltip(title: String, body: String) -> Vector2:
 	var size := Vector2.ZERO
 	size = _grow_to_fit(size, _hex_tooltip_title, title)
 	if not body.is_empty():
-		var body_size: Vector2 = _grow_to_fit(Vector2.ZERO, _hex_tooltip_label, body)
+		var body_size: Vector2 = _measure_rich_body()
 		size.x = maxf(size.x, body_size.x)
 		size.y += body_size.y + float(TOOLTIP_LINE_GAP)
 	return size + Vector2(TOOLTIP_PAD_X * 2.0, TOOLTIP_PAD_Y * 2.0)
+
+
+## Balonun arkasındaki koyu kutu: düz, köşeleri yuvarlak, ince altın çerçeve (yazı her zemin üstünde okunsun).
+func _make_tooltip_box() -> Panel:
+	var box := Panel.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.055, 0.04, 0.03, 0.94)
+	sb.border_color = Color(0.66, 0.52, 0.3, 1.0)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(10)
+	sb.shadow_color = Color(0, 0, 0, 0.45)
+	sb.shadow_size = 6
+	box.add_theme_stylebox_override("panel", sb)
+	return box
+
+
+func _measure_rich_body() -> Vector2:
+	_hex_tooltip_rich.size = Vector2(TOOLTIP_MAX_TEXT_WIDTH, 0.0)
+	var h: float = float(_hex_tooltip_rich.get_content_height())
+	# Ayırıcı çizgi (1 px) + iki yanındaki boşluk da toplam yüksekliğe girer.
+	return Vector2(TOOLTIP_MAX_TEXT_WIDTH, h + 1.0 + float(TOOLTIP_LINE_GAP))
+
+
+## Düz satırlı bilgi metnini okunur hale getirir: "Anahtar: değer" satırları soluk anahtar + parlak değer olur, " | " ile
+## birleşik bilgiler ayrı satıra bölünür, uzun açıklamalar yumuşak renkte, boşluktan sonraki ilk satır (blok başlığı) altın renkte.
+func _format_tooltip_body_bbcode(body: String) -> String:
+	const C_KEY := "#b8a97f"
+	const C_VAL := "#f4ecd6"
+	const C_DESC := "#d9d1bd"
+	const C_HEAD := "#f0cf73"
+	var out: PackedStringArray = PackedStringArray()
+	var after_gap: bool = false
+	for raw in body.split("\n"):
+		var line: String = raw.strip_edges()
+		if line.is_empty():
+			if not out.is_empty():
+				out.append("[font_size=6] [/font_size]")
+			after_gap = true
+			continue
+		if line == "---":
+			out.append("[color=#6a5a3a]──────────────────[/color]")
+			after_gap = true
+			continue
+		for seg_raw in line.split(" | "):
+			var seg: String = seg_raw.strip_edges().replace("[", "[lb]")
+			if seg.is_empty():
+				continue
+			if after_gap:
+				out.append("[color=%s]%s[/color]" % [C_HEAD, seg])
+				after_gap = false
+				continue
+			var colon: int = seg.find(": ")
+			if colon > 0 and colon <= 26 and colon < seg.length() - 2:
+				out.append("[color=%s]%s[/color]  [color=%s]%s[/color]" % [C_KEY, seg.substr(0, colon), C_VAL, seg.substr(colon + 2)])
+			elif seg.length() > 50:
+				out.append("[color=%s]%s[/color]" % [C_DESC, seg])
+			else:
+				out.append("[color=%s]%s[/color]" % [C_VAL, seg])
+	return "\n".join(out)
 
 
 func _grow_to_fit(size: Vector2, label: Label, text: String) -> Vector2:
@@ -4527,7 +4627,21 @@ func _on_settlement_action_selected(action_id: int) -> void:
 
 var _village_ring: VillageActionRing = null
 
-func _open_village_action_ring(target_q: int, target_r: int) -> void:
+## id -> Callable: halka açılırken verilen özel seçenekler için (zindan / etkinlik girişi onayı). Boşsa köy eylemleri geçerlidir.
+var _ring_handlers: Dictionary = {}
+
+## Zindan / etkinlik gibi girişlerde köy halkasıyla aynı görünümde Gir / Vazgeç onay tuşları açar.
+func _open_confirm_ring(q: int, r: int, enter_label: String, on_enter: Callable, status_text: String = "") -> void:
+	var opts: Array[Dictionary] = [
+		{"id": "enter", "kind": "enter", "label": enter_label},
+		{"id": "cancel", "kind": "cancel", "label": tr("wm.cancel")},
+	]
+	_open_village_action_ring(q, r, opts, {"enter": on_enter, "cancel": func() -> void: _update_status_label(tr("wm.status.cancelled_generic"))})
+	if not status_text.is_empty():
+		_update_status_label(status_text)
+
+
+func _open_village_action_ring(target_q: int, target_r: int, opts_override: Array[Dictionary] = [], handlers: Dictionary = {}) -> void:
 	if not is_instance_valid(_village_ring):
 		_village_ring = VillageActionRing.new()
 		_village_ring.name = "VillageActionRing"
@@ -4542,12 +4656,20 @@ func _open_village_action_ring(target_q: int, target_r: int) -> void:
 		{"id": "infiltrate", "kind": "infiltrate", "label": tr("wm.settlement.action.infiltrate")},
 		{"id": "cancel", "kind": "cancel", "label": tr("wm.cancel")},
 	]
+	if not opts_override.is_empty():
+		opts = opts_override
+	_ring_handlers = handlers
 	var tile_px: Vector2 = _axial_to_pixel(target_q, target_r)
 	_village_ring.open_ring(opts, func() -> Vector2:
 		return get_viewport().get_canvas_transform() * to_global(tile_px))
 
 
 func _on_village_ring_chosen(id: String) -> void:
+	if _ring_handlers.has(id):
+		var handler: Callable = _ring_handlers[id]
+		_ring_handlers = {}
+		handler.call()
+		return
 	match id:
 		"visit":
 			_execute_settlement_visit()

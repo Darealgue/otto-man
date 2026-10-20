@@ -3426,3 +3426,5 @@ cat.perk.stamina,Kedi bonusu: +%d stamina,Cat bonus: +%d stamina
 cat.perk.item,Kedi bonusu: +%d başlangıç eşyası,Cat bonus: +%d starting item
 wm.settlement.action.infiltrate,Sız,Infiltrate
 visit.mode.infiltrate,Sızıyorsun: nöbetçilere yakalanma.,Infiltrating: do not get caught by the guards.
+wm.status.cancelled_generic,Vazgeçildi.,Cancelled.
+plot.workers_line,İşçi: %d / %d,Workers: %d / %d
