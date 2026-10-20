@@ -68,9 +68,10 @@ func _process(delta: float) -> void:
 func _button_angle(i: int) -> float:
 	var n: int = _options.size()
 	if n <= 1:
-		return -PI * 0.5
+		return PI * 0.5
 	var f: float = float(i) / float(n - 1)
-	return deg_to_rad(-90.0 - ARC_HALF_SPREAD_DEG + f * ARC_HALF_SPREAD_DEG * 2.0)
+	# Aşağı doğru açılır (köyün üstündeki bilgi balonuyla yazılar üst üste binmesin); ilk tuş solda kalır.
+	return deg_to_rad(90.0 + ARC_HALF_SPREAD_DEG - f * ARC_HALF_SPREAD_DEG * 2.0)
 
 
 func _button_pos(i: int) -> Vector2:
@@ -234,6 +235,6 @@ func _draw_label() -> void:
 		return
 	var fs: int = 22
 	var size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
-	var p: Vector2 = _button_pos(i) + Vector2(-size.x * 0.5, -BUTTON_RADIUS - 14.0)
+	var p: Vector2 = _button_pos(i) + Vector2(-size.x * 0.5, BUTTON_RADIUS + 26.0)   # tuşun altında
 	draw_string_outline(font, p, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 5, Color(0, 0, 0, 0.95))
 	draw_string(font, p, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1.0, 0.95, 0.8))
