@@ -402,6 +402,8 @@ func _add_ground_decor() -> void:
 	mgr.set("buildings_root_path", NodePath("../Buildings"))
 	mgr.set("front_z", 1)  # dükkân ön yüzü (FrontSprite) z 1'de; eşit z'de ağaç sırası belirler (süs sonra eklenir). Köylüler z 2.
 	mgr.set("behind_z", DECOR_BEHIND_Z)
+	mgr.set("depth_band_top_y", 0.0)   # ziyaret köyü: ayak y'si 0..25 -> z 6..19 ve süs +1 önde (oyuncu köyündeki 5..30 eşlemesi buraya uymaz)
+	mgr.set("depth_front_bias", 1)
 	mgr.set("seed_key", "visit_%s" % String(info.get("settlement_id", "")))
 	mgr.set("population", int(info.get("population", 80)))
 	add_child(mgr)
